@@ -1,0 +1,134 @@
+{
+  "version": "1.0",
+  "sheets": [
+    {
+      "key": "company",
+      "name": "Company & Period",
+      "layout": "form",
+      "purpose": "One row per field. Tells the platform which company and which month this workbook covers.",
+      "fields": [
+        { "key": "company_code", "label": "Company Code", "type": "text", "required": true, "help": "Code issued by Assura Elevate, e.g. AE-0001" },
+        { "key": "company_name", "label": "Company Name", "type": "text", "required": true },
+        { "key": "period", "label": "Period (Month)", "type": "month", "required": true, "help": "Month the data relates to, e.g. 2026-09 or Sep-2026" },
+        { "key": "prepared_by", "label": "Prepared By", "type": "text", "required": true, "help": "Name of the in-house accountant" },
+        { "key": "prepared_on", "label": "Prepared On", "type": "date", "required": false },
+        { "key": "opening_stock", "label": "Opening Stock Value", "type": "number", "required": false, "help": "Needed for the first month only. Later months use the previous month's closing inventory." },
+        { "key": "other_income", "label": "Other Income", "type": "number", "required": false, "help": "Interest, rent and other non-operating income for the month" },
+        { "key": "notes", "label": "Accountant Notes", "type": "text", "required": false, "help": "Anything unusual this month (one-offs, provisions, reclassifications)" }
+      ]
+    },
+    {
+      "key": "sales",
+      "name": "Sales",
+      "layout": "table",
+      "purpose": "Every sales invoice for the month. Tally: Display > Account Books > Sales Register (voucher level).",
+      "columns": [
+        { "key": "date", "label": "Invoice Date", "type": "date", "required": true, "aliases": ["Date", "Voucher Date"] },
+        { "key": "invoice_no", "label": "Invoice No", "type": "text", "required": true, "aliases": ["Voucher No", "Voucher No.", "Bill No"] },
+        { "key": "customer", "label": "Customer", "type": "text", "required": true, "aliases": ["Party Name", "Particulars", "Party"] },
+        { "key": "customer_type", "label": "Customer Type (B2B/B2C)", "type": "enum", "values": ["B2B", "B2C"], "required": true, "aliases": ["Customer Type", "Type"] },
+        { "key": "product", "label": "Product / Service", "type": "text", "required": true, "aliases": ["Item", "Stock Item", "Product"] },
+        { "key": "category", "label": "Product Category", "type": "text", "required": false, "aliases": ["Category", "Stock Group"] },
+        { "key": "region", "label": "Region / State", "type": "text", "required": false, "aliases": ["State", "Place of Supply", "Region"] },
+        { "key": "qty", "label": "Quantity", "type": "number", "required": false, "aliases": ["Qty", "Quantity"] },
+        { "key": "taxable_value", "label": "Taxable Value", "type": "number", "required": true, "aliases": ["Value", "Taxable Amount", "Assessable Value"] },
+        { "key": "gst", "label": "GST Amount", "type": "number", "required": false, "aliases": ["GST", "Tax Amount", "Total Tax"] },
+        { "key": "total", "label": "Invoice Total", "type": "number", "required": false, "aliases": ["Gross Total", "Total", "Invoice Value"] }
+      ]
+    },
+    {
+      "key": "purchases",
+      "name": "Purchases",
+      "layout": "table",
+      "purpose": "Every purchase bill for the month (goods and services for resale or production). Tally: Purchase Register.",
+      "columns": [
+        { "key": "date", "label": "Bill Date", "type": "date", "required": true, "aliases": ["Date", "Voucher Date"] },
+        { "key": "bill_no", "label": "Bill No", "type": "text", "required": true, "aliases": ["Voucher No", "Voucher No.", "Supplier Invoice No"] },
+        { "key": "supplier", "label": "Supplier", "type": "text", "required": true, "aliases": ["Party Name", "Particulars", "Party"] },
+        { "key": "item", "label": "Item", "type": "text", "required": true, "aliases": ["Stock Item", "Product"] },
+        { "key": "category", "label": "Item Category", "type": "text", "required": false, "aliases": ["Category", "Stock Group"] },
+        { "key": "qty", "label": "Quantity", "type": "number", "required": false, "aliases": ["Qty"] },
+        { "key": "taxable_value", "label": "Taxable Value", "type": "number", "required": true, "aliases": ["Value", "Taxable Amount"] },
+        { "key": "gst", "label": "GST Amount", "type": "number", "required": false, "aliases": ["GST", "Tax Amount", "Input Tax"] },
+        { "key": "total", "label": "Bill Total", "type": "number", "required": false, "aliases": ["Gross Total", "Total"] }
+      ]
+    },
+    {
+      "key": "expenses",
+      "name": "Expenses",
+      "layout": "table",
+      "purpose": "Operating expenses for the month by ledger head (salaries, rent, power, freight, finance cost and so on). One row per head is enough.",
+      "columns": [
+        { "key": "head", "label": "Expense Head", "type": "text", "required": true, "aliases": ["Ledger", "Particulars", "Head"] },
+        { "key": "group", "label": "Expense Group", "type": "enum", "values": ["Employee Cost", "Occupancy", "Selling & Distribution", "Administrative", "Finance Cost", "Depreciation", "Other"], "required": true, "aliases": ["Group"] },
+        { "key": "amount", "label": "Amount", "type": "number", "required": true, "aliases": ["Debit", "Value"] }
+      ]
+    },
+    {
+      "key": "receivables",
+      "name": "Receivables",
+      "layout": "table",
+      "purpose": "Every unpaid customer invoice as at month end. Tally: Display > Statements of Accounts > Outstandings > Receivables (bill-wise).",
+      "columns": [
+        { "key": "customer", "label": "Customer", "type": "text", "required": true, "aliases": ["Party Name", "Party"] },
+        { "key": "invoice_no", "label": "Invoice No", "type": "text", "required": true, "aliases": ["Ref. No.", "Ref No", "Bill No"] },
+        { "key": "invoice_date", "label": "Invoice Date", "type": "date", "required": true, "aliases": ["Date", "Bill Date"] },
+        { "key": "due_date", "label": "Due Date", "type": "date", "required": false, "aliases": ["Due on", "Due Date"] },
+        { "key": "outstanding", "label": "Outstanding Amount", "type": "number", "required": true, "aliases": ["Pending Amount", "Balance", "Amount"] }
+      ]
+    },
+    {
+      "key": "payables",
+      "name": "Payables",
+      "layout": "table",
+      "purpose": "Every unpaid supplier bill as at month end. Tally: Outstandings > Payables (bill-wise).",
+      "columns": [
+        { "key": "supplier", "label": "Supplier", "type": "text", "required": true, "aliases": ["Party Name", "Party"] },
+        { "key": "bill_no", "label": "Bill No", "type": "text", "required": true, "aliases": ["Ref. No.", "Ref No"] },
+        { "key": "bill_date", "label": "Bill Date", "type": "date", "required": true, "aliases": ["Date"] },
+        { "key": "due_date", "label": "Due Date", "type": "date", "required": false, "aliases": ["Due on"] },
+        { "key": "outstanding", "label": "Outstanding Amount", "type": "number", "required": true, "aliases": ["Pending Amount", "Balance", "Amount"] }
+      ]
+    },
+    {
+      "key": "inventory",
+      "name": "Inventory",
+      "layout": "table",
+      "purpose": "Closing stock as at month end, item-wise. Tally: Stock Summary with Ageing Analysis, or Stock Summary plus last movement date.",
+      "columns": [
+        { "key": "item", "label": "Item", "type": "text", "required": true, "aliases": ["Stock Item", "Particulars"] },
+        { "key": "category", "label": "Item Category", "type": "text", "required": false, "aliases": ["Stock Group", "Category"] },
+        { "key": "qty", "label": "Closing Quantity", "type": "number", "required": false, "aliases": ["Quantity", "Qty"] },
+        { "key": "value", "label": "Closing Value", "type": "number", "required": true, "aliases": ["Value", "Closing Balance"] },
+        { "key": "last_movement", "label": "Last Movement Date", "type": "date", "required": false, "aliases": ["Last Sale Date", "Last Movement"], "help": "Date the item was last sold or issued. Drives inventory ageing." }
+      ]
+    },
+    {
+      "key": "cash",
+      "name": "Cash & Bank",
+      "layout": "table",
+      "purpose": "Closing balance of every bank, cash, OD and CC account at month end.",
+      "columns": [
+        { "key": "account", "label": "Account", "type": "text", "required": true, "aliases": ["Ledger", "Bank"] },
+        { "key": "type", "label": "Account Type", "type": "enum", "values": ["Bank", "Cash", "OD", "CC", "Deposit"], "required": true, "aliases": ["Type"] },
+        { "key": "closing", "label": "Closing Balance", "type": "number", "required": true, "aliases": ["Balance", "Closing"], "help": "Enter OD/CC utilisation as a negative number" },
+        { "key": "limit", "label": "Sanctioned Limit (OD/CC)", "type": "number", "required": false, "aliases": ["Limit"] }
+      ]
+    },
+    {
+      "key": "compliance",
+      "name": "Compliance",
+      "layout": "table",
+      "purpose": "Status of every statutory and governance item due in or around this month.",
+      "columns": [
+        { "key": "area", "label": "Area", "type": "enum", "values": ["GST", "TDS", "PF", "ESI", "Advance Tax", "ROC/MCA", "Governance", "Other"], "required": true, "aliases": ["Category"] },
+        { "key": "item", "label": "Compliance Item", "type": "text", "required": true, "aliases": ["Item", "Return / Form"] },
+        { "key": "period_covered", "label": "Period Covered", "type": "text", "required": false },
+        { "key": "due_date", "label": "Due Date", "type": "date", "required": true },
+        { "key": "status", "label": "Status", "type": "enum", "values": ["Filed", "Paid", "Pending", "Not Applicable"], "required": true },
+        { "key": "done_on", "label": "Filed / Paid On", "type": "date", "required": false },
+        { "key": "remarks", "label": "Remarks", "type": "text", "required": false }
+      ]
+    }
+  ]
+}
