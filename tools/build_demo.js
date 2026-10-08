@@ -27,7 +27,7 @@ ${R('public', 'styles.css')}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 ${script(`window.AE_SCHEMA = ${R('shared', 'schema.json')};
 window.AE_DEMO_DATA = ${JSON.stringify({ companies })};
-window.AE_TEMPLATE_NOTE = 'In this demo, the blank workbook is shared alongside the link. Sample workbooks for both demo companies are in the repository under samples/xlsx, so you can try an upload.';`)}
+window.AE_TEMPLATE_NOTE = 'Downloads are switched off in this demo page. The blank workbook and a filled sample for Meridian Polymers (September 2026) are attached in the project thread; upload the sample here as accounts@meridian.demo or advisor@assura.demo to see the dashboard update.';`)}
 ${script(R('shared', 'parse.js'))}
 ${script(R('shared', 'analysis.js'))}
 ${script(R('public', 'charts.js'))}
