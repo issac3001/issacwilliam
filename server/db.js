@@ -47,8 +47,41 @@ function open(file = DB_PATH) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE (company_id, period, version)
     );
+    -- Who did what, when. Kept for the life of the database.
+    CREATE TABLE IF NOT EXISTS audit (
+      id INTEGER PRIMARY KEY,
+      at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      user_id INTEGER,
+      email TEXT,
+      action TEXT NOT NULL,
+      company_id INTEGER,
+      detail TEXT,
+      ip TEXT
+    );
+    CREATE INDEX IF NOT EXISTS audit_at ON audit (at);
   `);
+  migrate(db);
   return db;
+}
+
+// Columns added after the first release; ADD COLUMN only, so existing data is kept.
+function migrate(db) {
+  const have = (table) => new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+  const add = (table, col, def) => { if (!have(table).has(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); };
+  add('users', 'must_change_password', 'INTEGER NOT NULL DEFAULT 0');
+  add('users', 'disabled', 'INTEGER NOT NULL DEFAULT 0');
+  add('users', 'totp_secret', 'TEXT');
+  add('users', 'totp_pending', 'TEXT');
+  add('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0');
+  add('users', 'last_login_at', 'TEXT');
+  // stage: 'full', or a restricted session that may only finish setting up the account.
+  add('sessions', 'stage', "TEXT NOT NULL DEFAULT 'full'");
+  add('sessions', 'last_seen', 'INTEGER NOT NULL DEFAULT 0');
+}
+
+function audit(db, { user, action, companyId = null, detail = null, ip = null }) {
+  db.prepare('INSERT INTO audit (user_id, email, action, company_id, detail, ip) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(user ? user.id ?? null : null, user ? user.email ?? null : null, action, companyId, detail == null ? null : String(detail).slice(0, 500), ip);
 }
 
 // ---- passwords: scrypt with per-user salt ----
@@ -69,11 +102,32 @@ function createCompany(db, code, name) {
   db.prepare('INSERT INTO companies (code, name) VALUES (?, ?)').run(code, name);
   return db.prepare('SELECT * FROM companies WHERE code = ?').get(code);
 }
-function createUser(db, { email, name, role, companyId, password }) {
-  if (!password || password.length < 10) throw new Error('Password must be at least 10 characters.');
-  db.prepare('INSERT INTO users (email, name, role, company_id, password_hash) VALUES (?, ?, ?, ?, ?)')
-    .run(email, name, role, companyId ?? null, hashPassword(password));
-  return db.prepare('SELECT id, email, name, role, company_id FROM users WHERE email = ?').get(email);
+function passwordProblem(pw, email) {
+  if (!pw || pw.length < 10) return 'Use at least 10 characters.';
+  if (pw.length > 200) return 'Use at most 200 characters.';
+  if (email && pw.toLowerCase().includes(String(email).split('@')[0].toLowerCase())) return 'Do not include your email name in the password.';
+  if (/^(.)\1+$/.test(pw) || /^(0123456789|1234567890|password\d*|qwertyuiop)$/i.test(pw)) return 'Choose a less predictable password.';
+  return null;
+}
+
+// A one-time password for a new user or a reset: readable, 14 characters, about 80 bits.
+function temporaryPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = crypto.randomBytes(14);
+  const s = [...bytes].map((b) => alphabet[b % alphabet.length]).join('');
+  return `${s.slice(0, 7)}-${s.slice(7)}`;
+}
+
+function createUser(db, { email, name, role, companyId, password, mustChange = false }) {
+  const problem = passwordProblem(password, null);
+  if (problem) throw new Error(problem);
+  db.prepare('INSERT INTO users (email, name, role, company_id, password_hash, must_change_password) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(String(email).toLowerCase(), name, role, companyId ?? null, hashPassword(password), mustChange ? 1 : 0);
+  return db.prepare('SELECT id, email, name, role, company_id FROM users WHERE email = ?').get(String(email).toLowerCase());
+}
+
+function setPassword(db, userId, password, mustChange) {
+  db.prepare('UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ?').run(hashPassword(password), mustChange ? 1 : 0, userId);
 }
 
 function saveUpload(db, { companyId, period, userId, filename, sections, warnings, data }) {
@@ -108,4 +162,4 @@ function uploadHistory(db, companyId) {
     .map((r) => Object.assign({}, r, { sections: JSON.parse(r.sections), warnings: JSON.parse(r.warnings) }));
 }
 
-module.exports = { open, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
+module.exports = { open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };

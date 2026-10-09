@@ -7,6 +7,8 @@ const http = require('http');
 const { execFileSync } = require('child_process');
 
 const store = require('../server/db');
+const totp = require('../server/totp');
+const backupTool = require('../tools/backup');
 const { createApp } = require('../server/server');
 const { parseWorkbook, parseDate, parseMonth, parseNumber } = require('../shared/parse');
 const { analyse } = require('../shared/analysis');
@@ -82,7 +84,17 @@ function client(port) {
     });
     req.on('error', reject); if (data) req.write(data); req.end();
   });
-  return { call, login: (email) => call('POST', '/api/login', { email, password: 'test-password-1' }) };
+  return { call, login: (email, extra) => call('POST', '/api/login', Object.assign({ email, password: 'test-password-1' }, extra)) };
+}
+
+// Completes an advisor's first sign-in: enrols two-step login and returns the secret.
+async function enrolAdvisor(c) {
+  const start = await c.call('POST', '/api/2fa/start');
+  assert.strictEqual(start.status, 200);
+  const code = totp.codeAt(start.body.secret, Math.floor(Date.now() / 30000));
+  const done = await c.call('POST', '/api/2fa/confirm', { code });
+  assert.strictEqual(done.status, 200, JSON.stringify(done.body));
+  return start.body.secret;
 }
 
 test('each login sees only its own company; uploads build history', async (t) => {
@@ -152,7 +164,9 @@ test('each login sees only its own company; uploads build history', async (t) =>
   assert.deepStrictEqual((await mdB.call('GET', '/api/dashboard')).body.periods, ['2026-08', '2026-09']);
 
   const adv = client(port);
-  await adv.login('adv@x.test');
+  assert.strictEqual((await adv.login('adv@x.test')).body.next, 'enrol-2fa');
+  assert.strictEqual((await adv.call('GET', `/api/dashboard?company=${a.id}`)).status, 403, 'advisor must finish two-step setup first');
+  await enrolAdvisor(adv);
   assert.strictEqual((await adv.call('GET', '/api/me')).body.companies.length, 2);
   assert.strictEqual((await adv.call('GET', `/api/dashboard?company=${a.id}`)).status, 200);
   assert.strictEqual((await adv.call('GET', `/api/dashboard?company=${b.id}`)).status, 200);
@@ -167,4 +181,94 @@ test('static files cannot escape the public folder', async (t) => {
   t.after(() => server.close());
   const res = await new Promise((r) => http.get({ port: server.address().port, path: '/..%2fserver%2fdb.js' }, r));
   assert.strictEqual(res.statusCode, 404);
+});
+
+test('first sign-in, two-step login, admin, disable, idle timeout and audit', async (t) => {
+  const db = store.open(':memory:');
+  const co = store.createCompany(db, 'AE-0001', 'Alpha');
+  store.createUser(db, { email: 'lead@assura.test', name: 'Lead', role: 'advisor', companyId: null, password: 'test-password-1' });
+  const server = http.createServer(createApp(db)).listen(0);
+  t.after(() => server.close());
+  const port = server.address().port;
+
+  const lead = client(port);
+  await lead.login('lead@assura.test');
+  const secret = await enrolAdvisor(lead);
+  assert.strictEqual((await lead.call('GET', '/api/admin/overview')).status, 200);
+
+  // Second sign-in needs the code; a wrong or replayed code is refused.
+  const again = client(port);
+  const noCode = await again.login('lead@assura.test');
+  assert.strictEqual(noCode.status, 401); assert.strictEqual(noCode.body.needCode, true);
+  assert.strictEqual((await again.login('lead@assura.test', { code: '000000' })).status, 401);
+  const step = Math.floor(Date.now() / 30000) + 1; // the next step is accepted once, never twice
+  const good = totp.codeAt(secret, step);
+  assert.strictEqual((await again.login('lead@assura.test', { code: good })).status, 200);
+  assert.strictEqual((await client(port).login('lead@assura.test', { code: good })).status, 401, 'a code cannot be reused');
+
+  // Advisor adds a management login; it gets a one-time password and must change it.
+  const bad = await lead.call('POST', '/api/admin/user', { name: 'X', email: 'not-an-email', role: 'viewer', company_id: co.id });
+  assert.strictEqual(bad.status, 400);
+  const add = await lead.call('POST', '/api/admin/user', { name: 'MD Alpha', email: 'MD@alpha.test', role: 'viewer', company_id: co.id });
+  assert.strictEqual(add.status, 200, JSON.stringify(add.body));
+  const temp = add.body.temporaryPassword;
+  assert.match(temp, /^[A-Za-z0-9]{7}-[A-Za-z0-9]{7}$/);
+  assert.strictEqual((await lead.call('POST', '/api/admin/user', { name: 'Dup', email: 'md@alpha.test', role: 'viewer', company_id: co.id })).status, 409);
+
+  assert.strictEqual((await client(port).call('POST', '/api/login', { email: 'md@alpha.test', password: 'not-the-password' })).status, 401);
+  const md = client(port);
+  const first = await md.call('POST', '/api/login', { email: 'md@alpha.test', password: temp });
+  assert.strictEqual(first.body.next, 'change-password');
+  assert.strictEqual((await md.call('GET', '/api/dashboard')).status, 403, 'no data before the password is changed');
+  assert.strictEqual((await md.call('POST', '/api/password', { current: temp, next: 'short' })).status, 400);
+  assert.strictEqual((await md.call('POST', '/api/password', { current: 'wrong', next: 'a-long-new-passphrase' })).status, 400);
+  const changed = await md.call('POST', '/api/password', { current: temp, next: 'a-long-new-passphrase' });
+  assert.strictEqual(changed.status, 200); assert.strictEqual(changed.body.next, null);
+  assert.strictEqual((await md.call('GET', '/api/dashboard')).status, 200);
+  assert.strictEqual((await md.call('GET', '/api/admin/overview')).status, 403, 'clients cannot reach administration');
+  assert.strictEqual((await md.call('POST', '/api/admin/company', { code: 'AE-0002', name: 'Beta' })).status, 403);
+
+  // Idle sessions expire.
+  db.prepare('UPDATE sessions SET last_seen = ? WHERE user_id = ?').run(Date.now() - 1000 * 60 * 60 * 24, add.body.user.id);
+  assert.strictEqual((await md.call('GET', '/api/me')).status, 401);
+
+  // Switching a login off ends its sessions and blocks sign-in.
+  const md2 = client(port);
+  await md2.call('POST', '/api/login', { email: 'md@alpha.test', password: 'a-long-new-passphrase' });
+  assert.strictEqual((await md2.call('GET', '/api/me')).status, 200);
+  assert.strictEqual((await lead.call('POST', '/api/admin/user/action', { user_id: add.body.user.id, action: 'disable' })).status, 200);
+  assert.strictEqual((await md2.call('GET', '/api/me')).status, 401);
+  assert.strictEqual((await client(port).call('POST', '/api/login', { email: 'md@alpha.test', password: 'a-long-new-passphrase' })).status, 401);
+  assert.strictEqual((await lead.call('POST', '/api/admin/user/action', { user_id: 1, action: 'disable' })).status, 400, 'advisors cannot switch themselves off');
+
+  // Password reset issues a new one-time password.
+  await lead.call('POST', '/api/admin/user/action', { user_id: add.body.user.id, action: 'enable' });
+  const reset = await lead.call('POST', '/api/admin/user/action', { user_id: add.body.user.id, action: 'reset-password' });
+  assert.ok(reset.body.temporaryPassword);
+  assert.strictEqual((await client(port).call('POST', '/api/login', { email: 'md@alpha.test', password: reset.body.temporaryPassword })).body.next, 'change-password');
+
+  const actions = (await lead.call('GET', '/api/admin/overview')).body.activity.map((x) => x.action);
+  for (const a of ['login', 'login.failed', 'login.code_failed', 'login.disabled', '2fa.enabled', 'admin.user_added', 'password.changed', 'dashboard.viewed', 'admin.disable', 'admin.reset-password'])
+    assert.ok(actions.includes(a), `audit has ${a}`);
+});
+
+test('backups are encrypted and restore to the same data', (t) => {
+  const os = require('os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ae-backup-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  process.env.AE_BACKUP_KEY = 'test-backup-key-0123456789';
+  const blob = backupTool.encrypt(Buffer.from('hello'));
+  assert.ok(!blob.includes(Buffer.from('hello')));
+  assert.strictEqual(backupTool.decrypt(blob).toString(), 'hello');
+  const tampered = Buffer.from(blob); tampered[tampered.length - 1] ^= 1;
+  assert.throws(() => backupTool.decrypt(tampered));
+
+  const live = path.join(dir, 'live.db');
+  const db = store.open(live); store.createCompany(db, 'AE-0042', 'Backup Co'); db.close();
+  process.env.AE_BACKUP_DIR = path.join(dir, 'b');
+  const file = backupTool.backup(live);
+  const restored = path.join(dir, 'restored.db');
+  fs.writeFileSync(restored, backupTool.decrypt(fs.readFileSync(file)));
+  const r = store.open(restored);
+  assert.strictEqual(r.prepare('SELECT name FROM companies WHERE code = ?').get('AE-0042').name, 'Backup Co');
 });

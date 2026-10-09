@@ -61,6 +61,7 @@
       if (!window.AE_SCHEMA) window.AE_SCHEMA = await fetch('/shared/schema.json').then((r) => r.json()).catch(() => null);
       const me = await api.get('/api/me');
       state.me = me.user; state.companies = me.companies;
+      if (me.next) { renderSetup(me.next); return; }
       state.companyId = state.companyId && me.companies.some((c) => c.id === state.companyId) ? state.companyId : (me.companies[0] || {}).id;
       await loadDashboard();
     } catch (e) {
@@ -68,14 +69,14 @@
     }
   }
   async function loadDashboard() {
-    if (!state.companyId) { state.dash = null; render(); return; }
+    if (!state.companyId) { state.dash = null; state.history = null; render(); return; }
     state.dash = await api.get(`/api/dashboard?company=${state.companyId}`);
     state.history = await api.get(`/api/uploads?company=${state.companyId}`);
     render();
   }
 
   // ---------- login ----------
-  function renderLogin(error) {
+  function renderLogin(error, needCode) {
     const demo = window.AE_DEMO_API ? `
       <div class="demo-box"><b>Demo logins</b> (fictional sample companies). Password for all: <code>demo-password</code><br>
         ${window.AE_DEMO_API.logins.map((l) => `<button type="button" data-email="${esc(l.email)}">${esc(l.email)}</button> <span class="muted">${esc(l.note)}</span>`).join('<br>')}
@@ -95,7 +96,8 @@
             <div><div class="eyebrow">Client login</div><h2>Sign in</h2></div>
             <div><label for="email">Email</label><input id="email" type="email" required autocomplete="username"></div>
             <div><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"></div>
-            ${error ? `<div class="msg err">${esc(error)}</div>` : ''}
+            ${needCode ? `<div><label for="code">Code from your authenticator app</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></div>` : ''}
+            ${error ? `<div class="msg ${needCode && /Enter the 6-digit/.test(error) ? '' : 'err'}">${esc(error)}</div>` : ''}
             <button class="btn" type="submit">Sign in</button>
             <p class="small muted">Each login sees only its own company's data. Contact your Assura Elevate partner for access.</p>
             ${demo}
@@ -105,15 +107,90 @@
     app.querySelectorAll('[data-email]').forEach((b) => b.addEventListener('click', () => {
       app.querySelector('#email').value = b.dataset.email; app.querySelector('#pw').value = 'demo-password';
     }));
+    if (loginDraft.email) { app.querySelector('#email').value = loginDraft.email; app.querySelector('#pw').value = loginDraft.password; }
+    const focus = app.querySelector(needCode ? '#code' : '#email'); if (focus) focus.focus();
     app.querySelector('#login').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
+      const codeEl = app.querySelector('#code');
+      const body = { email: app.querySelector('#email').value.trim(), password: app.querySelector('#pw').value, code: codeEl ? codeEl.value.trim() : undefined };
       try {
-        await api.post('/api/login', { email: app.querySelector('#email').value.trim(), password: app.querySelector('#pw').value });
+        await api.post('/api/login', body);
+        loginDraft = {};
         state.tab = 'overview';
         await boot();
-      } catch (err) { renderLogin(err.message); }
+      } catch (err) {
+        const code = !!(err.data && err.data.needCode);
+        loginDraft = code ? { email: body.email, password: body.password } : {};
+        renderLogin(err.message, code);
+      }
     });
+  }
+  let loginDraft = {};
+
+  // ---------- account setup: first-login password change and advisor two-step login ----------
+  function setupShell(inner) {
+    app.innerHTML = `<header class="topbar"><div class="topbar-inner"><span class="wordmark">${LOGO}</span><span class="spacer"></span>
+      <button class="btn-ghost" id="logout">Sign out</button></div></header>
+      <main><div class="setup card">${inner}</div></main>`;
+    app.querySelector('#logout').addEventListener('click', signOut);
+  }
+
+  function passwordForm(prefix) {
+    return `<form id="${prefix}-pw" class="stack-form">
+      <div><label for="${prefix}-cur">Current password</label><input id="${prefix}-cur" type="password" required autocomplete="current-password"></div>
+      <div><label for="${prefix}-new">New password</label><input id="${prefix}-new" type="password" required minlength="10" autocomplete="new-password">
+        <p class="muted small">At least 10 characters. A short phrase of four or five words works well.</p></div>
+      <div><label for="${prefix}-new2">Repeat new password</label><input id="${prefix}-new2" type="password" required minlength="10" autocomplete="new-password"></div>
+      <div id="${prefix}-msg"></div>
+      <button class="btn" type="submit">Save new password</button></form>`;
+  }
+
+  function wirePasswordForm(prefix, onDone) {
+    app.querySelector(`#${prefix}-pw`).addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = app.querySelector(`#${prefix}-msg`);
+      const cur = app.querySelector(`#${prefix}-cur`).value; const nw = app.querySelector(`#${prefix}-new`).value;
+      if (nw !== app.querySelector(`#${prefix}-new2`).value) { msg.innerHTML = '<div class="msg err">The two new passwords do not match.</div>'; return; }
+      try { const r = await api.post('/api/password', { current: cur, next: nw }); onDone(r); }
+      catch (err) { msg.innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
+    });
+  }
+
+  function renderSetup(next) {
+    if (next === 'change-password') {
+      setupShell(`<div class="eyebrow">Welcome, ${esc(state.me.name)}</div><h2>Choose your own password</h2>
+        <p>You signed in with a one-time password. Choose a password only you know before continuing.</p>${passwordForm('setup')}`);
+      wirePasswordForm('setup', (r) => (r.next ? renderSetup(r.next) : boot()));
+      return;
+    }
+    // enrol-2fa
+    setupShell(`<div class="eyebrow">Assura Elevate advisor</div><h2>Set up two-step login</h2>
+      <p>Your login can see every client, so it needs a second step. Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or similar), then scan this code.</p>
+      <div id="qr" class="qr"><span class="muted small">Preparing…</span></div>
+      <p class="small">Can't scan? Enter this key in the app instead: <code id="secret" class="secret"></code></p>
+      <form id="confirm-2fa" class="stack-form"><div><label for="code2fa">6-digit code shown in the app</label>
+        <input id="code2fa" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></div>
+        <div id="twofa-msg"></div><button class="btn" type="submit">Turn on two-step login</button></form>`);
+    api.post('/api/2fa/start').then((r) => {
+      app.querySelector('#secret').textContent = r.secret.replace(/(.{4})/g, '$1 ').trim();
+      const qrEl = app.querySelector('#qr');
+      if (window.qrcode) {
+        const q = window.qrcode(0, 'M'); q.addData(r.uri); q.make();
+        qrEl.innerHTML = q.createSvgTag({ cellSize: 5, margin: 4, scalable: true });
+      } else qrEl.innerHTML = '<span class="muted small">Enter the key below in your app.</span>';
+    }).catch((err) => { app.querySelector('#twofa-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; });
+    app.querySelector('#confirm-2fa').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try { const r = await api.post('/api/2fa/confirm', { code: app.querySelector('#code2fa').value.trim() }); if (r.next) renderSetup(r.next); else boot(); }
+      catch (err) { app.querySelector('#twofa-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
+    });
+  }
+
+  async function signOut() {
+    await api.post('/api/logout').catch(() => {});
+    state.me = null; state.companyId = null; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null;
+    renderLogin();
   }
 
   function renderFatal(e) {
@@ -126,6 +203,7 @@
     ['overview', 'Overview'], ['money', 'Where is the money?'], ['sales', 'Sales & customers'],
     ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'], ['upload', 'Data & uploads'],
   ];
+  const tabsFor = (u) => TABS.concat(u.role === 'advisor' ? [['admin', 'Clients & users']] : [], [['account', 'Account']]);
 
   function render() {
     C.hideTip();
@@ -140,15 +218,17 @@
         <button class="btn-ghost" id="logout">Sign out</button>
       </div></header>
       <nav class="tabs" aria-label="Sections"><div class="tabs-inner" role="tablist">
-        ${TABS.map(([k, l]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${l}</button>`).join('')}
+        ${tabsFor(u).map(([k, l]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${l}</button>`).join('')}
       </div></nav>
       <main id="page"></main>`;
-    app.querySelector('#logout').addEventListener('click', async () => { await api.post('/api/logout'); state.me = null; state.companyId = null; state.dash = null; state.upload = null; state.tab = 'overview'; renderLogin(); });
+    app.querySelector('#logout').addEventListener('click', signOut);
     const sel = app.querySelector('#company');
     if (sel) sel.addEventListener('change', async () => { state.companyId = Number(sel.value); state.upload = null; await loadDashboard(); });
     app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { state.tab = b.dataset.tab; state.showAllHighlights = false; render(); window.scrollTo(0, 0); }));
 
     const page = app.querySelector('#page');
+    if (state.tab === 'admin' && u.role === 'advisor') { adminPage(page); return; }
+    if (state.tab === 'account') { accountPage(page); return; }
     if (!company) { page.innerHTML = `<div class="card empty">No company is linked to this login yet.</div>`; return; }
     const a = state.dash && state.dash.analysis;
     if (state.tab !== 'upload' && (!a || !a.months.length)) {
@@ -407,6 +487,110 @@
         </tbody></table></div>
         <p class="muted small" style="margin-top:12px">Assura Elevate reviews this calendar each month. Statutory registers, minutes and resolutions are maintained as part of the governance engagement; an online repository for them is planned.</p>
       </div>`;
+  }
+
+  // ---------- Account ----------
+  function accountPage(page) {
+    const u = state.me;
+    page.innerHTML = head('Account', u.name, null) + `
+      <div class="grid g-2">
+        <div class="card"><div class="card-head"><h3>Change password</h3></div>${passwordForm('acct')}</div>
+        <div class="card"><div class="card-head"><h3>Your login</h3></div>
+          <table><tbody>
+            <tr><td>Email</td><td class="r">${esc(u.email)}</td></tr>
+            <tr><td>Role</td><td class="r">${esc({ viewer: 'Management (view only)', accountant: 'Finance team (view and upload)', advisor: 'Assura Elevate advisor (all clients)' }[u.role])}</td></tr>
+            <tr><td>Two-step login</td><td class="r">${u.twoStep ? chip('positive', 'On') : chip('info', u.role === 'advisor' ? 'Off' : 'Not required')}</td></tr>
+          </tbody></table>
+          <p class="muted small" style="margin-top:12px">You are signed out after ${esc(window.AE_IDLE_MINUTES || 120)} minutes without activity. Changing your password signs out your other devices.</p>
+        </div>
+      </div>`;
+    wirePasswordForm('acct', () => { page.querySelector('#acct-msg').innerHTML = '<div class="msg ok">Password changed. Your other devices have been signed out.</div>'; page.querySelector('#acct-pw').reset(); });
+  }
+
+  // ---------- Clients & users (advisors) ----------
+  const ACTION_LABEL = {
+    login: 'Signed in', logout: 'Signed out', 'login.failed': 'Failed sign-in', 'login.code_failed': 'Wrong two-step code', 'login.disabled': 'Sign-in by a switched-off login',
+    'dashboard.viewed': 'Viewed dashboard', 'upload.accepted': 'Upload accepted', 'upload.rejected': 'Upload rejected', 'password.changed': 'Changed password', '2fa.enabled': 'Turned on two-step login',
+    'admin.company_added': 'Added company', 'admin.user_added': 'Added login', 'admin.reset-password': 'Reset password', 'admin.reset-2fa': 'Reset two-step login', 'admin.disable': 'Switched off login', 'admin.enable': 'Switched on login',
+  };
+  const ROLE_LABEL = { viewer: 'Management', accountant: 'Finance team', advisor: 'Assura advisor' };
+
+  async function adminPage(page) {
+    page.innerHTML = head('Clients & users', 'Manage client companies and logins', null) + '<div class="card empty">Loading…</div>';
+    let d;
+    try { d = await api.get('/api/admin/overview'); } catch (e) { page.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+    const notice = state.adminNotice || ''; state.adminNotice = '';
+    page.innerHTML = head('Clients & users', 'Manage client companies and logins', null) + notice + `
+      <div class="grid g-2">
+        <form class="card stack-form" id="f-company"><div class="card-head"><h3>Add a client company</h3></div>
+          <div class="form-row" style="margin-top:0"><div><label for="c-code">Company code</label><input id="c-code" type="text" placeholder="AE-0003" required maxlength="20"></div>
+          <div><label for="c-name">Company name</label><input id="c-name" type="text" required maxlength="160"></div></div>
+          <div id="c-msg"></div><div><button class="btn" type="submit">Add company</button></div></form>
+        <form class="card stack-form" id="f-user"><div class="card-head"><h3>Add a login</h3></div>
+          <div class="form-row" style="margin-top:0"><div><label for="u-name">Name</label><input id="u-name" type="text" required maxlength="120"></div>
+          <div><label for="u-email">Email</label><input id="u-email" type="email" required></div></div>
+          <div class="form-row" style="margin-top:0"><div><label for="u-role">Role</label><select id="u-role" class="field">
+            <option value="viewer">Management (view only)</option><option value="accountant">Finance team (view and upload)</option><option value="advisor">Assura advisor (all clients)</option></select></div>
+          <div id="u-company-wrap"><label for="u-company">Company</label><select id="u-company" class="field">${d.companies.map((c) => `<option value="${c.id}">${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select></div></div>
+          <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in; advisors also set up two-step login.</p>
+          <div id="u-msg"></div><div><button class="btn" type="submit">Add login</button></div></form>
+      </div>
+      <div class="card section"><div class="card-head"><h3>Client companies</h3><span class="muted small">${d.companies.length}</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th class="r">Logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last upload</th></tr></thead><tbody>
+        ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No companies yet.</td></tr>'}
+        </tbody></table></div></div>
+      <div class="card section"><div class="card-head"><h3>Logins</h3><span class="muted small">${d.users.length}</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Company</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
+        ${d.users.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.email)}</td><td>${esc(ROLE_LABEL[x.role])}</td><td>${esc(x.company_code || 'All')}</td>
+          <td>${x.disabled ? chip('critical', 'Switched off') : x.must_change_password ? chip('info', 'Not yet signed in') : chip('positive', 'Active')}${x.role === 'advisor' ? ' ' + (x.two_step ? chip('positive', 'Two-step on') : chip('watch', 'Two-step pending')) : ''}</td>
+          <td>${x.last_login_at ? esc(stamp(x.last_login_at)) : '–'}</td>
+          <td class="r nowrap">${x.id === state.me.id ? '<span class="muted small">You</span>' : `
+            <button class="link-btn" data-act="reset-password" data-id="${x.id}" data-name="${esc(x.name)}">Reset password</button>
+            ${x.role === 'advisor' && x.two_step ? `<button class="link-btn" data-act="reset-2fa" data-id="${x.id}" data-name="${esc(x.name)}">Reset two-step</button>` : ''}
+            <button class="link-btn" data-act="${x.disabled ? 'enable' : 'disable'}" data-id="${x.id}" data-name="${esc(x.name)}">${x.disabled ? 'Switch on' : 'Switch off'}</button>`}</td></tr>`).join('')}
+        </tbody></table></div></div>
+      <div class="card section"><div class="card-head"><h3>Activity log</h3><span class="muted small">Latest 200 events · times in IST</span></div>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Company</th><th>Detail</th></tr></thead><tbody>
+        ${d.activity.map((x) => `<tr><td class="num nowrap">${esc(stamp(x.at))}</td><td>${esc(x.email || '–')}</td><td>${esc(ACTION_LABEL[x.action] || x.action)}</td><td>${esc(x.company_code || '')}</td><td class="muted">${esc(x.detail || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No activity yet.</td></tr>'}
+        </tbody></table></div></div>`;
+
+    const role = page.querySelector('#u-role'); const cw = page.querySelector('#u-company-wrap');
+    const syncRole = () => { cw.style.visibility = role.value === 'advisor' ? 'hidden' : 'visible'; };
+    role.addEventListener('change', syncRole); syncRole();
+    const oneTime = (name, email, pw) => `<div class="msg ok onetime"><b>One-time password for ${esc(name)}${email ? ' (' + esc(email) + ')' : ''}:</b>
+      <code class="secret">${esc(pw)}</code> <button type="button" class="link-btn" data-copy="${esc(pw)}">Copy</button>
+      <div class="small">Shown only once. Share it with them privately; they will be asked to choose their own password.</div></div>`;
+    const wireCopy = () => page.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => {
+      navigator.clipboard && navigator.clipboard.writeText(b.dataset.copy).then(() => { b.textContent = 'Copied'; }, () => {});
+    }));
+    wireCopy();
+    page.querySelector('#f-company').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const r = await api.post('/api/admin/company', { code: page.querySelector('#c-code').value, name: page.querySelector('#c-name').value });
+        state.adminNotice = `<div class="msg ok">${esc(r.company.code)} · ${esc(r.company.name)} added. Add its management and finance team logins next.</div>`;
+        const me = await api.get('/api/me'); state.companies = me.companies; if (!state.companyId) state.companyId = r.company.id;
+        adminPage(page);
+      } catch (err) { page.querySelector('#c-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
+    });
+    page.querySelector('#f-user').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = page.querySelector('#u-name').value; const email = page.querySelector('#u-email').value;
+      try {
+        const r = await api.post('/api/admin/user', { name, email, role: role.value, company_id: page.querySelector('#u-company').value });
+        state.adminNotice = oneTime(name, email, r.temporaryPassword);
+        adminPage(page);
+      } catch (err) { page.querySelector('#u-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
+    });
+    page.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
+      // Two-tap confirm: the first tap arms the button, the second carries it out.
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.dataset.label = b.textContent; b.textContent = 'Tap again to confirm'; b.classList.add('armed'); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = b.dataset.label; b.classList.remove('armed'); } }, 4000); return; }
+      try {
+        const r = await api.post('/api/admin/user/action', { user_id: Number(b.dataset.id), action: b.dataset.act });
+        state.adminNotice = r.temporaryPassword ? oneTime(b.dataset.name, '', r.temporaryPassword) : `<div class="msg ok">Done for ${esc(b.dataset.name)}.</div>`;
+        adminPage(page);
+      } catch (err) { state.adminNotice = `<div class="msg err">${esc(err.message)}</div>`; adminPage(page); }
+    }));
   }
 
   // ---------- Data & uploads ----------
