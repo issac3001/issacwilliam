@@ -52,7 +52,8 @@
   };
   const SEQ = ['var(--seq-1)', 'var(--seq-2)', 'var(--seq-3)', 'var(--seq-4)'];
 
-  const LOGO = `<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19 L12 4 L21 19" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4 L21 2 L15 11 Z" fill="var(--accent)"/></svg>`;
+  // The logo sits on navy (top bar, login panel), so the light-on-dark cut is used.
+  const LOGO = `<img src="${window.AE_LOGO_ON_DARK || '/brand/assura-elevate-logo-on-dark.png'}" alt="Assura Elevate">`;
 
   // ---------- data loading ----------
   async function boot() {
@@ -82,7 +83,7 @@
     app.innerHTML = `
       <div class="login-wrap">
         <section class="login-brand">
-          <div class="wordmark">${LOGO}<span class="w1">ASSURA</span><span class="w2">ELEVATE</span></div>
+          <div class="wordmark">${LOGO}</div>
           <div>
             <h1>Your business, <em>on one screen.</em></h1>
             <p>Monthly financial intelligence, compliance oversight and management highlights, prepared from data your finance team provides.</p>
@@ -132,7 +133,7 @@
     const company = state.companies.find((c) => c.id === state.companyId);
     app.innerHTML = `
       <header class="topbar"><div class="topbar-inner">
-        <a class="wordmark" href="#" aria-label="Assura Elevate home">${LOGO}<span class="w1">ASSURA</span><span class="w2">ELEVATE</span></a>
+        <a class="wordmark" href="#">${LOGO}</a>
         <span class="spacer"></span>
         ${u.role === 'advisor' && state.companies.length ? `<select id="company" aria-label="Company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select>` : ''}
         <div class="user-chip">${esc(u.name)}<br><span>${esc({ viewer: 'Management', accountant: 'Finance team', advisor: 'Assura Elevate advisor' }[u.role])}${company && u.role !== 'advisor' ? ' · ' + esc(company.code) : ''}</span></div>

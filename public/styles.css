@@ -2,8 +2,11 @@
 :root {
   --brand: #1F3A68;          /* navy, dominant */
   --brand-strong: #152A4D;
-  --accent: #C9971C;         /* gold, accent only */
-  --accent-soft: #F6EBCB;
+  /* Logo colours: gold #E0A708, highlight #FAD021, charcoal #372F24, cream #FCF6EA */
+  --accent: #E0A708;         /* logo gold, marks and rules */
+  --accent-ink: #8F6A00;     /* logo gold darkened for text on light surfaces */
+  --accent-soft: #FBF0CC;
+  --cream: #FCF6EA;
   --bg: #F6F7FA;
   --surface: #FFFFFF;
   --surface-2: #EEF2F8;
@@ -13,7 +16,7 @@
   --ink-3: #7A8496;
   --series-1: #2F5FB3;       /* current period */
   --series-2: #8FA6C8;       /* comparison period (context) */
-  --series-3: #B8860B;       /* benchmark / highlight */
+  --series-3: #C8940A;       /* gold series, from the logo gold */
   --seq-1: #B9CDEE; --seq-2: #7A9FDB; --seq-3: #3D68B8; --seq-4: #1A3670; /* ageing: one hue, light to dark */
   --critical: #B42318; --critical-bg: #FDECEA;
   --watch: #B54708;    --watch-bg: #FEF3E2;
@@ -27,10 +30,10 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #8FB0E8; --brand-strong: #0B1424; --accent: #E0B23A; --accent-soft: #3A3014;
+    --brand: #8FB0E8; --brand-strong: #0B1424; --accent: #F0B91C; --accent-ink: #F0B91C; --accent-soft: #3A3014; --cream: #FCF6EA;
     --bg: #0B1220; --surface: #121C2E; --surface-2: #1A2740; --line: #263553;
     --ink: #E8EDF6; --ink-2: #B3BDD0; --ink-3: #8691A6;
-    --series-1: #5B8BE0; --series-2: #6E82A6; --series-3: #D9A520;
+    --series-1: #5B8BE0; --series-2: #6E82A6; --series-3: #CC9A12;
     --seq-1: #2B4472; --seq-2: #3F64A6; --seq-3: #6E95DA; --seq-4: #B0C8F0;
     --critical: #F97066; --critical-bg: #3A1513; --watch: #FDB022; --watch-bg: #3A2A0E;
     --positive: #47CD89; --positive-bg: #0F2E20; --info: #B3BDD0; --info-bg: #1A2740;
@@ -38,10 +41,10 @@
   }
 }
 :root[data-theme="dark"] {
-  --brand: #8FB0E8; --brand-strong: #0B1424; --accent: #E0B23A; --accent-soft: #3A3014;
+  --brand: #8FB0E8; --brand-strong: #0B1424; --accent: #F0B91C; --accent-ink: #F0B91C; --accent-soft: #3A3014; --cream: #FCF6EA;
   --bg: #0B1220; --surface: #121C2E; --surface-2: #1A2740; --line: #263553;
   --ink: #E8EDF6; --ink-2: #B3BDD0; --ink-3: #8691A6;
-  --series-1: #5B8BE0; --series-2: #6E82A6; --series-3: #D9A520;
+  --series-1: #5B8BE0; --series-2: #6E82A6; --series-3: #CC9A12;
     --seq-1: #2B4472; --seq-2: #3F64A6; --seq-3: #6E95DA; --seq-4: #B0C8F0;
   --critical: #F97066; --critical-bg: #3A1513; --watch: #FDB022; --watch-bg: #3A2A0E;
   --positive: #47CD89; --positive-bg: #0F2E20; --info: #B3BDD0; --info-bg: #1A2740;
@@ -66,9 +69,8 @@ button, input, select { font: inherit; color: inherit; }
 .topbar { background: var(--brand-strong); color: #fff; }
 .topbar-inner { max-width: 1240px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .wordmark { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; }
-.wordmark .mark { width: 22px; height: 22px; }
-.wordmark .w1 { font-weight: 500; letter-spacing: .28em; font-size: 13px; }
-.wordmark .w2 { font-weight: 600; letter-spacing: .28em; font-size: 13px; color: var(--accent); }
+.wordmark img { display: block; height: 40px; width: auto; }
+.login-brand .wordmark img { height: 64px; }
 .topbar .spacer { flex: 1; }
 .topbar select { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); color: #fff; border-radius: 8px; padding: 6px 10px; max-width: 280px; }
 .topbar select option { color: #141B2D; }
@@ -83,8 +85,7 @@ button, input, select { font: inherit; color: inherit; }
 
 main { max-width: 1240px; margin: 0 auto; padding: 28px 24px 64px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-.eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
-.dark-ok .eyebrow { color: var(--accent); }
+.eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; margin-bottom: 6px; }
 
 /* ---------- cards & grid ---------- */
 .grid { display: grid; gap: 16px; }

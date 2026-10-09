@@ -27,6 +27,7 @@ ${R('public', 'styles.css')}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 ${script(`window.AE_SCHEMA = ${R('shared', 'schema.json')};
 window.AE_DEMO_DATA = ${JSON.stringify({ companies })};
+window.AE_LOGO_ON_DARK = 'data:image/png;base64,${fs.readFileSync(path.join(__dirname, '..', 'public', 'brand', 'assura-elevate-logo-on-dark.png')).toString('base64')}';
 window.AE_TEMPLATE_NOTE = 'Downloads are switched off in this demo page. The blank workbook and a filled sample for Meridian Polymers (September 2026) are attached in the project thread; upload the sample here as accounts@meridian.demo or advisor@assura.demo to see the dashboard update.';`)}
 ${script(R('shared', 'parse.js'))}
 ${script(R('shared', 'analysis.js'))}

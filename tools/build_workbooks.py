@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = json.loads((ROOT / "shared" / "schema.json").read_text())
 
 NAVY = "1F3A68"
-GOLD = "C9971C"
+GOLD = "E0A708"
 PALE = "EEF2F8"
 HEAD_FONT = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
 TITLE_FONT = Font(name="Calibri", bold=True, color=NAVY, size=16)
