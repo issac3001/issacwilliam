@@ -78,7 +78,7 @@
   // ---------- login ----------
   function renderLogin(error, needCode) {
     const demo = window.AE_DEMO_API ? `
-      <div class="demo-box"><b>Demo logins</b> (fictional sample companies). Password for all: <code>demo-password</code><br>
+      <div class="demo-box"><b>Try the demo.</b> Tap a login to sign in. The companies and figures are fictional. Password for all: <code>demo-password</code><br>
         ${window.AE_DEMO_API.logins.map((l) => `<button type="button" data-email="${esc(l.email)}">${esc(l.email)}</button> <span class="muted">${esc(l.note)}</span>`).join('<br>')}
       </div>` : '';
     app.innerHTML = `
@@ -104,8 +104,10 @@
           </form>
         </section>
       </div>`;
+    // Demo logins sign in with one tap.
     app.querySelectorAll('[data-email]').forEach((b) => b.addEventListener('click', () => {
       app.querySelector('#email').value = b.dataset.email; app.querySelector('#pw').value = 'demo-password';
+      app.querySelector('#login').requestSubmit();
     }));
     if (loginDraft.email) { app.querySelector('#email').value = loginDraft.email; app.querySelector('#pw').value = loginDraft.password; }
     const focus = app.querySelector(needCode ? '#code' : '#email'); if (focus) focus.focus();
@@ -604,7 +606,9 @@
       <div class="grid g-2">
         <div class="card"><div class="card-head"><h3>1. Monthly data workbook</h3></div>
           <p style="margin-top:0">Your accountant fills one workbook a month: sales and purchase registers, expenses, receivables, payables, stock, bank balances and compliance status. Each sheet says which Tally report to paste from.</p>
-          ${window.AE_TEMPLATE_NOTE ? `<p class="small">${window.AE_TEMPLATE_NOTE}</p>` : `<a class="btn secondary" href="/template.xlsx" download="Assura_Elevate_Monthly_Data_Template.xlsx">Download the blank workbook</a>`}
+          ${window.AE_TEMPLATE_NOTE ? `<p class="small">${window.AE_TEMPLATE_NOTE}</p>` : `<div class="btn-row"><a class="btn secondary" href="${window.AE_TEMPLATE_URL || '/template.xlsx'}" download="Assura_Elevate_Monthly_Data_Template.xlsx">Download the blank workbook</a>
+            ${window.AE_SAMPLE_URL ? `<a class="btn secondary" href="${window.AE_SAMPLE_URL}" download="Sample_Meridian_Polymers_Sep-2026.xlsx">Download a filled sample</a>` : ''}</div>
+            ${window.AE_SAMPLE_URL ? '<p class="muted small">The filled sample is for Meridian Polymers (AE-0001). Upload it here while signed in as the Meridian finance team or the advisor to watch the dashboard update.</p>' : ''}`}
           <p class="muted small">Company code for this workbook: <b>${esc(company.code)}</b></p>
         </div>
         <div class="card"><div class="card-head"><h3>2. Upload</h3></div>
