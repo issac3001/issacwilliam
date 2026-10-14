@@ -1,21 +1,24 @@
 /*
  * In-browser stand-in for the server API, used only by the shareable demo page.
- * Mirrors the server's access rules: viewers and accountants see only their own
- * company, viewers cannot upload, advisors see every company and manage logins.
+ * Mirrors the server's access rules: a client login sees only its own company and
+ * is view only; the Assura team sees every company, uploads and edits data and
+ * manages client logins; admins also manage team logins.
  * Two-step login and the first-login password change run on the real server only. Data resets on reload.
  */
 (function () {
   'use strict';
   const D = window.AE_DEMO_DATA; // { companies: [{id, code, name, months: {period: data}}] }
   const users = [
-    { id: 1, email: 'md@meridian.demo', name: 'Managing Director', role: 'viewer', company_id: 1, note: 'Meridian Polymers, management view' },
-    { id: 2, email: 'accounts@meridian.demo', name: 'Accounts Team', role: 'accountant', company_id: 1, note: 'Meridian Polymers, can upload' },
-    { id: 3, email: 'md@coastline.demo', name: 'Managing Director', role: 'viewer', company_id: 2, note: 'Coastline Foods, management view' },
-    { id: 4, email: 'advisor@assura.demo', name: 'Assura Advisor', role: 'advisor', company_id: null, note: 'All client companies' },
+    { id: 1, email: 'client@meridian.demo', name: 'Managing Director', role: 'client', company_id: 1, note: 'Client: Meridian Polymers only, view only' },
+    { id: 2, email: 'client@coastline.demo', name: 'Managing Director', role: 'client', company_id: 2, note: 'Client: Coastline Foods only, view only' },
+    { id: 3, email: 'team@assura.demo', name: 'Assura Team Member', role: 'team', company_id: null, note: 'Assura team: every client, upload and edit' },
+    { id: 4, email: 'admin@assura.demo', name: 'Assura Admin', role: 'admin', company_id: null, note: 'Assura admin: also manages team logins' },
   ];
+  const staff = (u) => u.role === 'team' || u.role === 'admin';
+  const needStaff = () => { const u = me(); if (!staff(u)) fail(403, 'Only the Assura Elevate team can do this. Client logins are view only.'); return u; };
   const uploads = []; // { company_id, period, version, filename, sections, warnings, data, created_at, uploaded_by }
   D.companies.forEach((c) => Object.keys(c.months).sort().forEach((p) => uploads.push({
-    company_id: c.id, period: p, version: 1, filename: `sample ${p}.xlsx`, sections: Object.keys(c.months[p]), warnings: [], data: c.months[p], created_at: '2026-10-07T04:30:00Z', uploaded_by: null,
+    company_id: c.id, period: p, version: 1, filename: `sample ${p}.xlsx`, source: 'upload', sections: Object.keys(c.months[p]), warnings: [], data: c.months[p], created_at: '2026-10-07T04:30:00Z', uploaded_by: null,
   })));
   let session = null;
   const audit = [];
@@ -27,20 +30,29 @@
   const pub = (u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, company_id: u.company_id });
   function companyFor(u, requested) {
     const id = requested == null || requested === '' ? u.company_id : Number(requested);
-    if (u.role !== 'advisor' && id !== u.company_id) fail(403, 'You do not have access to this company.');
+    if (!staff(u) && id !== u.company_id) fail(403, 'You do not have access to this company.');
     const c = D.companies.find((x) => x.id === id) || fail(404, 'Company not found.');
     return { id: c.id, code: c.code, name: c.name };
   }
   function current(cid) {
     const latest = {};
     uploads.filter((x) => x.company_id === cid).forEach((x) => { if (!latest[x.period] || latest[x.period].version < x.version) latest[x.period] = x; });
-    return Object.keys(latest).sort().map((p) => ({ period: p, data: latest[p].data }));
+    return Object.keys(latest).sort().map((p) => ({ period: p, version: latest[p].version, data: latest[p].data })).filter((d) => !d.data.removed);
   }
+  const versionOf = (cid, period, version) => {
+    const list = uploads.filter((x) => x.company_id === cid && x.period === period).sort((a, b) => b.version - a.version);
+    return version ? list.find((x) => x.version === Number(version)) : list[0];
+  };
+  const save = (u, c, period, data, sections, warnings, source, filename) => {
+    const version = 1 + Math.max(0, ...uploads.filter((x) => x.company_id === c.id && x.period === period).map((x) => x.version));
+    uploads.push({ company_id: c.id, period, version, filename: filename || null, source, sections, warnings, data, created_at: new Date().toISOString(), uploaded_by: u.name });
+    return version;
+  };
 
   const routes = {
     'GET /api/me': () => {
       const u = me();
-      return { next: null, user: pub(u), companies: D.companies.filter((c) => u.role === 'advisor' || c.id === u.company_id).map((c) => ({ id: c.id, code: c.code, name: c.name })) };
+      return { next: null, user: pub(u), companies: D.companies.filter((c) => staff(u) || c.id === u.company_id).map((c) => ({ id: c.id, code: c.code, name: c.name })) };
     },
     'POST /api/login': (q, body) => {
       const u = users.find((x) => x.email === String(body.email || '').toLowerCase());
@@ -57,16 +69,16 @@
       u.password = body.next; log(u, 'password.changed', u.company_id); return { ok: true, next: null };
     },
     'GET /api/admin/overview': () => {
-      const u = me(); if (u.role !== 'advisor') fail(403, 'Only Assura Elevate advisors can manage clients and users.');
-      const months = (cid) => [...new Set(uploads.filter((x) => x.company_id === cid).map((x) => x.period))].sort();
+      needStaff();
+      const months = (cid) => current(cid).map((d) => d.period);
       return {
         companies: D.companies.map((c) => ({ id: c.id, code: c.code, name: c.name, users: users.filter((x) => x.company_id === c.id).length, months: months(c.id).length, latest: months(c.id).slice(-1)[0] || null, last_upload: uploads.filter((x) => x.company_id === c.id).map((x) => x.created_at).sort().slice(-1)[0] || null })),
-        users: users.map((x) => ({ id: x.id, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: x.role === 'advisor' ? 1 : 0, last_login_at: x.last_login_at })),
+        users: users.slice().sort((a, b) => (a.role === 'client') - (b.role === 'client')).map((x) => ({ id: x.id, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: staff(x) && !x.must_change_password ? 1 : 0, last_login_at: x.last_login_at })),
         activity: audit.slice(0, 200),
       };
     },
     'POST /api/admin/company': (q, body) => {
-      const u = me(); if (u.role !== 'advisor') fail(403, 'Only Assura Elevate advisors can manage clients and users.');
+      const u = needStaff();
       const code = String(body.code || '').trim().toUpperCase(); const name = String(body.name || '').trim();
       if (!/^[A-Z0-9-]{3,20}$/.test(code)) fail(400, 'Use a company code of 3 to 20 letters, digits or dashes, for example AE-0003.');
       if (!name) fail(400, 'Enter the company name.');
@@ -74,20 +86,29 @@
       const c = { id: D.companies.length + 1, code, name, months: {} }; D.companies.push(c); log(u, 'admin.company_added', c.id, `${code} ${name}`);
       return { company: { id: c.id, code, name } };
     },
+    'POST /api/admin/company/update': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company_id);
+      const name = String(body.name || '').trim(); if (name.length < 2) fail(400, 'Enter the company name.');
+      D.companies.find((x) => x.id === c.id).name = name; log(u, 'admin.company_renamed', c.id, `${c.name} → ${name}`);
+      return { company: Object.assign({}, c, { name }) };
+    },
     'POST /api/admin/user': (q, body) => {
-      const u = me(); if (u.role !== 'advisor') fail(403, 'Only Assura Elevate advisors can manage clients and users.');
+      const u = needStaff();
+      if (!['client', 'team', 'admin'].includes(body.role)) fail(400, 'Choose a role.');
+      if (body.role !== 'client' && u.role !== 'admin') fail(403, 'Only an Assura Elevate admin can add team logins.');
       const email = String(body.email || '').trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Enter a valid email address.');
       if (users.some((x) => x.email === email)) fail(409, 'A login with this email already exists.');
       const temp = 'Demo' + Math.random().toString(36).slice(2, 8) + '-' + Math.random().toString(36).slice(2, 8);
-      const nu = { id: users.length + 1, email, name: String(body.name || '').trim(), role: body.role, company_id: body.role === 'advisor' ? null : Number(body.company_id), note: 'Added in this session', password: temp, disabled: 0, must_change_password: 1, last_login_at: null };
+      const nu = { id: users.length + 1, email, name: String(body.name || '').trim(), role: body.role, company_id: body.role === 'client' ? Number(body.company_id) : null, note: 'Added in this session', password: temp, disabled: 0, must_change_password: 1, last_login_at: null };
       users.push(nu); log(u, 'admin.user_added', nu.company_id, `${email} as ${nu.role}`);
       return { user: pub(nu), temporaryPassword: temp };
     },
     'POST /api/admin/user/action': (q, body) => {
-      const u = me(); if (u.role !== 'advisor') fail(403, 'Only Assura Elevate advisors can manage clients and users.');
+      const u = needStaff();
       const t = users.find((x) => x.id === Number(body.user_id)) || fail(404, 'User not found.');
-      if (t.id === u.id) fail(400, 'You cannot change this for your own login. Ask another advisor.');
+      if (staff(t) && u.role !== 'admin') fail(403, 'Only an Assura Elevate admin can change team logins.');
+      if (t.id === u.id) fail(400, 'You cannot change this for your own login. Ask another admin.');
       const out = { ok: true };
       if (body.action === 'reset-password') { t.password = out.temporaryPassword = 'Demo' + Math.random().toString(36).slice(2, 8) + '-' + Math.random().toString(36).slice(2, 8); t.must_change_password = 1; }
       else if (body.action === 'disable') t.disabled = 1;
@@ -103,11 +124,45 @@
     },
     'GET /api/uploads': (q) => {
       const c = companyFor(me(), q.get('company'));
-      return { company: c, uploads: uploads.filter((x) => x.company_id === c.id).slice().reverse().map((x) => Object.assign({}, x, { uploaded_by: x.uploaded_by || 'Setup' })) };
+      return { company: c, uploads: uploads.filter((x) => x.company_id === c.id).slice().reverse().map((x) => Object.assign({}, x, { uploaded_by: x.uploaded_by || 'Setup', data: undefined })) };
+    },
+    'GET /api/data': (q) => {
+      const u = me(); const c = companyFor(u, q.get('company'));
+      const period = window.AEParse.parseMonth(q.get('period')) || fail(400, 'Choose a month.');
+      const v = versionOf(c.id, period, q.get('version'));
+      if (!v || v.data.removed) fail(404, 'No data for this month.');
+      return { company: c, period, version: v.version, data: v.data };
+    },
+    'POST /api/data/edit': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const period = window.AEParse.parseMonth(body.period); const cur = period && versionOf(c.id, period);
+      if (!cur || cur.data.removed) fail(404, 'No data for this month. Upload the workbook first.');
+      const def = window.AE_SCHEMA.sheets.find((x) => x.key === body.section) || fail(400, 'Unknown section.');
+      if (body.baseVersion && Number(body.baseVersion) !== cur.version) fail(409, `Someone saved a newer version (v${cur.version}) of this month while you were editing. Reload it and make your change again.`);
+      const out = window.AEEdit.applyEdit(cur.data, body.section, body.values, window.AE_SCHEMA);
+      if (out.errors.length) fail(422, 'Some rows need fixing before they can be saved.', { errors: out.errors });
+      const version = save(u, c, period, out.data, [body.section], out.warnings, `Edited: ${def.name}`);
+      log(u, 'data.edited', c.id, `${period} ${def.name} v${version}`);
+      return { ok: true, period, version, warnings: out.warnings };
+    },
+    'POST /api/data/restore': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const period = window.AEParse.parseMonth(body.period); const old = period && body.version && versionOf(c.id, period, body.version);
+      if (!old) fail(404, 'That version was not found.');
+      const version = save(u, c, period, old.data, Object.keys(old.data), [], `Restored v${old.version}`);
+      log(u, 'data.restored', c.id, `${period} v${old.version} as v${version}`);
+      return { ok: true, period, version };
+    },
+    'POST /api/data/remove-month': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const period = window.AEParse.parseMonth(body.period); const cur = period && versionOf(c.id, period);
+      if (!cur || cur.data.removed) fail(404, 'No data for this month.');
+      const version = save(u, c, period, { removed: true }, [], [], 'Month removed');
+      log(u, 'data.month_removed', c.id, `${period} v${version}`);
+      return { ok: true, period, version };
     },
     'POST /api/upload': (q, body) => {
-      const u = me();
-      if (u.role === 'viewer') fail(403, 'Your login can view the dashboard but not upload data.');
+      const u = needStaff();
       const c = companyFor(u, body.company);
       const P = window.AEParse; const schema = window.AE_SCHEMA;
       let data; let period; let parsed;
@@ -125,9 +180,8 @@
         if (errors.length) fail(422, 'The file needs fixing before it can be accepted.', { errors });
         data = parsed.data; period = comp.period;
       }
-      const version = 1 + Math.max(0, ...uploads.filter((x) => x.company_id === c.id && x.period === period).map((x) => x.version));
+      const version = save(u, c, period, data, body.section ? [body.section] : parsed.sections, parsed.warnings, 'upload', body.filename);
       log(u, 'upload.accepted', c.id, `${period} v${version} ${body.filename || ''}`);
-      uploads.push({ company_id: c.id, period, version, filename: body.filename, sections: body.section ? [body.section] : parsed.sections, warnings: parsed.warnings, data, created_at: new Date().toISOString(), uploaded_by: u.name });
       return { ok: true, period, version, sections: parsed.sections, warnings: parsed.warnings };
     },
   };

@@ -10,58 +10,60 @@
 </head>
 <body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
-/* Assura Elevate client platform. Brand tokens live here; swap exact logo colours in :root. */
+/* Assura Elevate client platform. Colours follow the pitch deck: cream pages, espresso panels, logo gold. */
 :root {
-  --brand: #1F3A68;          /* navy, dominant */
-  --brand-strong: #152A4D;
-  /* Logo colours: gold #E0A708, highlight #FAD021, charcoal #372F24, cream #FCF6EA */
-  --accent: #E0A708;         /* logo gold, marks and rules */
-  --accent-ink: #8F6A00;     /* logo gold darkened for text on light surfaces */
-  --accent-soft: #FBF0CC;
-  --cream: #FCF6EA;
-  --bg: #F6F7FA;
-  --surface: #FFFFFF;
-  --surface-2: #EEF2F8;
-  --line: #DCE2EC;
-  --ink: #141B2D;
-  --ink-2: #4A5468;
-  --ink-3: #7A8496;
-  --series-1: #2F5FB3;       /* current period */
-  --series-2: #8FA6C8;       /* comparison period (context) */
-  --series-3: #C8940A;       /* gold series, from the logo gold */
-  --seq-1: #B9CDEE; --seq-2: #7A9FDB; --seq-3: #3D68B8; --seq-4: #1A3670; /* ageing: one hue, light to dark */
-  --critical: #B42318; --critical-bg: #FDECEA;
-  --watch: #B54708;    --watch-bg: #FEF3E2;
-  --positive: #067647; --positive-bg: #E7F6EE;
-  --info: #3E4C66;     --info-bg: #EEF2F8;
+  --brand: #2D271F;          /* espresso: dark panels, primary text accents */
+  --brand-strong: #221D17;   /* deepest espresso: top bar and login panel */
+  --accent: #DFA500;         /* logo gold: rules, marks, active tab */
+  --accent-hi: #F6CD29;      /* deck highlight yellow: primary buttons */
+  --accent-ink: #8E6900;     /* gold dark enough for small text on cream */
+  --accent-soft: #FBF1CF;
+  --on-accent: #221D17;
+  --link: #8E6900;
+  --cream: #FAF7ED;
+  --bg: #FAF7ED;
+  --surface: #FEFCF6;
+  --surface-2: #F2EDDC;
+  --line: #E4DDCB;
+  --ink: #221D17;
+  --ink-2: #574D3E;
+  --ink-3: #7C715E;
+  --series-1: #3A3127;       /* current period: espresso */
+  --series-2: #BDB29C;       /* comparison period: warm grey (context) */
+  --series-3: #B88700;       /* gold series */
+  --seq-1: #F0DB94; --seq-2: #DFA500; --seq-3: #9C7200; --seq-4: #4A3B22; /* ageing: young to old */
+  --critical: #B42318; --critical-bg: #FBEAE5;
+  --watch: #A84A06;    --watch-bg: #FCEFDC;
+  --positive: #146C43; --positive-bg: #E5F2E8;
+  --info: #574D3E;     --info-bg: #F2EDDC;
   --radius: 10px;
-  --shadow: 0 1px 2px rgba(20, 27, 45, .06), 0 2px 8px rgba(20, 27, 45, .04);
+  --shadow: 0 1px 2px rgba(34, 29, 23, .05), 0 2px 8px rgba(34, 29, 23, .04);
   --font-display: 'Cormorant Garamond', Georgia, serif;
   --font-body: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #8FB0E8; --brand-strong: #0B1424; --accent: #F0B91C; --accent-ink: #F0B91C; --accent-soft: #3A3014; --cream: #FCF6EA;
-    --bg: #0B1220; --surface: #121C2E; --surface-2: #1A2740; --line: #263553;
-    --ink: #E8EDF6; --ink-2: #B3BDD0; --ink-3: #8691A6;
-    --series-1: #5B8BE0; --series-2: #6E82A6; --series-3: #CC9A12;
-    --seq-1: #2B4472; --seq-2: #3F64A6; --seq-3: #6E95DA; --seq-4: #B0C8F0;
-    --critical: #F97066; --critical-bg: #3A1513; --watch: #FDB022; --watch-bg: #3A2A0E;
-    --positive: #47CD89; --positive-bg: #0F2E20; --info: #B3BDD0; --info-bg: #1A2740;
+    --brand: #F6CD29; --brand-strong: #14110D; --accent: #F6CD29; --accent-hi: #F6CD29; --accent-ink: #F6CD29; --accent-soft: #3A3014; --link: #F6CD29;
+    --bg: #1B1712; --surface: #221D17; --surface-2: #2D271F; --line: #3A3226;
+    --ink: #F5F0E3; --ink-2: #CFC5AF; --ink-3: #A0947D;
+    --series-1: #E9DFC7; --series-2: #7D705A; --series-3: #DFA500;
+    --seq-1: #5A4A26; --seq-2: #8E6900; --seq-3: #DFA500; --seq-4: #F6E3A0;
+    --critical: #F97066; --critical-bg: #3A1814; --watch: #F5A524; --watch-bg: #3A2A0E;
+    --positive: #4CC38A; --positive-bg: #12291C; --info: #CFC5AF; --info-bg: #2D271F;
     --shadow: none; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --brand: #8FB0E8; --brand-strong: #0B1424; --accent: #F0B91C; --accent-ink: #F0B91C; --accent-soft: #3A3014; --cream: #FCF6EA;
-  --bg: #0B1220; --surface: #121C2E; --surface-2: #1A2740; --line: #263553;
-  --ink: #E8EDF6; --ink-2: #B3BDD0; --ink-3: #8691A6;
-  --series-1: #5B8BE0; --series-2: #6E82A6; --series-3: #CC9A12;
-    --seq-1: #2B4472; --seq-2: #3F64A6; --seq-3: #6E95DA; --seq-4: #B0C8F0;
-  --critical: #F97066; --critical-bg: #3A1513; --watch: #FDB022; --watch-bg: #3A2A0E;
-  --positive: #47CD89; --positive-bg: #0F2E20; --info: #B3BDD0; --info-bg: #1A2740;
+  --brand: #F6CD29; --brand-strong: #14110D; --accent: #F6CD29; --accent-hi: #F6CD29; --accent-ink: #F6CD29; --accent-soft: #3A3014; --link: #F6CD29;
+  --bg: #1B1712; --surface: #221D17; --surface-2: #2D271F; --line: #3A3226;
+  --ink: #F5F0E3; --ink-2: #CFC5AF; --ink-3: #A0947D;
+  --series-1: #E9DFC7; --series-2: #7D705A; --series-3: #DFA500;
+  --seq-1: #5A4A26; --seq-2: #8E6900; --seq-3: #DFA500; --seq-4: #F6E3A0;
+  --critical: #F97066; --critical-bg: #3A1814; --watch: #F5A524; --watch-bg: #3A2A0E;
+  --positive: #4CC38A; --positive-bg: #12291C; --info: #CFC5AF; --info-bg: #2D271F;
   --shadow: none; color-scheme: dark;
 }
 
@@ -72,7 +74,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 h1 { font-family: var(--font-display); font-size: 30px; line-height: 1.15; font-weight: 600; letter-spacing: -.01em; }
 h2 { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
 h3 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
-a { color: var(--brand); }
+a { color: var(--link); }
 button, input, select { font: inherit; color: inherit; }
 .muted { color: var(--ink-3); }
 .small { font-size: 12px; }
@@ -87,7 +89,7 @@ button, input, select { font: inherit; color: inherit; }
 .login-brand .wordmark img { height: 64px; }
 .topbar .spacer { flex: 1; }
 .topbar select { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); color: #fff; border-radius: 8px; padding: 6px 10px; max-width: 280px; }
-.topbar select option { color: #141B2D; }
+.topbar select option { color: #221D17; }
 .user-chip { font-size: 12px; opacity: .85; text-align: right; line-height: 1.3; }
 .btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,.25); color: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 .btn-ghost:hover { background: rgba(255,255,255,.08); }
@@ -96,6 +98,7 @@ button, input, select { font: inherit; color: inherit; }
 .tabs-inner { max-width: 1240px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
 .tab { background: none; border: none; padding: 14px 12px; color: var(--ink-2); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.topbar { border-top: 3px solid var(--accent); }
 
 main { max-width: 1240px; margin: 0 auto; padding: 28px 24px 64px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
@@ -192,10 +195,11 @@ td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
 .comp-area .name { font-weight: 600; }
 
 /* ---------- forms / upload / login ---------- */
-.btn { background: var(--brand); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
-:root[data-theme="dark"] .btn { color: #0B1220; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn { color: #0B1220; } }
-.btn.secondary { background: var(--surface); color: var(--brand); border: 1px solid var(--line); }
+.btn { background: var(--accent-hi); color: var(--on-accent); border: 1px solid transparent; border-radius: 8px; padding: 10px 16px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+.btn:hover { filter: brightness(.96); }
+.btn.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
+.btn.dark { background: var(--brand-strong); color: #FAF7ED; }
+.btn.small { padding: 6px 12px; font-size: 13px; }
 .btn:disabled { opacity: .6; cursor: default; }
 label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; font-weight: 600; }
 input[type=text], input[type=email], input[type=password], input[type=month], select.field {
@@ -217,7 +221,7 @@ input[type=text], input[type=email], input[type=password], input[type=month], se
 .login-form { display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
 .login-form form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; }
 .demo-box { border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 12px; background: var(--surface); }
-.demo-box button { background: none; border: none; color: var(--brand); cursor: pointer; padding: 2px 0; text-decoration: underline; font-size: 12px; text-align: left; }
+.demo-box button { background: none; border: none; color: var(--link); cursor: pointer; padding: 2px 0; text-decoration: underline; font-size: 12px; text-align: left; }
 
 .status-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 760px) { .status-list { grid-template-columns: 1fr; } }
@@ -242,11 +246,83 @@ footer.page-foot { margin-top: 40px; padding-top: 16px; border-top: 1px solid va
 .qr svg { display: block; width: 100%; height: auto; }
 .secret { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px; letter-spacing: .04em; background: var(--surface-2); padding: 2px 6px; border-radius: 4px; word-break: break-all; color: var(--ink); }
 .onetime { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 0 0 16px; }
-.link-btn { background: none; border: none; padding: 2px 4px; color: var(--brand); cursor: pointer; font-size: 12px; text-decoration: underline; }
+.link-btn { background: none; border: none; padding: 2px 4px; color: var(--link); cursor: pointer; font-size: 12px; text-decoration: underline; }
 .link-btn.armed { color: var(--critical); font-weight: 600; }
 .nowrap { white-space: nowrap; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- click-through details ---------- */
+.clickable { cursor: pointer; }
+button.kpi { font: inherit; color: inherit; text-align: left; width: 100%; cursor: pointer; }
+button.kpi:hover, .hl.clickable:hover, .money .cell.clickable:hover, .ratio .clickable:hover, .comp-area.clickable:hover { border-color: var(--accent); }
+.kpi .more, .hl .more { font-size: 11px; color: var(--accent-ink); font-weight: 600; letter-spacing: .02em; }
+.kpi .label { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.kpi .more { font-size: 14px; line-height: 1; }
+button.kpi { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; }
+.kpi .value { white-space: nowrap; font-size: clamp(18px, 1.7vw, 22px); }
+.hl.clickable { cursor: pointer; text-align: left; width: 100%; font: inherit; color: inherit; }
+.money .cell.clickable, .ratio .clickable, .comp-area.clickable { cursor: pointer; text-align: left; font: inherit; color: inherit; border: 1px solid transparent; }
+.ratio .clickable { border-color: var(--line); background: none; }
+.comp-area.clickable { border-color: var(--line); background: none; }
+.hbar-row.clickable { background: none; border: none; padding: 2px 0; font: inherit; color: inherit; width: 100%; text-align: left; border-radius: 4px; }
+.hbar-row.clickable:hover .name { color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent); }
+.stack span.clickable:hover { filter: brightness(.92); }
+.stack-legend button { background: none; border: none; padding: 4px; margin: -4px; text-align: left; font: inherit; color: var(--ink-2); border-radius: 6px; }
+.stack-legend button:hover { background: var(--surface-2); }
+svg .clickable { cursor: pointer; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover td { background: var(--surface-2); }
+.row-link { background: none; border: none; padding: 0; font: inherit; color: var(--ink); text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.row-link:hover { text-decoration-color: var(--accent); }
+.tip-line { font-size: 12px; color: var(--ink-3); margin: -4px 0 12px; }
+
+.drawer-back { position: fixed; inset: 0; background: rgba(20, 17, 13, .45); z-index: 40; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100vw); background: var(--bg); z-index: 41; display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,.18); }
+.drawer-head { background: var(--brand-strong); color: #FAF7ED; padding: 18px 22px; display: flex; gap: 12px; align-items: flex-start; border-top: 3px solid var(--accent); }
+.drawer-head .eyebrow { color: var(--accent-hi); }
+.drawer-head h2 { color: #FAF7ED; font-size: 26px; }
+.drawer-head .sub { color: rgba(250,247,237,.75); font-size: 13px; margin-top: 4px; }
+.drawer-head .spacer { flex: 1; }
+.drawer-head button { flex: none; }
+.drawer-nav { display: flex; gap: 8px; padding: 10px 22px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; align-items: center; }
+.drawer-body { overflow-y: auto; padding: 18px 22px 40px; flex: 1; }
+.drawer-body .card + .card { margin-top: 14px; }
+.sumrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.sumrow > div { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.sumrow b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.calc td:first-child { color: var(--ink-2); }
+.calc tr.total td { font-weight: 700; border-top: 2px solid var(--ink); }
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-chips button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; color: var(--ink-2); }
+.filter-chips button[aria-pressed="true"] { background: var(--brand-strong); color: #FAF7ED; border-color: var(--brand-strong); }
+td.age-old { color: var(--critical); font-weight: 600; }
+.group-row td { background: var(--surface-2); font-weight: 600; }
+.search { width: 100%; max-width: 280px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+
+/* ---------- data editor (Assura team) ---------- */
+.editor-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.editor-bar > div { min-width: 160px; }
+.grid-edit { border-collapse: separate; border-spacing: 0; }
+.grid-edit th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.grid-edit td { padding: 2px; border-bottom: 1px solid var(--line); }
+.grid-edit td.rn { color: var(--ink-3); font-size: 11px; padding: 6px; text-align: right; }
+.grid-edit input, .grid-edit select { width: 100%; min-width: 90px; border: 1px solid transparent; background: transparent; padding: 6px; border-radius: 4px; font-size: 13px; }
+.grid-edit input:hover, .grid-edit select:hover { border-color: var(--line); }
+.grid-edit input:focus, .grid-edit select:focus { border-color: var(--accent); background: var(--surface); outline: none; }
+.grid-edit input.num { text-align: right; }
+.grid-edit tr.changed td { background: var(--accent-soft); }
+.grid-edit tr.deleted td { opacity: .45; text-decoration: line-through; }
+.edit-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.form-grid textarea { width: 100%; min-height: 80px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: inherit; color: inherit; }
+.badge-staff { display: inline-block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; background: var(--accent-hi); color: var(--on-accent); padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+input[type=number], input[type=date] { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+@media (max-width: 640px) { .drawer-head, .drawer-body, .drawer-nav { padding-left: 16px; padding-right: 16px; } }
+.money .cell.clickable { display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; }
+.money .cell.total.clickable { color: #FAF7ED; }
+.ratio .clickable { display: block; }
+.grid-edit input[type=text]:not(.num) { min-width: 150px; }
 
 </style>
 <div id="app"></div>
@@ -846,7 +922,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
 
   function buildHighlights(months, entries, detail) {
     const H = [];
-    const add = (severity, area, title, detail, action) => H.push({ severity, area, title, detail, action });
+    // drill: what opens when the highlight is clicked, e.g. { kind: 'receivables', bucket: '90+' }.
+    const add = (severity, area, title, detail, action, drill) => H.push({ severity, area, title, detail, action, drill: drill || null });
     const n = months.length;
     const cur = months[n - 1];
     const prev = months[n - 2];
@@ -856,17 +933,17 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     if (prev && prev.revenue) {
       const ch = cur.revenue / prev.revenue - 1;
       if (ch <= -0.1) add('watch', 'Revenue', `Revenue down ${pctTxt(-ch, 0)} on last month`,
-        `${inr(cur.revenue)} against ${inr(prev.revenue)} last month.`, 'Confirm whether this is seasonal, a lost account or delayed billing.');
+        `${inr(cur.revenue)} against ${inr(prev.revenue)} last month.`, 'Confirm whether this is seasonal, a lost account or delayed billing.', { kind: 'revenue' });
       else if (ch >= 0.1) add('positive', 'Revenue', `Revenue up ${pctTxt(ch, 0)} on last month`,
-        `${inr(cur.revenue)} against ${inr(prev.revenue)} last month.`, 'Check that receivables and stock are keeping pace with the growth.');
+        `${inr(cur.revenue)} against ${inr(prev.revenue)} last month.`, 'Check that receivables and stock are keeping pace with the growth.', { kind: 'revenue' });
     }
     if (n >= 4) {
       const last = months.slice(-4).map((m) => m.revenue);
       if (last[1] < last[0] && last[2] < last[1] && last[3] < last[2]) add('critical', 'Revenue', 'Revenue has fallen three months in a row',
-        `From ${inr(last[0])} to ${inr(last[3])} over the last three months.`, 'Review pipeline, pricing and top-customer volumes at the management review.');
+        `From ${inr(last[0])} to ${inr(last[3])} over the last three months.`, 'Review pipeline, pricing and top-customer volumes at the management review.', { kind: 'revenue' });
       const high = Math.max(...months.slice(-12).map((m) => m.revenue));
       if (n >= 6 && cur.revenue === high) add('positive', 'Revenue', 'Highest monthly revenue in the period on record',
-        `${inr(cur.revenue)} is the best month of the last ${Math.min(n, 12)}.`, null);
+        `${inr(cur.revenue)} is the best month of the last ${Math.min(n, 12)}.`, null, { kind: 'revenue' });
     }
 
     // Margin
@@ -874,9 +951,9 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     if (cur.gmPct != null && gmTrail.length >= 2) {
       const diff = cur.gmPct - mean(gmTrail);
       if (diff <= -0.02) add(diff <= -0.04 ? 'critical' : 'watch', 'Margin', `Gross margin down ${(Math.abs(diff) * 100).toFixed(1)} points`,
-        `${pctTxt(cur.gmPct)} this month against a ${gmTrail.length}-month average of ${pctTxt(mean(gmTrail))}.`, 'Look at purchase rates, discounts and product mix.');
+        `${pctTxt(cur.gmPct)} this month against a ${gmTrail.length}-month average of ${pctTxt(mean(gmTrail))}.`, 'Look at purchase rates, discounts and product mix.', { kind: 'gross' });
       else if (diff >= 0.02) add('positive', 'Margin', `Gross margin up ${(diff * 100).toFixed(1)} points`,
-        `${pctTxt(cur.gmPct)} this month against a ${gmTrail.length}-month average of ${pctTxt(mean(gmTrail))}.`, null);
+        `${pctTxt(cur.gmPct)} this month against a ${gmTrail.length}-month average of ${pctTxt(mean(gmTrail))}.`, null, { kind: 'gross' });
     }
 
     // Purchase price movement by item (weighted unit rate)
@@ -896,12 +973,12 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         const b = before.get(item);
         if (!b || !b.q) return;
         const ch = (r.v / r.q) / (b.v / b.q) - 1;
-        if (ch >= 0.08 && r.v > cur.purchases * 0.03) rises.push({ item, ch, value: r.v });
+        if (ch >= 0.08 && r.v > cur.purchases * 0.03) rises.push({ item, ch, value: r.v, now: r.v / r.q, before: b.v / b.q });
       });
       rises.sort((a, b) => b.value - a.value);
       if (rises.length) add('watch', 'Purchases', `Purchase rates up on ${rises.length} key item${rises.length > 1 ? 's' : ''}`,
         rises.slice(0, 3).map((r) => `${r.item} +${pctTxt(r.ch, 0)}`).join(', ') + ' against the prior three-month average rate.',
-        'Check whether selling prices have moved with input costs.');
+        'Check whether selling prices have moved with input costs.', { kind: 'purchase-rates', rows: rises.map((r) => ({ item: r.item, before: r.before, now: r.now, change: r.ch, value: r.value })) });
     }
 
     // Receivables
@@ -911,14 +988,14 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     if (over90 != null && over90 > 0.15) {
       const names = detail.topOverdue.slice(0, 3).map((t) => `${t.name} (${inr(t.value)})`).join(', ');
       add(over90 > 0.25 ? 'critical' : 'watch', 'Receivables', `${inr(ra['90+'])} of receivables is over 90 days old`,
-        `${pctTxt(over90, 0)} of total receivables. Largest: ${names}.`, 'Agree a collection plan for each account and consider credit holds.');
+        `${pctTxt(over90, 0)} of total receivables. Largest: ${names}.`, 'Agree a collection plan for each account and consider credit holds.', { kind: 'receivables', bucket: '90+' });
     }
     const dsoSeries = months.slice(-4).map((m) => m.dso);
     if (dsoSeries.length === 4 && dsoSeries.every((x, i) => i === 0 || x > dsoSeries[i - 1]))
       add('watch', 'Receivables', 'Customers are taking longer to pay',
-        `Collection period has stretched for three months running, from ${dsoSeries[0]} to ${dsoSeries[3]} days.`, 'Review credit terms on the largest accounts.');
+        `Collection period has stretched for three months running, from ${dsoSeries[0]} to ${dsoSeries[3]} days.`, 'Review credit terms on the largest accounts.', { kind: 'receivables' });
     else if (prev && prev.dso && cur.dso && cur.dso <= prev.dso - 7)
-      add('positive', 'Receivables', `Collections improved by ${prev.dso - cur.dso} days`, `Collection period is now ${cur.dso} days.`, null);
+      add('positive', 'Receivables', `Collections improved by ${prev.dso - cur.dso} days`, `Collection period is now ${cur.dso} days.`, null, { kind: 'receivables' });
 
     // Customers: concentration, lost and new accounts
     if (n >= 1) {
@@ -928,7 +1005,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       const top = topN(rev3, 1)[0];
       if (top && total3 && top.value / total3 > 0.25)
         add('watch', 'Concentration', `${top.name} is ${pctTxt(top.value / total3, 0)} of revenue`,
-          `Based on the last ${window.length} month(s). Losing or delaying this account would move results materially.`, 'Track this account closely and widen the customer base.');
+          `Based on the last ${window.length} month(s). Losing or delaying this account would move results materially.`, 'Track this account closely and widen the customer base.', { kind: 'customer', name: top.name });
     }
     if (n >= 4) {
       const custSet = (e) => new Set((e.data.sales || []).map((s) => s.customer));
@@ -942,11 +1019,11 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         const atRisk = sum(ranked, (r) => r.v);
         add(atRisk > cur.revenue * 0.05 ? 'watch' : 'info', 'Customers', `${lost.length} regular customer${lost.length > 1 ? 's' : ''} did not buy this month`,
           `${ranked.slice(0, 3).map((r) => r.c).join(', ')}${lost.length > 3 ? ' and others' : ''}. Together they averaged ${inr(atRisk)} a month.`,
-          'Check with sales whether these accounts are lost or delayed.');
+          'Check with sales whether these accounts are lost or delayed.', { kind: 'lost-customers', rows: ranked.map((r) => ({ customer: r.c, average: r.v })) });
       }
       const ever = new Set([].concat(...entries.slice(0, n - 1).map((e) => [...custSet(e)])));
       const fresh = [...nowSet].filter((c) => !ever.has(c));
-      if (fresh.length >= 2) add('positive', 'Customers', `${fresh.length} new customers billed this month`, fresh.slice(0, 4).join(', ') + (fresh.length > 4 ? ' and others.' : '.'), null);
+      if (fresh.length >= 2) add('positive', 'Customers', `${fresh.length} new customers billed this month`, fresh.slice(0, 4).join(', ') + (fresh.length > 4 ? ' and others.' : '.'), null, { kind: 'new-customers', names: fresh });
     }
 
     // Billing pattern: month-end loading
@@ -954,7 +1031,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     if (cur.monthEndShare != null && cur.monthEndShare > 0.4 && (meTrail == null || cur.monthEndShare > meTrail + 0.1))
       add('watch', 'Billing pattern', `${pctTxt(cur.monthEndShare, 0)} of sales billed in the last five days`,
         meTrail != null ? `Usually ${pctTxt(meTrail, 0)}. Heavy month-end billing can signal pushed sales or cut-off issues.` : 'Heavy month-end billing can signal pushed sales or cut-off issues.',
-        'Ask the accountant to confirm dispatch dates for late invoices.');
+        'Ask the accountant to confirm dispatch dates for late invoices.', { kind: 'month-end' });
 
     // Inventory
     const ia = detail.invAgeing;
@@ -962,11 +1039,11 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     const slow = (ia['181-365'] || 0) + (ia['365+'] || 0);
     if (invTotal && slow / invTotal > 0.15)
       add(slow / invTotal > 0.3 ? 'critical' : 'watch', 'Inventory', `${inr(slow)} of cash is locked in stock not moved for 6+ months`,
-        `${pctTxt(slow / invTotal, 0)} of closing stock. Largest: ${detail.slowStock.slice(0, 3).map((s) => s.name).join(', ')}.`, 'Decide on liquidation, return or write-down for slow items.');
+        `${pctTxt(slow / invTotal, 0)} of closing stock. Largest: ${detail.slowStock.slice(0, 3).map((s) => s.name).join(', ')}.`, 'Decide on liquidation, return or write-down for slow items.', { kind: 'inventory', bucket: '181+' });
     const dioS = months.slice(-4).map((m) => m.dio).filter((x) => x != null);
     if (dioS.length === 4 && dioS[3] > dioS[0] * 1.2)
       add('watch', 'Inventory', 'Stock is building up faster than sales',
-        `Days of inventory rose from ${dioS[0]} to ${dioS[3]} over three months.`, 'Align purchase planning with the sales run-rate.');
+        `Days of inventory rose from ${dioS[0]} to ${dioS[3]} over three months.`, 'Align purchase planning with the sales run-rate.', { kind: 'inventory' });
 
     // Expenses: anomaly against each head's own history
     if (n >= 4) {
@@ -980,29 +1057,29 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       });
       flagged.sort((a, b) => (b.amount - b.avg) - (a.amount - a.avg));
       if (flagged.length) add('watch', 'Expenses', `Unusual spend on ${flagged.map((f) => f.head).slice(0, 3).join(', ')}`,
-        flagged.slice(0, 3).map((f) => `${f.head} ${inr(f.amount)} vs usual ${inr(f.avg)}`).join('; ') + '.', 'Confirm whether these are one-offs or a new run-rate.');
+        flagged.slice(0, 3).map((f) => `${f.head} ${inr(f.amount)} vs usual ${inr(f.avg)}`).join('; ') + '.', 'Confirm whether these are one-offs or a new run-rate.', { kind: 'expense-spikes', rows: flagged });
       const r3 = sum(months.slice(-3), (m) => m.revenue); const r3p = sum(months.slice(-6, -3), (m) => m.revenue);
       const e3 = sum(months.slice(-3), (m) => m.opex); const e3p = sum(months.slice(-6, -3), (m) => m.opex);
       if (n >= 6 && r3p && e3p && e3 / e3p - 1 > (r3 / r3p - 1) + 0.08)
         add('watch', 'Expenses', 'Overheads are growing faster than revenue',
-          `Last quarter: expenses ${pctTxt(e3 / e3p - 1, 0)}, revenue ${pctTxt(r3 / r3p - 1, 0)} against the quarter before.`, 'Review discretionary spend and headcount additions.');
+          `Last quarter: expenses ${pctTxt(e3 / e3p - 1, 0)}, revenue ${pctTxt(r3 / r3p - 1, 0)} against the quarter before.`, 'Review discretionary spend and headcount additions.', { kind: 'expenses' });
     }
 
     // Cash and borrowing
     if (cur.odLimit && cur.odUsed / cur.odLimit > 0.85)
       add(cur.odUsed / cur.odLimit > 0.95 ? 'critical' : 'watch', 'Cash', `Working capital limits ${pctTxt(cur.odUsed / cur.odLimit, 0)} utilised`,
-        `${inr(cur.odUsed)} drawn of ${inr(cur.odLimit)} sanctioned.`, 'Plan collections and payments for the coming weeks; consider a limit review with the bank.');
+        `${inr(cur.odUsed)} drawn of ${inr(cur.odLimit)} sanctioned.`, 'Plan collections and payments for the coming weeks; consider a limit review with the bank.', { kind: 'cash' });
     if (n >= 4) {
       const nc = months.slice(-4).map((m) => m.netCash);
       if (nc[1] < nc[0] && nc[2] < nc[1] && nc[3] < nc[2])
-        add('watch', 'Cash', 'Net cash position has declined three months in a row', `From ${inr(nc[0])} to ${inr(nc[3])}.`, 'Look at where cash is going: receivables, stock or overheads.');
+        add('watch', 'Cash', 'Net cash position has declined three months in a row', `From ${inr(nc[0])} to ${inr(nc[3])}.`, 'Look at where cash is going: receivables, stock or overheads.', { kind: 'cash' });
     }
     if (prev) {
       const wcCh = cur.workingCapital - prev.workingCapital;
       if (prev.workingCapital && Math.abs(wcCh) / prev.workingCapital > 0.1)
         add(wcCh > 0 && cur.revenue <= prev.revenue ? 'watch' : 'info', 'Working capital',
           `${inr(Math.abs(wcCh))} ${wcCh > 0 ? 'more' : 'less'} cash tied up in working capital`,
-          `Receivables plus stock less payables is now ${inr(cur.workingCapital)}.`, wcCh > 0 ? 'See "Where is the money" for the breakdown.' : null);
+          `Receivables plus stock less payables is now ${inr(cur.workingCapital)}.`, wcCh > 0 ? 'See "Where is the money" for the breakdown.' : null, { kind: 'working-capital' });
     }
 
     // Payables to possible MSME suppliers
@@ -1011,20 +1088,20 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     if (payOld > 0 && cur.payables && payOld / cur.payables > 0.2)
       add('watch', 'Payables', `${inr(payOld)} owed to suppliers for over 60 days`,
         'Delayed payments strain supply and, for micro and small enterprise suppliers, payments beyond 45 days can affect tax deductibility (Section 43B(h)).',
-        'Confirm the MSME status of these suppliers and prioritise them.');
+        'Confirm the MSME status of these suppliers and prioritise them.', { kind: 'payables', bucket: '61+' });
 
     // Compliance
     const overdue = detail.compliance.filter((c) => c.state === 'overdue');
     const soon = detail.compliance.filter((c) => c.state === 'due-soon');
     const late = detail.compliance.filter((c) => c.late);
     if (overdue.length) add('critical', 'Compliance', `${overdue.length} compliance item${overdue.length > 1 ? 's' : ''} overdue`,
-      overdue.map((c) => `${c.item} (due ${dmy(c.due_date)})`).join(', ') + '.', 'File immediately to limit interest and late fees.');
+      overdue.map((c) => `${c.item} (due ${dmy(c.due_date)})`).join(', ') + '.', 'File immediately to limit interest and late fees.', { kind: 'compliance', state: 'overdue' });
     if (soon.length) add('info', 'Compliance', `${soon.length} item${soon.length > 1 ? 's' : ''} due in the next 15 days`,
-      soon.map((c) => `${c.item} by ${dmy(c.due_date)}`).join(', ') + '.', null);
+      soon.map((c) => `${c.item} by ${dmy(c.due_date)}`).join(', ') + '.', null, { kind: 'compliance', state: 'due-soon' });
     if (late.length) add('watch', 'Compliance', `${late.length} item${late.length > 1 ? 's were' : ' was'} filed after the due date`,
-      late.map((c) => c.item).join(', ') + '.', 'Check for interest or fees and fix the cause in the monthly calendar.');
+      late.map((c) => c.item).join(', ') + '.', 'Check for interest or fees and fix the cause in the monthly calendar.', { kind: 'compliance', state: 'late' });
     if (!overdue.length && !late.length && detail.compliance.length)
-      add('positive', 'Compliance', 'All compliance items this month are on time', `${detail.compliance.filter((c) => c.state === 'done').length} items filed or paid.`, null);
+      add('positive', 'Compliance', 'All compliance items this month are on time', `${detail.compliance.filter((c) => c.state === 'done').length} items filed or paid.`, null, { kind: 'compliance' });
 
     H.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
     return H;
@@ -1068,7 +1145,58 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     return { months, latest, highlights, trends: trends(months), generatedAt: new Date().toISOString() };
   }
 
-  return { analyse, inr, pctTxt };
+  // Shared with the drill-down views so their ageing matches the dashboard exactly.
+  return { analyse, inr, pctTxt, dmy, monthEnd, daysBetween, BUCKETS, INV_BUCKETS };
+});
+
+</script>
+<script>
+/*
+ * Assura Elevate: edits made in the portal by the Assura team.
+ * An edited section is checked with exactly the same rules as an uploaded
+ * workbook, then saved as a new version of that month. Browser and Node.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./parse'));
+  else root.AEEdit = factory(root.AEParse);
+})(typeof self !== 'undefined' ? self : this, function (P) {
+  'use strict';
+
+  const MAX_ROWS = 20000;
+
+  /**
+   * data: the month's current dataset. section: a schema sheet key.
+   * values: for a table section, an array of { columnKey: value }; for the company form, { fieldKey: value }.
+   * Returns { data, errors, warnings } where data is a new dataset (the input is not changed).
+   */
+  function applyEdit(data, section, values, schema) {
+    const def = schema.sheets.find((s) => s.key === section);
+    if (!def) return { data, errors: ['Unknown section.'], warnings: [] };
+    let sheet;
+    if (def.layout === 'form') {
+      if (!values || typeof values !== 'object' || Array.isArray(values)) return { data, errors: ['No details received.'], warnings: [] };
+      // Fields not sent keep their current value.
+      const fixed = Object.assign({}, data.company, values, { company_code: data.company && data.company.company_code, period: data.company && data.company.period });
+      sheet = def.fields.map((f) => [f.key, fixed[f.key] == null ? null : fixed[f.key]]);
+    } else {
+      if (!Array.isArray(values)) return { data, errors: ['No rows received.'], warnings: [] };
+      if (values.length > MAX_ROWS) return { data, errors: [`At most ${MAX_ROWS} rows can be saved at once.`], warnings: [] };
+      sheet = [def.columns.map((c) => c.key)].concat(values.map((r) => def.columns.map((c) => (r && r[c.key] != null ? r[c.key] : null))));
+    }
+    const parsed = P.parseWorkbook({ [def.name]: sheet }, schema, { only: [section] });
+    // The parser counts the header as row 1; the editor counts the first data row as row 1.
+    const errors = parsed.errors.map((e) => e.replace(/ row (\d+):/, (m, n) => ` row ${Number(n) - 1}:`));
+    const out = Object.assign({}, data);
+    if (def.layout === 'form') {
+      // The company code and month identify the dataset and cannot be changed by an edit.
+      out.company = Object.assign({}, parsed.data.company, {
+        company_name: parsed.data.company.company_name || (data.company && data.company.company_name),
+      });
+    } else out[section] = parsed.data[section];
+    return { data: out, errors, warnings: parsed.warnings };
+  }
+
+  return { applyEdit };
 });
 
 </script>
@@ -1163,6 +1291,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       hit.addEventListener('mousemove', (e) => showTip(e, `<b>${esc(cfg.fullLabels ? cfg.fullLabels[i] : lab)}</b><br>` +
         cfg.series.map((s) => `${esc(s.name)}: ${s.values[i] == null ? '–' : esc(cfg.format(s.values[i]))}`).join('<br>')));
       hit.addEventListener('mouseleave', hideTip);
+      if (cfg.onClick) { hit.classList.add('clickable'); hit.addEventListener('click', () => { hideTip(); cfg.onClick(i); }); }
     });
     container.appendChild(svg);
   }
@@ -1199,16 +1328,26 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       showTip(e, `<b>${esc(cfg.fullLabels ? cfg.fullLabels[i] : cfg.labels[i])}</b><br>` + cfg.series.map((s) => `${esc(s.name)}: ${s.values[i] == null ? '–' : esc(cfg.format(s.values[i]))}`).join('<br>'));
     });
     hit.addEventListener('mouseleave', () => { cross.setAttribute('visibility', 'hidden'); hideTip(); });
+    if (cfg.onClick) {
+      hit.classList.add('clickable');
+      hit.addEventListener('click', (e) => {
+        const r = svg.getBoundingClientRect();
+        const px = ((e.clientX - r.left) / r.width) * W;
+        hideTip(); cfg.onClick(Math.max(0, Math.min(n - 1, Math.round(((px - pad.l) / iw) * (n - 1)))));
+      });
+    }
     container.appendChild(svg);
   }
 
   // Horizontal bars as HTML (readable names at any width). items: [{ name, value, note }]
+  // opts.onClick(item) makes each row a button that opens its breakdown.
   function hbars(container, items, format, opts) {
     opts = opts || {};
     const max = Math.max(...items.map((i) => i.value), 1);
     const wrap = document.createElement('div'); wrap.className = 'hbar';
     items.forEach((it) => {
-      const row = document.createElement('div'); row.className = 'hbar-row';
+      const row = document.createElement(opts.onClick ? 'button' : 'div'); row.className = 'hbar-row';
+      if (opts.onClick) { row.type = 'button'; row.classList.add('clickable'); row.addEventListener('click', () => { hideTip(); opts.onClick(it); }); }
       row.innerHTML = `<span class="name" title="${esc(it.name)}">${esc(it.name)}</span>
         <div class="hbar-track"><div class="hbar-fill" style="width:${(it.value / max) * 100}%;${it.color ? 'background:' + it.color : ''}"></div></div>
         <span class="num small">${esc(format(it.value))}${it.note ? ` <span class="muted">${esc(it.note)}</span>` : ''}</span>`;
@@ -1220,7 +1359,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     container.appendChild(wrap);
   }
 
-  // Single stacked bar with a value legend underneath. parts: [{ label, value, color }]
+  // Single stacked bar with a value legend underneath. parts: [{ label, value, color, onClick? }]
   function stack(container, parts, format) {
     const total = parts.reduce((a, p) => a + p.value, 0) || 1;
     const bar = document.createElement('div'); bar.className = 'stack';
@@ -1230,10 +1369,16 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       s.style.width = (p.value / total) * 100 + '%'; s.style.background = p.color;
       s.addEventListener('mousemove', (e) => showTip(e, `<b>${esc(p.label)}</b><br>${esc(format(p.value))} · ${((p.value / total) * 100).toFixed(0)}%`));
       s.addEventListener('mouseleave', hideTip);
+      if (p.onClick) { s.classList.add('clickable'); s.addEventListener('click', () => { hideTip(); p.onClick(); }); }
       bar.appendChild(s);
     });
     const leg = document.createElement('div'); leg.className = 'stack-legend';
-    leg.innerHTML = parts.map((p) => `<div><i style="background:${p.color}"></i>${esc(p.label)}<b>${esc(format(p.value))}</b><span class="muted">${((p.value / total) * 100).toFixed(0)}%</span></div>`).join('');
+    parts.forEach((p) => {
+      const row = document.createElement(p.onClick ? 'button' : 'div');
+      if (p.onClick) { row.type = 'button'; row.className = 'clickable'; row.addEventListener('click', p.onClick); }
+      row.innerHTML = `<i style="background:${p.color}"></i>${esc(p.label)}<b>${esc(format(p.value))}</b><span class="muted">${((p.value / total) * 100).toFixed(0)}%</span>`;
+      leg.appendChild(row);
+    });
     container.appendChild(bar); container.appendChild(leg);
   }
 
@@ -1243,23 +1388,603 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
 </script>
 <script>
 /*
+ * Assura Elevate: click-through details.
+ * Every figure on the dashboard opens a panel with the rows behind it: the
+ * invoices behind revenue, the parties behind receivables over 90 days, the
+ * items behind slow stock, and so on. Rows come from the month's own data,
+ * so the panel always adds up to the figure that was clicked.
+ */
+(function () {
+  'use strict';
+
+  window.AEDrill = function create(ctx) {
+    const { esc, inr, pctTxt, mLong, dLong } = ctx;
+    const A = window.AEAnalysis;
+    const sum = (arr, f) => arr.reduce((s, x) => s + (f(x) || 0), 0);
+    const days = (iso, ref) => (iso ? A.daysBetween(iso, ref) : null);
+    const n0 = (v) => (v == null ? '–' : Math.round(v).toLocaleString('en-IN'));
+    const rate = (v) => (v == null ? '–' : `₹${(Math.round(v * 100) / 100).toLocaleString('en-IN')}`);
+    const groupBy = (rows, key) => { const m = new Map(); rows.forEach((r) => { const k = key(r) || '(not given)'; if (!m.has(k)) m.set(k, []); m.get(k).push(r); }); return m; };
+
+    // Ageing buckets, matching the dashboard (days from the document date to month end).
+    const RECV_BUCKETS = { '0-30': [0, 30], '31-60': [31, 60], '61-90': [61, 90], '90+': [91, Infinity], '61+': [61, Infinity] };
+    const INV_BUCKETS = { '0-90': [0, 90], '91-180': [91, 180], '181-365': [181, 365], '365+': [366, Infinity], '181+': [181, Infinity] };
+    const inBucket = (d, b, table) => { if (!b) return true; const [lo, hi] = table[b]; return d != null && d >= lo && d <= hi; };
+
+    let stack = []; // breadcrumb of opened views, newest last
+    let root = null;
+    let links = []; // specs for clickable elements in the current view
+    const link = (spec) => { links.push(spec); return links.length - 1; };
+    const L = (spec, html) => `<button type="button" class="row-link" data-d="${link(spec)}">${html}</button>`;
+
+    function table(headers, rows, opts) {
+      opts = opts || {};
+      if (!rows.length) return `<p class="muted">${esc(opts.empty || 'Nothing to show.')}</p>`;
+      return `<div class="table-wrap"><table${opts.cls ? ` class="${opts.cls}"` : ''}><thead><tr>${headers.map((h) => `<th class="${h.num ? 'r' : ''}">${esc(h.label)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map((r) => `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.spec ? ` data-d="${link(r.spec)}"` : ''}>${r.cells.map((c, i) => `<td class="${headers[i] && headers[i].num ? 'r' : ''}${r.tdCls && r.tdCls[i] ? ' ' + r.tdCls[i] : ''}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    }
+    const sumrow = (items) => `<div class="sumrow">${items.map(([k, v, note]) => `<div><span class="muted small">${esc(k)}</span><b>${v}</b>${note ? `<span class="muted small">${note}</span>` : ''}</div>`).join('')}</div>`;
+    const card = (title, inner, sub) => `<div class="card"><div class="card-head"><h3>${esc(title)}</h3>${sub ? `<span class="muted small">${sub}</span>` : ''}</div>${inner}</div>`;
+    const chips = (name, options, current) => `<div class="filter-chips" role="group" aria-label="${esc(name)}">${options.map(([v, l]) => `<button type="button" data-filter="${esc(v)}" aria-pressed="${String(v) === String(current || '')}">${esc(l)}</button>`).join('')}</div>`;
+
+    // ---------- views: each returns { eyebrow, title, sub, html, csv?, monthly? } ----------
+    const views = {
+      async revenue(s) {
+        const d = await ctx.month(s.period); const sales = d.sales || [];
+        const rev = sum(sales, (x) => x.taxable_value);
+        const invoices = new Set(sales.map((x) => x.invoice_no));
+        const byCust = [...groupBy(sales, (x) => x.customer)].map(([k, r]) => ({ k, v: sum(r, (x) => x.taxable_value), n: new Set(r.map((x) => x.invoice_no)).size })).sort((a, b) => b.v - a.v);
+        const byCat = [...groupBy(sales, (x) => x.category || x.product)].map(([k, r]) => ({ k, v: sum(r, (x) => x.taxable_value), q: sum(r, (x) => x.qty) })).sort((a, b) => b.v - a.v);
+        const byType = [...groupBy(sales, (x) => x.customer_type)].map(([k, r]) => ({ k, v: sum(r, (x) => x.taxable_value) })).sort((a, b) => b.v - a.v);
+        const list = sales.slice().sort((a, b) => a.date.localeCompare(b.date) || String(a.invoice_no).localeCompare(String(b.invoice_no)));
+        return {
+          eyebrow: 'Revenue', title: inr(rev), sub: `${mLong(s.period)} · taxable value of sales`, monthly: true,
+          html: sumrow([['Invoices', n0(invoices.size)], ['Customers billed', n0(byCust.length)], ['Average invoice', inr(invoices.size ? rev / invoices.size : null)], ['Largest customer', byCust[0] ? pctTxt(byCust[0].v / rev, 0) : '–', byCust[0] ? esc(byCust[0].k) : '']])
+            + card('By customer', table([{ label: 'Customer' }, { label: 'Invoices', num: true }, { label: 'Revenue', num: true }, { label: 'Share', num: true }],
+              byCust.map((c) => ({ spec: { kind: 'customer', name: c.k, period: s.period }, cls: 'clickable', cells: [L({ kind: 'customer', name: c.k, period: s.period }, esc(c.k)), n0(c.n), inr(c.v), pctTxt(c.v / rev, 1)] }))), 'Click a customer for their invoices and dues')
+            + card('By product category', table([{ label: 'Category' }, { label: 'Quantity', num: true }, { label: 'Revenue', num: true }, { label: 'Share', num: true }],
+              byCat.map((c) => ({ spec: { kind: 'category', name: c.k, period: s.period }, cls: 'clickable', cells: [L({ kind: 'category', name: c.k, period: s.period }, esc(c.k)), n0(c.q), inr(c.v), pctTxt(c.v / rev, 1)] }))))
+            + card('By customer type', table([{ label: 'Type' }, { label: 'Revenue', num: true }, { label: 'Share', num: true }], byType.map((c) => ({ cells: [esc(c.k), inr(c.v), pctTxt(c.v / rev, 1)] }))))
+            + card(`All invoice lines (${list.length})`, invoiceTable(list, s.period)),
+          csv: { name: `sales-${s.period}`, headers: ['Date', 'Invoice', 'Customer', 'Type', 'Product', 'Category', 'Region', 'Qty', 'Taxable value', 'GST', 'Total'], rows: list.map((x) => [x.date, x.invoice_no, x.customer, x.customer_type, x.product, x.category, x.region, x.qty, x.taxable_value, x.gst, x.total]) },
+        };
+      },
+
+      async customer(s) {
+        const d = await ctx.month(s.period); const ref = A.monthEnd(s.period);
+        const sales = (d.sales || []).filter((x) => x.customer === s.name);
+        const rev = sum(d.sales || [], (x) => x.taxable_value);
+        const billed = sum(sales, (x) => x.taxable_value);
+        const dues = (d.receivables || []).filter((x) => x.customer === s.name).map((x) => Object.assign({ age: days(x.invoice_date, ref) }, x)).sort((a, b) => (b.age || 0) - (a.age || 0));
+        const due = sum(dues, (x) => x.outstanding); const old = sum(dues.filter((x) => x.age > 90), (x) => x.outstanding);
+        return {
+          eyebrow: 'Customer', title: s.name, sub: mLong(s.period), monthly: true,
+          html: sumrow([['Billed this month', inr(billed), rev ? pctTxt(billed / rev, 1) + ' of revenue' : ''], ['Invoices', n0(new Set(sales.map((x) => x.invoice_no)).size)], ['Outstanding', inr(due)], ['Over 90 days', inr(old)]])
+            + card('Outstanding invoices', receivableTable(dues, false), 'Oldest first')
+            + card('Invoices this month', invoiceTable(sales, s.period, true)),
+          csv: { name: `customer-${s.period}`, headers: ['Invoice', 'Invoice date', 'Due date', 'Days', 'Outstanding'], rows: dues.map((x) => [x.invoice_no, x.invoice_date, x.due_date, x.age, x.outstanding]) },
+        };
+      },
+
+      async category(s) { return salesSlice(s, 'category', 'Product category', (x) => (x.category || x.product) === s.name); },
+      async region(s) { return salesSlice(s, 'region', 'Region', (x) => x.region === s.name); },
+      async 'new-customers'(s) { return salesSlice(s, 'new', 'New customers', (x) => s.names.includes(x.customer), `${s.names.length} customers billed for the first time`); },
+      async 'month-end'(s) {
+        const ref = A.monthEnd(s.period);
+        return salesSlice(s, 'month-end', 'Month-end billing', (x) => ref.getUTCDate() - Number(x.date.slice(8, 10)) < 5, 'Invoices dated in the last five days of the month');
+      },
+
+      async gross(s) {
+        const m = ctx.metrics(s.period); const d = await ctx.month(s.period);
+        if (!m || m.cogs == null) return { eyebrow: 'Gross profit', title: 'Not available', sub: mLong(s.period), monthly: true, html: '<p class="muted">Gross profit needs opening and closing stock. Add the Inventory sheet (or the opening stock on the Company sheet) for this month.</p>' };
+        const opening = m.cogs + (m.inventory || 0) - m.purchases;
+        return {
+          eyebrow: 'Gross profit', title: `${inr(m.grossProfit)} · ${pctTxt(m.gmPct)}`, sub: `${mLong(s.period)} · how it is worked out`, monthly: true,
+          html: card('Calculation', `<table class="calc"><tbody>
+              <tr><td>Revenue</td><td class="r">${L({ kind: 'revenue', period: s.period }, inr(m.revenue))}</td></tr>
+              <tr><td>Opening stock</td><td class="r">${inr(opening)}</td></tr>
+              <tr><td>+ Purchases</td><td class="r">${L({ kind: 'purchases', period: s.period }, inr(m.purchases))}</td></tr>
+              <tr><td>− Closing stock</td><td class="r">${L({ kind: 'inventory', period: s.period }, inr(m.inventory))}</td></tr>
+              <tr><td>= Cost of goods sold</td><td class="r">${inr(m.cogs)}</td></tr>
+              <tr class="total"><td>Gross profit (revenue − cost of goods sold)</td><td class="r">${inr(m.grossProfit)}</td></tr>
+              <tr><td>Gross margin</td><td class="r">${pctTxt(m.gmPct)}</td></tr></tbody></table>`)
+            + card('Purchases by item', purchaseItems(d.purchases || [], s.period)),
+        };
+      },
+
+      async net(s) {
+        const m = ctx.metrics(s.period); const d = await ctx.month(s.period);
+        const groups = [...groupBy(d.expenses || [], (x) => x.group)].map(([k, r]) => ({ k, v: sum(r, (x) => x.amount) })).sort((a, b) => b.v - a.v);
+        return {
+          eyebrow: 'Net profit (estimate)', title: inr(m && m.netProfit), sub: `${mLong(s.period)} · management estimate, unaudited`, monthly: true,
+          html: card('Calculation', `<table class="calc"><tbody>
+              <tr><td>Gross profit</td><td class="r">${L({ kind: 'gross', period: s.period }, inr(m && m.grossProfit))}</td></tr>
+              <tr><td>− Operating expenses</td><td class="r">${L({ kind: 'expenses', period: s.period }, inr(m && m.opex))}</td></tr>
+              <tr><td>+ Other income</td><td class="r">${inr(m && m.otherIncome)}</td></tr>
+              <tr class="total"><td>Net profit (estimate)</td><td class="r">${inr(m && m.netProfit)}</td></tr>
+              <tr><td>Net margin</td><td class="r">${pctTxt(m && m.npPct)}</td></tr></tbody></table>`)
+            + card('Expenses by group', table([{ label: 'Group' }, { label: 'Amount', num: true }, { label: '% of revenue', num: true }],
+              groups.map((g) => ({ spec: { kind: 'expenses', period: s.period, group: g.k }, cls: 'clickable', cells: [L({ kind: 'expenses', period: s.period, group: g.k }, esc(g.k)), inr(g.v), pctTxt(m && m.revenue ? g.v / m.revenue : null)] })))),
+        };
+      },
+
+      async expenses(s) {
+        const d = await ctx.month(s.period); const m = ctx.metrics(s.period);
+        const prior = ctx.periods().filter((p) => p < s.period).slice(-3);
+        const priorData = await Promise.all(prior.map((p) => ctx.month(p).catch(() => ({}))));
+        const avgOf = (head) => (priorData.length ? sum(priorData, (pd) => sum((pd.expenses || []).filter((x) => x.head === head), (x) => x.amount)) / priorData.length : null);
+        const rows = (d.expenses || []).filter((x) => !s.group || x.group === s.group).slice().sort((a, b) => b.amount - a.amount);
+        const total = sum(rows, (x) => x.amount);
+        const groups = [...new Set((d.expenses || []).map((x) => x.group))];
+        return {
+          eyebrow: s.group ? `Expenses · ${s.group}` : 'Operating expenses', title: inr(total), sub: mLong(s.period), monthly: true,
+          html: (groups.length > 1 ? chips('Group', [['', 'All groups']].concat(groups.map((g) => [g, g])), s.group) + '<div style="height:12px"></div>' : '')
+            + card('Expense heads', table([{ label: 'Head' }, { label: 'Group' }, { label: 'Amount', num: true }, { label: `Average of prior ${prior.length} months`, num: true }, { label: 'Change', num: true }, { label: '% of revenue', num: true }],
+              rows.map((x) => { const a = avgOf(x.head); const ch = a ? x.amount / a - 1 : null; return { spec: { kind: 'expense-head', head: x.head, period: s.period }, cls: 'clickable', tdCls: { 4: ch != null && ch > 0.2 ? 'age-old' : '' }, cells: [L({ kind: 'expense-head', head: x.head, period: s.period }, esc(x.head)), esc(x.group), inr(x.amount), inr(a), ch == null ? '–' : (ch > 0 ? '+' : '') + pctTxt(ch, 0), pctTxt(m && m.revenue ? x.amount / m.revenue : null)] }; })), 'Click a head for its month-by-month history'),
+          csv: { name: `expenses-${s.period}`, headers: ['Head', 'Group', 'Amount'], rows: rows.map((x) => [x.head, x.group, x.amount]) },
+          filter: (v) => Object.assign({}, s, { group: v || undefined }),
+        };
+      },
+
+      async 'expense-head'(s) {
+        const ps = ctx.periods().filter((p) => p <= s.period).slice(-12);
+        const data = await Promise.all(ps.map((p) => ctx.month(p).catch(() => ({}))));
+        const vals = data.map((d) => sum((d.expenses || []).filter((x) => x.head === s.head), (x) => x.amount));
+        const avg = vals.length > 1 ? sum(vals.slice(0, -1), (v) => v) / (vals.length - 1) : null;
+        return {
+          eyebrow: 'Expense head', title: s.head, sub: `Last ${ps.length} months to ${mLong(s.period)}`,
+          html: sumrow([['This month', inr(vals[vals.length - 1])], ['Average before', inr(avg)], ['Highest', inr(Math.max(...vals))], ['Lowest', inr(Math.min(...vals))]])
+            + card('Month by month', table([{ label: 'Month' }, { label: 'Amount', num: true }], ps.map((p, i) => ({ spec: { kind: 'expenses', period: p }, cls: 'clickable', cells: [L({ kind: 'expenses', period: p }, mLong(p)), inr(vals[i])] })).reverse())),
+          csv: { name: `expense-head`, headers: ['Month', 'Amount'], rows: ps.map((p, i) => [p, vals[i]]) },
+        };
+      },
+
+      async 'expense-spikes'(s) {
+        return {
+          eyebrow: 'Unusual spend', title: `${s.rows.length} expense head${s.rows.length > 1 ? 's' : ''} above their usual range`, sub: mLong(s.period),
+          html: card('Heads flagged', table([{ label: 'Head' }, { label: 'This month', num: true }, { label: 'Usual (average)', num: true }, { label: 'Above usual', num: true }],
+            s.rows.map((r) => ({ spec: { kind: 'expense-head', head: r.head, period: s.period }, cls: 'clickable', cells: [L({ kind: 'expense-head', head: r.head, period: s.period }, esc(r.head)), inr(r.amount), inr(r.avg), inr(r.amount - r.avg)] })))),
+        };
+      },
+
+      async purchases(s) {
+        const d = await ctx.month(s.period); const rows = d.purchases || [];
+        const total = sum(rows, (x) => x.taxable_value);
+        const bySup = [...groupBy(rows, (x) => x.supplier)].map(([k, r]) => ({ k, v: sum(r, (x) => x.taxable_value), n: new Set(r.map((x) => x.bill_no)).size })).sort((a, b) => b.v - a.v);
+        const list = rows.slice().sort((a, b) => a.date.localeCompare(b.date));
+        return {
+          eyebrow: 'Purchases', title: inr(total), sub: `${mLong(s.period)} · taxable value`, monthly: true,
+          html: sumrow([['Bills', n0(new Set(rows.map((x) => x.bill_no)).size)], ['Suppliers', n0(bySup.length)], ['Largest supplier', bySup[0] ? pctTxt(bySup[0].v / total, 0) : '–', bySup[0] ? esc(bySup[0].k) : '']])
+            + card('By supplier', table([{ label: 'Supplier' }, { label: 'Bills', num: true }, { label: 'Amount', num: true }, { label: 'Share', num: true }],
+              bySup.map((x) => ({ spec: { kind: 'supplier', name: x.k, period: s.period }, cls: 'clickable', cells: [L({ kind: 'supplier', name: x.k, period: s.period }, esc(x.k)), n0(x.n), inr(x.v), pctTxt(x.v / total, 1)] }))))
+            + card('By item', purchaseItems(rows, s.period))
+            + card(`All purchase lines (${list.length})`, table([{ label: 'Date' }, { label: 'Bill' }, { label: 'Supplier' }, { label: 'Item' }, { label: 'Qty', num: true }, { label: 'Rate', num: true }, { label: 'Taxable value', num: true }],
+              list.map((x) => ({ cells: [dLong(x.date), esc(x.bill_no), esc(x.supplier), esc(x.item), n0(x.qty), rate(x.qty ? x.taxable_value / x.qty : null), inr(x.taxable_value)] })))),
+          csv: { name: `purchases-${s.period}`, headers: ['Date', 'Bill', 'Supplier', 'Item', 'Category', 'Qty', 'Taxable value', 'GST', 'Total'], rows: list.map((x) => [x.date, x.bill_no, x.supplier, x.item, x.category, x.qty, x.taxable_value, x.gst, x.total]) },
+        };
+      },
+
+      async supplier(s) {
+        const d = await ctx.month(s.period); const ref = A.monthEnd(s.period);
+        const bills = (d.purchases || []).filter((x) => x.supplier === s.name);
+        const dues = (d.payables || []).filter((x) => x.supplier === s.name).map((x) => Object.assign({ age: days(x.bill_date, ref) }, x)).sort((a, b) => (b.age || 0) - (a.age || 0));
+        return {
+          eyebrow: 'Supplier', title: s.name, sub: mLong(s.period), monthly: true,
+          html: sumrow([['Bought this month', inr(sum(bills, (x) => x.taxable_value))], ['Owed', inr(sum(dues, (x) => x.outstanding))], ['Owed over 60 days', inr(sum(dues.filter((x) => x.age > 60), (x) => x.outstanding))]])
+            + card('Unpaid bills', payableTable(dues, false), 'Oldest first')
+            + card('Bills this month', table([{ label: 'Date' }, { label: 'Bill' }, { label: 'Item' }, { label: 'Qty', num: true }, { label: 'Taxable value', num: true }], bills.map((x) => ({ cells: [dLong(x.date), esc(x.bill_no), esc(x.item), n0(x.qty), inr(x.taxable_value)] })))),
+        };
+      },
+
+      async 'purchase-rates'(s) {
+        return {
+          eyebrow: 'Purchase rates', title: `${s.rows.length} item${s.rows.length > 1 ? 's' : ''} costing more`, sub: `${mLong(s.period)} against the prior three-month average rate`,
+          html: card('Items', table([{ label: 'Item' }, { label: 'Earlier rate', num: true }, { label: 'This month', num: true }, { label: 'Change', num: true }, { label: 'Bought this month', num: true }],
+            s.rows.map((r) => ({ cells: [esc(r.item), rate(r.before), rate(r.now), '+' + pctTxt(r.change, 1), inr(r.value)] }))))
+            + `<p class="muted small">Rate is taxable value divided by quantity, weighted across all bills for the item.</p>`,
+        };
+      },
+
+      async receivables(s) {
+        const d = await ctx.month(s.period); const ref = A.monthEnd(s.period);
+        const all = (d.receivables || []).map((x) => Object.assign({ age: days(x.invoice_date, ref) }, x));
+        const rows = all.filter((x) => inBucket(x.age, s.bucket, RECV_BUCKETS)).sort((a, b) => (b.age || 0) - (a.age || 0));
+        const total = sum(rows, (x) => x.outstanding);
+        const byCust = [...groupBy(rows, (x) => x.customer)].map(([k, r]) => ({ k, v: sum(r, (x) => x.outstanding), n: r.length, oldest: Math.max(...r.map((x) => x.age || 0)), over90: sum(r.filter((x) => x.age > 90), (x) => x.outstanding) })).sort((a, b) => b.v - a.v);
+        return {
+          eyebrow: 'Receivables', title: inr(total), sub: `${mLong(s.period)} · owed by customers${s.bucket ? ' · ' + bucketText(s.bucket) : ''}`, monthly: true,
+          html: chips('Age', [['', 'All'], ['0-30', '0–30 days'], ['31-60', '31–60'], ['61-90', '61–90'], ['90+', 'Over 90 days']], s.bucket) + '<div style="height:12px"></div>'
+            + sumrow([['Customers', n0(byCust.length)], ['Invoices', n0(rows.length)], ['Share of all receivables', pctTxt(total / (sum(all, (x) => x.outstanding) || 1), 0)]])
+            + card('By customer', table([{ label: 'Customer' }, { label: 'Invoices', num: true }, { label: 'Oldest', num: true }, { label: 'Over 90 days', num: true }, { label: 'Outstanding', num: true }],
+              byCust.map((c) => ({ spec: { kind: 'customer', name: c.k, period: s.period }, cls: 'clickable', tdCls: { 2: c.oldest > 90 ? 'age-old' : '' }, cells: [L({ kind: 'customer', name: c.k, period: s.period }, esc(c.k)), n0(c.n), `${c.oldest} days`, inr(c.over90), inr(c.v)] }))), 'Click a customer for their invoices')
+            + card('Invoices', receivableTable(rows, true), 'Oldest first'),
+          csv: { name: `receivables-${s.period}${s.bucket ? '-' + s.bucket : ''}`, headers: ['Customer', 'Invoice', 'Invoice date', 'Due date', 'Days', 'Outstanding'], rows: rows.map((x) => [x.customer, x.invoice_no, x.invoice_date, x.due_date, x.age, x.outstanding]) },
+          filter: (v) => Object.assign({}, s, { bucket: v || undefined }),
+        };
+      },
+
+      async payables(s) {
+        const d = await ctx.month(s.period); const ref = A.monthEnd(s.period);
+        const all = (d.payables || []).map((x) => Object.assign({ age: days(x.bill_date, ref) }, x));
+        const rows = all.filter((x) => inBucket(x.age, s.bucket, RECV_BUCKETS)).sort((a, b) => (b.age || 0) - (a.age || 0));
+        const total = sum(rows, (x) => x.outstanding);
+        const bySup = [...groupBy(rows, (x) => x.supplier)].map(([k, r]) => ({ k, v: sum(r, (x) => x.outstanding), n: r.length, oldest: Math.max(...r.map((x) => x.age || 0)) })).sort((a, b) => b.v - a.v);
+        return {
+          eyebrow: 'Payables', title: inr(total), sub: `${mLong(s.period)} · owed to suppliers${s.bucket ? ' · ' + bucketText(s.bucket) : ''}`, monthly: true,
+          html: chips('Age', [['', 'All'], ['0-30', '0–30 days'], ['31-60', '31–60'], ['61+', 'Over 60 days'], ['90+', 'Over 90 days']], s.bucket) + '<div style="height:12px"></div>'
+            + card('By supplier', table([{ label: 'Supplier' }, { label: 'Bills', num: true }, { label: 'Oldest', num: true }, { label: 'Owed', num: true }],
+              bySup.map((c) => ({ spec: { kind: 'supplier', name: c.k, period: s.period }, cls: 'clickable', tdCls: { 2: c.oldest > 45 ? 'age-old' : '' }, cells: [L({ kind: 'supplier', name: c.k, period: s.period }, esc(c.k)), n0(c.n), `${c.oldest} days`, inr(c.v)] }))))
+            + card('Bills', payableTable(rows, true), 'Oldest first')
+            + `<p class="muted small">Payments to micro and small enterprise suppliers beyond 45 days can affect tax deductibility (Section 43B(h)).</p>`,
+          csv: { name: `payables-${s.period}${s.bucket ? '-' + s.bucket : ''}`, headers: ['Supplier', 'Bill', 'Bill date', 'Due date', 'Days', 'Outstanding'], rows: rows.map((x) => [x.supplier, x.bill_no, x.bill_date, x.due_date, x.age, x.outstanding]) },
+          filter: (v) => Object.assign({}, s, { bucket: v || undefined }),
+        };
+      },
+
+      async inventory(s) {
+        const d = await ctx.month(s.period); const ref = A.monthEnd(s.period);
+        const all = (d.inventory || []).map((x) => Object.assign({ age: days(x.last_movement, ref) }, x));
+        const rows = all.filter((x) => inBucket(x.age, s.bucket, INV_BUCKETS)).sort((a, b) => b.value - a.value);
+        const total = sum(rows, (x) => x.value);
+        const byCat = [...groupBy(rows, (x) => x.category)].map(([k, r]) => ({ k, v: sum(r, (x) => x.value), n: r.length })).sort((a, b) => b.v - a.v);
+        return {
+          eyebrow: 'Inventory', title: inr(total), sub: `${mLong(s.period)} · closing stock${s.bucket ? ' · ' + bucketText(s.bucket, true) : ''}`, monthly: true,
+          html: chips('Age', [['', 'All'], ['0-90', '0–90 days'], ['91-180', '91–180'], ['181+', 'Over 6 months'], ['365+', 'Over a year']], s.bucket) + '<div style="height:12px"></div>'
+            + card('By category', table([{ label: 'Category' }, { label: 'Items', num: true }, { label: 'Value', num: true }, { label: 'Share', num: true }], byCat.map((c) => ({ cells: [esc(c.k), n0(c.n), inr(c.v), pctTxt(c.v / (total || 1), 0)] }))))
+            + card('Items', table([{ label: 'Item' }, { label: 'Category' }, { label: 'Quantity', num: true }, { label: 'Value', num: true }, { label: 'Last movement' }, { label: 'Days since', num: true }],
+              rows.map((x) => ({ tdCls: { 5: x.age > 180 ? 'age-old' : '' }, cells: [esc(x.item), esc(x.category || ''), n0(x.qty), inr(x.value), dLong(x.last_movement), x.age == null ? '–' : n0(x.age)] }))), 'Largest value first'),
+          csv: { name: `inventory-${s.period}${s.bucket ? '-' + s.bucket : ''}`, headers: ['Item', 'Category', 'Qty', 'Value', 'Last movement', 'Days since'], rows: rows.map((x) => [x.item, x.category, x.qty, x.value, x.last_movement, x.age]) },
+          filter: (v) => Object.assign({}, s, { bucket: v || undefined }),
+        };
+      },
+
+      async cash(s) {
+        const d = await ctx.month(s.period); const m = ctx.metrics(s.period) || {};
+        const accts = d.cash || [];
+        return {
+          eyebrow: 'Cash and bank', title: `Net cash ${inr(m.netCash)}`, sub: mLong(s.period), monthly: true,
+          html: card('Calculation', `<table class="calc"><tbody>
+              <tr><td>Cash and bank balances</td><td class="r">${inr(m.cash)}</td></tr>
+              <tr><td>− Bank OD / CC drawn</td><td class="r">${inr(m.odUsed)}</td></tr>
+              <tr class="total"><td>Net cash</td><td class="r">${inr(m.netCash)}</td></tr>
+              ${m.odLimit ? `<tr><td>OD / CC limits sanctioned</td><td class="r">${inr(m.odLimit)} · ${pctTxt(m.odUsed / m.odLimit, 0)} used</td></tr>` : ''}</tbody></table>`)
+            + card('Accounts', table([{ label: 'Account' }, { label: 'Type' }, { label: 'Closing balance', num: true }, { label: 'Limit', num: true }, { label: 'Utilised', num: true }],
+              accts.map((c) => ({ cells: [esc(c.account), esc(c.type), inr(c.closing), c.limit ? inr(c.limit) : '–', c.limit && c.closing < 0 ? pctTxt(-c.closing / c.limit, 0) : '–'] })))),
+          csv: { name: `cash-${s.period}`, headers: ['Account', 'Type', 'Closing', 'Limit'], rows: accts.map((c) => [c.account, c.type, c.closing, c.limit]) },
+        };
+      },
+
+      async 'working-capital'(s) {
+        const m = ctx.metrics(s.period) || {};
+        return {
+          eyebrow: 'Working capital', title: inr(m.workingCapital), sub: `${mLong(s.period)} · cash tied up in day-to-day trading`, monthly: true,
+          html: card('Calculation', `<table class="calc"><tbody>
+              <tr><td>Receivables (owed by customers)</td><td class="r">${L({ kind: 'receivables', period: s.period }, inr(m.receivables))}</td></tr>
+              <tr><td>+ Inventory</td><td class="r">${L({ kind: 'inventory', period: s.period }, inr(m.inventory))}</td></tr>
+              <tr><td>− Payables (owed to suppliers)</td><td class="r">${L({ kind: 'payables', period: s.period }, inr(m.payables))}</td></tr>
+              <tr class="total"><td>Working capital</td><td class="r">${inr(m.workingCapital)}</td></tr></tbody></table>`)
+            + card('Cycle', `<table class="calc"><tbody>
+              <tr><td>Customers pay in</td><td class="r">${m.dso == null ? '–' : m.dso + ' days'}</td></tr>
+              <tr><td>Stock is held for</td><td class="r">${m.dio == null ? '–' : m.dio + ' days'}</td></tr>
+              <tr><td>Suppliers paid in</td><td class="r">${m.dpo == null ? '–' : m.dpo + ' days'}</td></tr>
+              <tr class="total"><td>Cash conversion cycle</td><td class="r">${m.ccc == null ? '–' : m.ccc + ' days'}</td></tr></tbody></table>
+              <p class="muted small">Days are based on the trailing three months of sales, purchases and cost of goods sold.</p>`),
+        };
+      },
+
+      async compliance(s) {
+        const L2 = ctx.latest();
+        const order = { overdue: 0, 'due-soon': 1, pending: 2, done: 3, na: 4 };
+        const items = L2.compliance.filter((c) => (!s.state || (s.state === 'late' ? c.late : c.state === s.state)) && (!s.area || c.area === s.area))
+          .sort((x, y) => order[x.state] - order[y.state] || x.due_date.localeCompare(y.due_date));
+        const STATE = { done: 'Filed / paid', overdue: 'Overdue', 'due-soon': 'Due soon', pending: 'Upcoming', na: 'Not applicable' };
+        return {
+          eyebrow: 'Compliance', title: s.area || ({ overdue: 'Overdue items', 'due-soon': 'Due in the next 15 days', late: 'Filed after the due date' }[s.state] || 'Compliance calendar'), sub: mLong(L2.period),
+          html: chips('Status', [['', 'All'], ['overdue', 'Overdue'], ['due-soon', 'Due soon'], ['late', 'Filed late'], ['done', 'Filed / paid']], s.state) + '<div style="height:12px"></div>'
+            + card(`${items.length} item${items.length === 1 ? '' : 's'}`, table([{ label: 'Area' }, { label: 'Item' }, { label: 'Period' }, { label: 'Due' }, { label: 'Status' }, { label: 'Filed / paid on' }, { label: 'Remarks' }],
+              items.map((c) => ({ tdCls: { 4: c.state === 'overdue' ? 'age-old' : '' }, cells: [esc(c.area), esc(c.item), esc(c.period_covered || ''), dLong(c.due_date), esc(STATE[c.state]) + (c.late ? ' (late)' : ''), dLong(c.done_on), esc(c.remarks || '')] })), { empty: 'No items match.' })),
+          csv: { name: 'compliance', headers: ['Area', 'Item', 'Period', 'Due', 'Status', 'Done on', 'Remarks'], rows: items.map((c) => [c.area, c.item, c.period_covered, c.due_date, STATE[c.state], c.done_on, c.remarks]) },
+          filter: (v) => Object.assign({}, s, { state: v || undefined }),
+        };
+      },
+
+      async 'lost-customers'(s) {
+        return {
+          eyebrow: 'Customers', title: `${s.rows.length} regular customer${s.rows.length > 1 ? 's' : ''} did not buy`, sub: `${mLong(s.period)} · bought in each of the three months before`,
+          html: card('Customers', table([{ label: 'Customer' }, { label: 'Average monthly revenue before', num: true }],
+            s.rows.map((r) => ({ cells: [esc(r.customer), inr(r.average)] })))),
+        };
+      },
+    };
+
+    function bucketText(b, inv) {
+      return ({ '0-30': '0 to 30 days old', '31-60': '31 to 60 days old', '61-90': '61 to 90 days old', '90+': 'over 90 days old', '61+': 'over 60 days old',
+        '0-90': 'moved in the last 90 days', '91-180': 'not moved for 91 to 180 days', '181+': 'not moved for over 6 months', '365+': 'not moved for over a year', '181-365': 'not moved for 6 to 12 months' })[b] || b;
+    }
+
+    async function salesSlice(s, key, eyebrow, pred, sub) {
+      const d = await ctx.month(s.period); const all = d.sales || [];
+      const rows = all.filter(pred);
+      const rev = sum(all, (x) => x.taxable_value); const v = sum(rows, (x) => x.taxable_value);
+      const byCust = [...groupBy(rows, (x) => x.customer)].map(([k, r]) => ({ k, v: sum(r, (x) => x.taxable_value) })).sort((a, b) => b.v - a.v);
+      return {
+        eyebrow, title: s.name || inr(v), sub: `${mLong(s.period)} · ${sub || inr(v) + ' · ' + pctTxt(v / (rev || 1), 1) + ' of revenue'}`, monthly: true,
+        html: sumrow([['Revenue', inr(v)], ['Share of month', pctTxt(v / (rev || 1), 1)], ['Customers', n0(byCust.length)], ['Invoice lines', n0(rows.length)]])
+          + card('By customer', table([{ label: 'Customer' }, { label: 'Revenue', num: true }, { label: 'Share', num: true }],
+            byCust.map((c) => ({ spec: { kind: 'customer', name: c.k, period: s.period }, cls: 'clickable', cells: [L({ kind: 'customer', name: c.k, period: s.period }, esc(c.k)), inr(c.v), pctTxt(c.v / (v || 1), 1)] }))))
+          + card('Invoice lines', invoiceTable(rows, s.period)),
+        csv: { name: `${key}-${s.period}`, headers: ['Date', 'Invoice', 'Customer', 'Product', 'Qty', 'Taxable value'], rows: rows.map((x) => [x.date, x.invoice_no, x.customer, x.product, x.qty, x.taxable_value]) },
+      };
+    }
+
+    function invoiceTable(rows, period, hideCustomer) {
+      const h = [{ label: 'Date' }, { label: 'Invoice' }].concat(hideCustomer ? [] : [{ label: 'Customer' }], [{ label: 'Product' }, { label: 'Qty', num: true }, { label: 'Taxable value', num: true }]);
+      return `${rows.length > 12 ? `<input class="search" type="search" placeholder="Search these rows" aria-label="Search rows" data-search>` : ''}` + table(h, rows.map((x) => ({
+        cells: [dLong(x.date), esc(x.invoice_no)].concat(hideCustomer ? [] : [L({ kind: 'customer', name: x.customer, period }, esc(x.customer))], [esc(x.product), n0(x.qty), inr(x.taxable_value)]),
+      })), { empty: 'No invoices.' });
+    }
+    function receivableTable(rows, withCustomer) {
+      const h = (withCustomer ? [{ label: 'Customer' }] : []).concat([{ label: 'Invoice' }, { label: 'Invoice date' }, { label: 'Due date' }, { label: 'Days', num: true }, { label: 'Outstanding', num: true }]);
+      return table(h, rows.map((x) => ({ tdCls: withCustomer ? { 4: x.age > 90 ? 'age-old' : '' } : { 3: x.age > 90 ? 'age-old' : '' },
+        cells: (withCustomer ? [esc(x.customer)] : []).concat([esc(x.invoice_no || ''), dLong(x.invoice_date), dLong(x.due_date), x.age == null ? '–' : n0(x.age), inr(x.outstanding)]) })), { empty: 'Nothing outstanding.' });
+    }
+    function payableTable(rows, withSupplier) {
+      const h = (withSupplier ? [{ label: 'Supplier' }] : []).concat([{ label: 'Bill' }, { label: 'Bill date' }, { label: 'Due date' }, { label: 'Days', num: true }, { label: 'Owed', num: true }]);
+      return table(h, rows.map((x) => ({ tdCls: withSupplier ? { 4: x.age > 60 ? 'age-old' : '' } : { 3: x.age > 60 ? 'age-old' : '' },
+        cells: (withSupplier ? [esc(x.supplier)] : []).concat([esc(x.bill_no || ''), dLong(x.bill_date), dLong(x.due_date), x.age == null ? '–' : n0(x.age), inr(x.outstanding)]) })), { empty: 'Nothing owed.' });
+    }
+    function purchaseItems(rows, period) {
+      const byItem = [...groupBy(rows, (x) => x.item)].map(([k, r]) => { const q = sum(r, (x) => x.qty); const v = sum(r, (x) => x.taxable_value); return { k, q, v, rt: q ? v / q : null }; }).sort((a, b) => b.v - a.v);
+      return table([{ label: 'Item' }, { label: 'Quantity', num: true }, { label: 'Average rate', num: true }, { label: 'Amount', num: true }], byItem.map((x) => ({ cells: [esc(x.k), n0(x.q), rate(x.rt), inr(x.v)] })), { empty: 'No purchases.' });
+    }
+
+    function downloadCsv(csv) {
+      const cell = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+      const text = [csv.headers].concat(csv.rows).map((r) => r.map(cell).join(',')).join('\r\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' }));
+      a.download = `${(ctx.company() || {}).code || 'assura'}-${csv.name}.csv`;
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
+
+    function close() {
+      if (!root) return;
+      root.remove(); root = null; stack = [];
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKey);
+      if (lastFocus && lastFocus.isConnected) lastFocus.focus();
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    let lastFocus = null;
+
+    async function show() {
+      const spec = stack[stack.length - 1];
+      if (!root) {
+        lastFocus = document.activeElement;
+        root = document.createElement('div');
+        root.innerHTML = '<div class="drawer-back"></div><aside class="drawer" role="dialog" aria-modal="true" aria-label="Details"></aside>';
+        document.body.appendChild(root);
+        document.body.style.overflow = 'hidden';
+        root.querySelector('.drawer-back').addEventListener('click', close);
+        document.addEventListener('keydown', onKey);
+      }
+      const panel = root.querySelector('.drawer');
+      panel.innerHTML = '<div class="drawer-head"><div><div class="eyebrow">Loading</div><h2>…</h2></div></div>';
+      links = [];
+      let v;
+      try {
+        const fn = views[spec.kind];
+        if (!fn) throw new Error('No breakdown for this item yet.');
+        v = await fn(spec);
+      } catch (e) { v = { eyebrow: 'Details', title: 'Not available', html: `<p class="muted">${esc(e.status === 404 ? 'No data has been uploaded for this month.' : e.message)}</p>` }; }
+      if (!root) return;
+      const periods = ctx.periods();
+      panel.innerHTML = `<div class="drawer-head"><div><div class="eyebrow">${esc(v.eyebrow)}</div><h2>${esc(v.title)}</h2>${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ''}</div>
+          <span class="spacer"></span><button class="btn-ghost" data-close aria-label="Close details">Close</button></div>
+        <div class="drawer-nav">${stack.length > 1 ? '<button class="btn secondary small" data-back>← Back</button>' : ''}
+          ${v.monthly && spec.period && periods.length > 1 ? `<label class="small muted" style="margin:0">Month <select class="field" data-month style="width:auto;display:inline-block;padding:5px 8px">${periods.slice().reverse().map((p) => `<option value="${p}" ${p === spec.period ? 'selected' : ''}>${mLong(p)}</option>`).join('')}</select></label>` : ''}
+          <span style="flex:1"></span>${v.csv && v.csv.rows.length ? '<button class="btn secondary small" data-csv>Download as CSV</button>' : ''}</div>
+        <div class="drawer-body">${v.html}</div>`;
+      panel.querySelector('[data-close]').addEventListener('click', close);
+      const back = panel.querySelector('[data-back]'); if (back) back.addEventListener('click', () => { stack.pop(); show(); });
+      const month = panel.querySelector('[data-month]'); if (month) month.addEventListener('change', () => { stack[stack.length - 1] = Object.assign({}, spec, { period: month.value }); show(); });
+      const csv = panel.querySelector('[data-csv]'); if (csv) csv.addEventListener('click', () => downloadCsv(v.csv));
+      panel.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => { stack[stack.length - 1] = v.filter(b.dataset.filter); show(); }));
+      panel.querySelectorAll('[data-d]').forEach((el) => el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const next = links[Number(el.dataset.d)];
+        if (next) { stack.push(next); show(); }
+      }));
+      panel.querySelectorAll('[data-search]').forEach((inp) => inp.addEventListener('input', () => {
+        const q = inp.value.toLowerCase();
+        inp.nextElementSibling.querySelectorAll('tbody tr').forEach((tr) => { tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+      }));
+      panel.querySelector('.drawer-body').scrollTop = 0;
+      panel.querySelector('[data-close]').focus();
+    }
+
+    return {
+      open(spec) { if (!spec) return; stack = [Object.assign({ period: ctx.latestPeriod() }, spec)]; show(); },
+      close,
+    };
+  };
+})();
+
+</script>
+<script>
+/*
+ * Assura Elevate: data editor for the Assura team.
+ * Opens one section of one month, lets the team correct, add or delete rows,
+ * and saves the result as a new version. The server checks it with the same
+ * rules as an uploaded workbook; earlier versions stay and can be restored.
+ */
+(function () {
+  'use strict';
+
+  window.AEEditor = function create(ctx) {
+    const { esc, mLong, api } = ctx;
+    let cur = null; // { period, section, version, rows | form, original }
+
+    function render(page, company) {
+      const schema = window.AE_SCHEMA;
+      const periods = ctx.periods();
+      if (!cur || !periods.includes(cur.period)) cur = { period: periods[periods.length - 1], section: 'sales' };
+      page.innerHTML = ctx.head('Edit data', company.name) + `
+        <div class="card"><div class="editor-bar">
+          <div><label for="ed-month">Month</label><select id="ed-month" class="field">${periods.slice().reverse().map((p) => `<option value="${p}" ${p === cur.period ? 'selected' : ''}>${mLong(p)}</option>`).join('')}</select></div>
+          <div><label for="ed-section">Section</label><select id="ed-section" class="field">${schema.sheets.map((s) => `<option value="${s.key}" ${s.key === cur.section ? 'selected' : ''}>${esc(s.key === 'company' ? 'Company details and notes' : s.name)}</option>`).join('')}</select></div>
+          <div style="flex:1"></div>
+          <div class="btn-row"><button class="btn secondary" id="ed-remove" type="button">Remove this month</button></div>
+        </div>
+        <p class="muted small" style="margin:12px 0 0">Changes are saved as a new version of the month and the client's dashboard updates straight away. Earlier versions are kept under Data &amp; uploads, where any of them can be restored. To add a new month, upload its workbook.</p>
+        </div>
+        <div id="ed-body" class="section"></div>`;
+      if (!periods.length) { page.querySelector('#ed-body').innerHTML = '<div class="card empty">No months on record yet. Upload a workbook under Data &amp; uploads first.</div>'; return; }
+      page.querySelector('#ed-month').addEventListener('change', (e) => { cur = { period: e.target.value, section: cur.section }; load(page); });
+      page.querySelector('#ed-section').addEventListener('change', (e) => { cur = { period: cur.period, section: e.target.value }; load(page); });
+      const rm = page.querySelector('#ed-remove');
+      rm.addEventListener('click', async () => {
+        if (!rm.dataset.armed) { rm.dataset.armed = '1'; rm.textContent = `Tap again to remove ${mLong(cur.period)}`; rm.classList.add('armed'); setTimeout(() => { if (rm.isConnected) { delete rm.dataset.armed; rm.textContent = 'Remove this month'; } }, 4000); return; }
+        try {
+          await api.post('/api/data/remove-month', { company: company.id, period: cur.period });
+          ctx.notice(`<div class="msg ok">${mLong(cur.period)} was taken off the dashboard. It can be restored from Data &amp; uploads.</div>`);
+          cur = null; await ctx.reload();
+        } catch (e) { page.querySelector('#ed-body').innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+      });
+      load(page);
+    }
+
+    async function load(page) {
+      const body = page.querySelector('#ed-body');
+      body.innerHTML = '<div class="card empty">Loading…</div>';
+      let r;
+      try { r = await api.get(`/api/data?company=${ctx.companyId()}&period=${cur.period}`); } catch (e) { body.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+      const def = window.AE_SCHEMA.sheets.find((s) => s.key === cur.section);
+      cur.version = r.version;
+      if (def.layout === 'form') {
+        cur.form = Object.assign({}, r.data.company || {});
+        formView(body, def, r);
+      } else {
+        cur.rows = (r.data[def.key] || []).map((x) => Object.assign({}, x));
+        cur.original = cur.rows.map((x) => JSON.stringify(x));
+        cur.deleted = new Set();
+        tableView(body, def, r);
+      }
+    }
+
+    function input(col, value, attrs) {
+      const v = value == null ? '' : value;
+      if (col.type === 'enum') return `<select ${attrs}><option value=""></option>${col.values.map((o) => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+      if (col.type === 'date') return `<input type="date" value="${esc(v)}" ${attrs}>`;
+      if (col.type === 'month') return `<input type="month" value="${esc(v)}" ${attrs}>`;
+      if (col.type === 'number') return `<input type="text" inputmode="decimal" class="num" value="${esc(v)}" ${attrs}>`;
+      return `<input type="text" value="${esc(v)}" ${attrs}>`;
+    }
+
+    function formView(body, def) {
+      const locked = ['company_code', 'period'];
+      body.innerHTML = `<form class="card" id="ed-form"><div class="card-head"><h3>Company details for ${mLong(cur.period)}</h3><span class="muted small">Live version v${cur.version}</span></div>
+        <div class="form-grid">${def.fields.map((f) => `<div${f.key === 'notes' ? ' style="grid-column:1/-1"' : ''}><label for="f-${f.key}">${esc(f.label)}${f.required ? ' *' : ''}</label>
+          ${locked.includes(f.key) ? `<input type="text" id="f-${f.key}" value="${esc(cur.form[f.key])}" disabled>` : f.key === 'notes'
+            ? `<textarea id="f-${f.key}" data-k="${f.key}" placeholder="Shown to the client as the note for this month">${esc(cur.form[f.key] || '')}</textarea>`
+            : input(f, cur.form[f.key], `id="f-${f.key}" data-k="${f.key}" class="field"`)}${f.help ? `<p class="muted small" style="margin:4px 0 0">${esc(f.help)}</p>` : ''}</div>`).join('')}</div>
+        <p class="muted small">The company code and month identify this data and cannot be edited. To move data to another month, upload it for that month and remove this one.</p>
+        <div id="ed-msg"></div><div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Save as new version</button></div></form>`;
+      body.querySelector('#ed-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const values = Object.assign({}, cur.form);
+        body.querySelectorAll('[data-k]').forEach((el) => { values[el.dataset.k] = el.value === '' ? null : el.value; });
+        await save(body, values);
+      });
+    }
+
+    function tableView(body, def) {
+      const cols = def.columns;
+      const rowHtml = (r, i) => `<tr data-i="${i}"><td class="rn">${i + 1}</td>${cols.map((c) => `<td>${input(c, r[c.key], `data-k="${c.key}" aria-label="${esc(c.label)} row ${i + 1}"`)}</td>`).join('')}
+        <td><button type="button" class="link-btn" data-del="${i}" aria-label="Delete row ${i + 1}">Delete</button></td></tr>`;
+      body.innerHTML = `<div class="card"><div class="card-head"><h3>${esc(def.name)} · ${mLong(cur.period)}</h3><span class="muted small">Live version v${cur.version} · <span id="ed-count">${cur.rows.length}</span> rows</span></div>
+        <div class="btn-row" style="margin-bottom:10px;align-items:center">
+          <button class="btn secondary small" type="button" id="ed-add">Add a row</button>
+          <input class="search" type="search" id="ed-find" placeholder="Find rows" aria-label="Find rows">
+          <span class="muted small" id="ed-dirty"></span></div>
+        <div class="edit-scroll"><table class="grid-edit"><thead><tr><th>#</th>${cols.map((c) => `<th class="${c.type === 'number' ? 'r' : ''}">${esc(c.label)}${c.required ? ' *' : ''}</th>`).join('')}<th></th></tr></thead>
+          <tbody>${cur.rows.map(rowHtml).join('')}</tbody></table></div>
+        <p class="muted small">Amounts can be typed as in Tally (1,23,456.00 or 1234 Cr). Dates can be typed or picked. * marks a required column.</p>
+        <div id="ed-msg"></div>
+        <div class="btn-row" style="margin-top:12px"><button class="btn" type="button" id="ed-save">Save as new version</button><button class="btn secondary" type="button" id="ed-undo">Discard changes</button></div></div>`;
+      const tbody = body.querySelector('tbody');
+      const dirty = () => {
+        let changed = cur.deleted.size;
+        cur.rows.forEach((r, i) => { const tr = tbody.querySelector(`tr[data-i="${i}"]`); const c = !cur.deleted.has(i) && JSON.stringify(r) !== cur.original[i]; if (tr) tr.classList.toggle('changed', c); if (c) changed++; });
+        body.querySelector('#ed-dirty').textContent = changed ? `${changed} row${changed > 1 ? 's' : ''} changed, not yet saved` : '';
+        body.querySelector('#ed-count').textContent = cur.rows.length - cur.deleted.size;
+      };
+      tbody.addEventListener('input', (e) => {
+        const tr = e.target.closest('tr[data-i]'); if (!tr || !e.target.dataset.k) return;
+        cur.rows[Number(tr.dataset.i)][e.target.dataset.k] = e.target.value === '' ? null : e.target.value;
+        dirty();
+      });
+      tbody.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-del]'); if (!b) return;
+        const i = Number(b.dataset.del); const tr = b.closest('tr');
+        if (cur.deleted.has(i)) { cur.deleted.delete(i); tr.classList.remove('deleted'); b.textContent = 'Delete'; } else { cur.deleted.add(i); tr.classList.add('deleted'); b.textContent = 'Undo'; }
+        dirty();
+      });
+      body.querySelector('#ed-add').addEventListener('click', () => {
+        const blank = Object.fromEntries(cols.map((c) => [c.key, null]));
+        cur.rows.push(blank); cur.original.push('new');
+        tbody.insertAdjacentHTML('beforeend', rowHtml(blank, cur.rows.length - 1));
+        const last = tbody.lastElementChild; last.scrollIntoView({ block: 'nearest' }); last.querySelector('input,select').focus();
+        dirty();
+      });
+      body.querySelector('#ed-find').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        tbody.querySelectorAll('tr').forEach((tr) => { const text = [...tr.querySelectorAll('input,select')].map((x) => x.value).join(' ').toLowerCase(); tr.style.display = !q || text.includes(q) ? '' : 'none'; });
+      });
+      body.querySelector('#ed-undo').addEventListener('click', () => load(body.closest('main')));
+      body.querySelector('#ed-save').addEventListener('click', () => save(body, cur.rows.filter((r, i) => !cur.deleted.has(i))));
+    }
+
+    async function save(body, values) {
+      const msg = body.querySelector('#ed-msg');
+      msg.innerHTML = '<div class="msg">Checking and saving…</div>';
+      try {
+        const r = await api.post('/api/data/edit', { company: ctx.companyId(), period: cur.period, section: cur.section, values, baseVersion: cur.version });
+        ctx.notice(`<div class="msg ok"><b>Saved as version ${r.version} of ${mLong(r.period)}.</b> The client's dashboard and highlights now use the corrected figures.${r.warnings.length ? `<ul>${r.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}</div>`);
+        await ctx.reload();
+      } catch (e) {
+        const errs = (e.data && e.data.errors) || [];
+        msg.innerHTML = `<div class="msg err"><b>${esc(e.message)}</b>${errs.length ? `<ul>${errs.slice(0, 15).map((x) => `<li>${esc(x)}</li>`).join('')}${errs.length > 15 ? `<li>and ${errs.length - 15} more</li>` : ''}</ul>` : ''}</div>`;
+      }
+    }
+
+    return { render, reset() { cur = null; } };
+  };
+})();
+
+</script>
+<script>
+/*
  * In-browser stand-in for the server API, used only by the shareable demo page.
- * Mirrors the server's access rules: viewers and accountants see only their own
- * company, viewers cannot upload, advisors see every company and manage logins.
+ * Mirrors the server's access rules: a client login sees only its own company and
+ * is view only; the Assura team sees every company, uploads and edits data and
+ * manages client logins; admins also manage team logins.
  * Two-step login and the first-login password change run on the real server only. Data resets on reload.
  */
 (function () {
   'use strict';
   const D = window.AE_DEMO_DATA; // { companies: [{id, code, name, months: {period: data}}] }
   const users = [
-    { id: 1, email: 'md@meridian.demo', name: 'Managing Director', role: 'viewer', company_id: 1, note: 'Meridian Polymers, management view' },
-    { id: 2, email: 'accounts@meridian.demo', name: 'Accounts Team', role: 'accountant', company_id: 1, note: 'Meridian Polymers, can upload' },
-    { id: 3, email: 'md@coastline.demo', name: 'Managing Director', role: 'viewer', company_id: 2, note: 'Coastline Foods, management view' },
-    { id: 4, email: 'advisor@assura.demo', name: 'Assura Advisor', role: 'advisor', company_id: null, note: 'All client companies' },
+    { id: 1, email: 'client@meridian.demo', name: 'Managing Director', role: 'client', company_id: 1, note: 'Client: Meridian Polymers only, view only' },
+    { id: 2, email: 'client@coastline.demo', name: 'Managing Director', role: 'client', company_id: 2, note: 'Client: Coastline Foods only, view only' },
+    { id: 3, email: 'team@assura.demo', name: 'Assura Team Member', role: 'team', company_id: null, note: 'Assura team: every client, upload and edit' },
+    { id: 4, email: 'admin@assura.demo', name: 'Assura Admin', role: 'admin', company_id: null, note: 'Assura admin: also manages team logins' },
   ];
+  const staff = (u) => u.role === 'team' || u.role === 'admin';
+  const needStaff = () => { const u = me(); if (!staff(u)) fail(403, 'Only the Assura Elevate team can do this. Client logins are view only.'); return u; };
   const uploads = []; // { company_id, period, version, filename, sections, warnings, data, created_at, uploaded_by }
   D.companies.forEach((c) => Object.keys(c.months).sort().forEach((p) => uploads.push({
-    company_id: c.id, period: p, version: 1, filename: `sample ${p}.xlsx`, sections: Object.keys(c.months[p]), warnings: [], data: c.months[p], created_at: '2026-10-07T04:30:00Z', uploaded_by: null,
+    company_id: c.id, period: p, version: 1, filename: `sample ${p}.xlsx`, source: 'upload', sections: Object.keys(c.months[p]), warnings: [], data: c.months[p], created_at: '2026-10-07T04:30:00Z', uploaded_by: null,
   })));
   let session = null;
   const audit = [];
@@ -1271,20 +1996,29 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
   const pub = (u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, company_id: u.company_id });
   function companyFor(u, requested) {
     const id = requested == null || requested === '' ? u.company_id : Number(requested);
-    if (u.role !== 'advisor' && id !== u.company_id) fail(403, 'You do not have access to this company.');
+    if (!staff(u) && id !== u.company_id) fail(403, 'You do not have access to this company.');
     const c = D.companies.find((x) => x.id === id) || fail(404, 'Company not found.');
     return { id: c.id, code: c.code, name: c.name };
   }
   function current(cid) {
     const latest = {};
     uploads.filter((x) => x.company_id === cid).forEach((x) => { if (!latest[x.period] || latest[x.period].version < x.version) latest[x.period] = x; });
-    return Object.keys(latest).sort().map((p) => ({ period: p, data: latest[p].data }));
+    return Object.keys(latest).sort().map((p) => ({ period: p, version: latest[p].version, data: latest[p].data })).filter((d) => !d.data.removed);
   }
+  const versionOf = (cid, period, version) => {
+    const list = uploads.filter((x) => x.company_id === cid && x.period === period).sort((a, b) => b.version - a.version);
+    return version ? list.find((x) => x.version === Number(version)) : list[0];
+  };
+  const save = (u, c, period, data, sections, warnings, source, filename) => {
+    const version = 1 + Math.max(0, ...uploads.filter((x) => x.company_id === c.id && x.period === period).map((x) => x.version));
+    uploads.push({ company_id: c.id, period, version, filename: filename || null, source, sections, warnings, data, created_at: new Date().toISOString(), uploaded_by: u.name });
+    return version;
+  };
 
   const routes = {
     'GET /api/me': () => {
       const u = me();
-      return { next: null, user: pub(u), companies: D.companies.filter((c) => u.role === 'advisor' || c.id === u.company_id).map((c) => ({ id: c.id, code: c.code, name: c.name })) };
+      return { next: null, user: pub(u), companies: D.companies.filter((c) => staff(u) || c.id === u.company_id).map((c) => ({ id: c.id, code: c.code, name: c.name })) };
     },
     'POST /api/login': (q, body) => {
       const u = users.find((x) => x.email === String(body.email || '').toLowerCase());
@@ -1301,16 +2035,16 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       u.password = body.next; log(u, 'password.changed', u.company_id); return { ok: true, next: null };
     },
     'GET /api/admin/overview': () => {
-      const u = me(); if (u.role !== 'advisor') fail(403, 'Only Assura Elevate advisors can manage clients and users.');
-      const months = (cid) => [...new Set(uploads.filter((x) => x.company_id === cid).map((x) => x.period))].sort();
+      needStaff();
+      const months = (cid) => current(cid).map((d) => d.period);
       return {
         companies: D.companies.map((c) => ({ id: c.id, code: c.code, name: c.name, users: users.filter((x) => x.company_id === c.id).length, months: months(c.id).length, latest: months(c.id).slice(-1)[0] || null, last_upload: uploads.filter((x) => x.company_id === c.id).map((x) => x.created_at).sort().slice(-1)[0] || null })),
-        users: users.map((x) => ({ id: x.id, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: x.role === 'advisor' ? 1 : 0, last_login_at: x.last_login_at })),
+        users: users.slice().sort((a, b) => (a.role === 'client') - (b.role === 'client')).map((x) => ({ id: x.id, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: staff(x) && !x.must_change_password ? 1 : 0, last_login_at: x.last_login_at })),
         activity: audit.slice(0, 200),
       };
     },
     'POST /api/admin/company': (q, body) => {
-      const u = me(); if (u.role !== 'advisor') fail(403, 'Only Assura Elevate advisors can manage clients and users.');
+      const u = needStaff();
       const code = String(body.code || '').trim().toUpperCase(); const name = String(body.name || '').trim();
       if (!/^[A-Z0-9-]{3,20}$/.test(code)) fail(400, 'Use a company code of 3 to 20 letters, digits or dashes, for example AE-0003.');
       if (!name) fail(400, 'Enter the company name.');
@@ -1318,20 +2052,29 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       const c = { id: D.companies.length + 1, code, name, months: {} }; D.companies.push(c); log(u, 'admin.company_added', c.id, `${code} ${name}`);
       return { company: { id: c.id, code, name } };
     },
+    'POST /api/admin/company/update': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company_id);
+      const name = String(body.name || '').trim(); if (name.length < 2) fail(400, 'Enter the company name.');
+      D.companies.find((x) => x.id === c.id).name = name; log(u, 'admin.company_renamed', c.id, `${c.name} → ${name}`);
+      return { company: Object.assign({}, c, { name }) };
+    },
     'POST /api/admin/user': (q, body) => {
-      const u = me(); if (u.role !== 'advisor') fail(403, 'Only Assura Elevate advisors can manage clients and users.');
+      const u = needStaff();
+      if (!['client', 'team', 'admin'].includes(body.role)) fail(400, 'Choose a role.');
+      if (body.role !== 'client' && u.role !== 'admin') fail(403, 'Only an Assura Elevate admin can add team logins.');
       const email = String(body.email || '').trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Enter a valid email address.');
       if (users.some((x) => x.email === email)) fail(409, 'A login with this email already exists.');
       const temp = 'Demo' + Math.random().toString(36).slice(2, 8) + '-' + Math.random().toString(36).slice(2, 8);
-      const nu = { id: users.length + 1, email, name: String(body.name || '').trim(), role: body.role, company_id: body.role === 'advisor' ? null : Number(body.company_id), note: 'Added in this session', password: temp, disabled: 0, must_change_password: 1, last_login_at: null };
+      const nu = { id: users.length + 1, email, name: String(body.name || '').trim(), role: body.role, company_id: body.role === 'client' ? Number(body.company_id) : null, note: 'Added in this session', password: temp, disabled: 0, must_change_password: 1, last_login_at: null };
       users.push(nu); log(u, 'admin.user_added', nu.company_id, `${email} as ${nu.role}`);
       return { user: pub(nu), temporaryPassword: temp };
     },
     'POST /api/admin/user/action': (q, body) => {
-      const u = me(); if (u.role !== 'advisor') fail(403, 'Only Assura Elevate advisors can manage clients and users.');
+      const u = needStaff();
       const t = users.find((x) => x.id === Number(body.user_id)) || fail(404, 'User not found.');
-      if (t.id === u.id) fail(400, 'You cannot change this for your own login. Ask another advisor.');
+      if (staff(t) && u.role !== 'admin') fail(403, 'Only an Assura Elevate admin can change team logins.');
+      if (t.id === u.id) fail(400, 'You cannot change this for your own login. Ask another admin.');
       const out = { ok: true };
       if (body.action === 'reset-password') { t.password = out.temporaryPassword = 'Demo' + Math.random().toString(36).slice(2, 8) + '-' + Math.random().toString(36).slice(2, 8); t.must_change_password = 1; }
       else if (body.action === 'disable') t.disabled = 1;
@@ -1347,11 +2090,45 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     },
     'GET /api/uploads': (q) => {
       const c = companyFor(me(), q.get('company'));
-      return { company: c, uploads: uploads.filter((x) => x.company_id === c.id).slice().reverse().map((x) => Object.assign({}, x, { uploaded_by: x.uploaded_by || 'Setup' })) };
+      return { company: c, uploads: uploads.filter((x) => x.company_id === c.id).slice().reverse().map((x) => Object.assign({}, x, { uploaded_by: x.uploaded_by || 'Setup', data: undefined })) };
+    },
+    'GET /api/data': (q) => {
+      const u = me(); const c = companyFor(u, q.get('company'));
+      const period = window.AEParse.parseMonth(q.get('period')) || fail(400, 'Choose a month.');
+      const v = versionOf(c.id, period, q.get('version'));
+      if (!v || v.data.removed) fail(404, 'No data for this month.');
+      return { company: c, period, version: v.version, data: v.data };
+    },
+    'POST /api/data/edit': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const period = window.AEParse.parseMonth(body.period); const cur = period && versionOf(c.id, period);
+      if (!cur || cur.data.removed) fail(404, 'No data for this month. Upload the workbook first.');
+      const def = window.AE_SCHEMA.sheets.find((x) => x.key === body.section) || fail(400, 'Unknown section.');
+      if (body.baseVersion && Number(body.baseVersion) !== cur.version) fail(409, `Someone saved a newer version (v${cur.version}) of this month while you were editing. Reload it and make your change again.`);
+      const out = window.AEEdit.applyEdit(cur.data, body.section, body.values, window.AE_SCHEMA);
+      if (out.errors.length) fail(422, 'Some rows need fixing before they can be saved.', { errors: out.errors });
+      const version = save(u, c, period, out.data, [body.section], out.warnings, `Edited: ${def.name}`);
+      log(u, 'data.edited', c.id, `${period} ${def.name} v${version}`);
+      return { ok: true, period, version, warnings: out.warnings };
+    },
+    'POST /api/data/restore': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const period = window.AEParse.parseMonth(body.period); const old = period && body.version && versionOf(c.id, period, body.version);
+      if (!old) fail(404, 'That version was not found.');
+      const version = save(u, c, period, old.data, Object.keys(old.data), [], `Restored v${old.version}`);
+      log(u, 'data.restored', c.id, `${period} v${old.version} as v${version}`);
+      return { ok: true, period, version };
+    },
+    'POST /api/data/remove-month': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const period = window.AEParse.parseMonth(body.period); const cur = period && versionOf(c.id, period);
+      if (!cur || cur.data.removed) fail(404, 'No data for this month.');
+      const version = save(u, c, period, { removed: true }, [], [], 'Month removed');
+      log(u, 'data.month_removed', c.id, `${period} v${version}`);
+      return { ok: true, period, version };
     },
     'POST /api/upload': (q, body) => {
-      const u = me();
-      if (u.role === 'viewer') fail(403, 'Your login can view the dashboard but not upload data.');
+      const u = needStaff();
       const c = companyFor(u, body.company);
       const P = window.AEParse; const schema = window.AE_SCHEMA;
       let data; let period; let parsed;
@@ -1369,9 +2146,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         if (errors.length) fail(422, 'The file needs fixing before it can be accepted.', { errors });
         data = parsed.data; period = comp.period;
       }
-      const version = 1 + Math.max(0, ...uploads.filter((x) => x.company_id === c.id && x.period === period).map((x) => x.version));
+      const version = save(u, c, period, data, body.section ? [body.section] : parsed.sections, parsed.warnings, 'upload', body.filename);
       log(u, 'upload.accepted', c.id, `${period} v${version} ${body.filename || ''}`);
-      uploads.push({ company_id: c.id, period, version, filename: body.filename, sections: body.section ? [body.section] : parsed.sections, warnings: parsed.warnings, data, created_at: new Date().toISOString(), uploaded_by: u.name });
       return { ok: true, period, version, sections: parsed.sections, warnings: parsed.warnings };
     },
   };
@@ -1413,7 +2189,9 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     post(url, body) { return this.request('POST', url, body || {}); },
   };
 
-  const state = { me: null, companies: [], companyId: null, dash: null, tab: 'overview', showAllHighlights: false, upload: null };
+  const state = { me: null, companies: [], companyId: null, dash: null, tab: 'overview', showAllHighlights: false, upload: null, monthCache: {} };
+  // Assura team and admins work across every client; client logins are view only.
+  const isStaff = (u) => !!u && (u.role === 'team' || u.role === 'admin');
   const app = document.getElementById('app');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -1445,8 +2223,37 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
   };
   const SEQ = ['var(--seq-1)', 'var(--seq-2)', 'var(--seq-3)', 'var(--seq-4)'];
 
-  // The logo sits on navy (top bar, login panel), so the light-on-dark cut is used.
+  // The logo sits on espresso (top bar, login panel), so the light-on-dark cut is used.
   const LOGO = `<img src="${window.AE_LOGO_ON_DARK || '/brand/assura-elevate-logo-on-dark.png'}" alt="Assura Elevate">`;
+
+  // ---------- click-through details and the data editor ----------
+  const ctx = {
+    esc, inr, pctTxt, mLong, mShort, dLong, api,
+    companyId: () => state.companyId,
+    company: () => state.companies.find((c) => c.id === state.companyId),
+    periods: () => (state.dash && state.dash.periods) || [],
+    metrics: (p) => state.dash && state.dash.analysis.months.find((m) => m.period === p),
+    latest: () => state.dash && state.dash.analysis.latest,
+    latestPeriod: () => { const ps = (state.dash && state.dash.periods) || []; return ps[ps.length - 1]; },
+    month(p) {
+      const key = `${state.companyId}|${p}`;
+      if (!state.monthCache[key]) state.monthCache[key] = api.get(`/api/data?company=${state.companyId}&period=${p}`).then((r) => r.data).catch((e) => { delete state.monthCache[key]; throw e; });
+      return state.monthCache[key];
+    },
+    head: (eyebrow, title) => head(eyebrow, title, null),
+    notice(html) { state.upload = html; },
+    async reload() { await loadDashboard(); },
+  };
+  const drill = window.AEDrill(ctx);
+  const editor = window.AEEditor(ctx);
+  // Wires every [data-drill] element in a container to open its breakdown.
+  function wireDrills(root) {
+    root.querySelectorAll('[data-drill]').forEach((el) => el.addEventListener('click', (e) => {
+      if (e.target.closest('a,[data-go]') && e.target.closest('a,[data-go]') !== el) return;
+      e.preventDefault(); drill.open(JSON.parse(el.dataset.drill));
+    }));
+  }
+  const dAttr = (spec) => `data-drill="${esc(JSON.stringify(spec))}"`;
 
   // ---------- data loading ----------
   async function boot() {
@@ -1462,6 +2269,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     }
   }
   async function loadDashboard() {
+    state.monthCache = {};
     if (!state.companyId) { state.dash = null; state.history = null; render(); return; }
     state.dash = await api.get(`/api/dashboard?company=${state.companyId}`);
     state.history = await api.get(`/api/uploads?company=${state.companyId}`);
@@ -1486,13 +2294,13 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         </section>
         <section class="login-form">
           <form id="login" autocomplete="on">
-            <div><div class="eyebrow">Client login</div><h2>Sign in</h2></div>
+            <div><div class="eyebrow">Client and team login</div><h2>Sign in</h2></div>
             <div><label for="email">Email</label><input id="email" type="email" required autocomplete="username"></div>
             <div><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"></div>
             ${needCode ? `<div><label for="code">Code from your authenticator app</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></div>` : ''}
             ${error ? `<div class="msg ${needCode && /Enter the 6-digit/.test(error) ? '' : 'err'}">${esc(error)}</div>` : ''}
             <button class="btn" type="submit">Sign in</button>
-            <p class="small muted">Each login sees only its own company's data. Contact your Assura Elevate partner for access.</p>
+            <p class="small muted">A client login sees only its own company's data. Contact your Assura Elevate partner for access.</p>
             ${demo}
           </form>
         </section>
@@ -1523,7 +2331,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
   }
   let loginDraft = {};
 
-  // ---------- account setup: first-login password change and advisor two-step login ----------
+  // ---------- account setup: first-login password change and team two-step login ----------
   function setupShell(inner) {
     app.innerHTML = `<header class="topbar"><div class="topbar-inner"><span class="wordmark">${LOGO}</span><span class="spacer"></span>
       <button class="btn-ghost" id="logout">Sign out</button></div></header>
@@ -1560,8 +2368,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       return;
     }
     // enrol-2fa
-    setupShell(`<div class="eyebrow">Assura Elevate advisor</div><h2>Set up two-step login</h2>
-      <p>Your login can see every client, so it needs a second step. Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or similar), then scan this code.</p>
+    setupShell(`<div class="eyebrow">Assura Elevate team</div><h2>Set up two-step login</h2>
+      <p>Your login can see and change every client's data, so it needs a second step. Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or similar), then scan this code.</p>
       <div id="qr" class="qr"><span class="muted small">Preparing…</span></div>
       <p class="small">Can't scan? Enter this key in the app instead: <code id="secret" class="secret"></code></p>
       <form id="confirm-2fa" class="stack-form"><div><label for="code2fa">6-digit code shown in the app</label>
@@ -1584,7 +2392,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
 
   async function signOut() {
     await api.post('/api/logout').catch(() => {});
-    state.me = null; state.companyId = null; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null;
+    drill.close(); editor.reset();
+    state.me = null; state.companyId = null; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null; state.monthCache = {};
     renderLogin();
   }
 
@@ -1596,9 +2405,10 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
   // ---------- shell ----------
   const TABS = [
     ['overview', 'Overview'], ['money', 'Where is the money?'], ['sales', 'Sales & customers'],
-    ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'], ['upload', 'Data & uploads'],
+    ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'],
   ];
-  const tabsFor = (u) => TABS.concat(u.role === 'advisor' ? [['admin', 'Clients & users']] : [], [['account', 'Account']]);
+  const tabsFor = (u) => TABS.concat(isStaff(u) ? [['upload', 'Data & uploads'], ['edit', 'Edit data'], ['admin', 'Clients & users']] : [], [['account', 'Account']]);
+  const ROLE_LABEL = { client: 'Client (view only)', team: 'Assura team', admin: 'Assura admin' };
 
   function render() {
     C.hideTip();
@@ -1608,8 +2418,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       <header class="topbar"><div class="topbar-inner">
         <a class="wordmark" href="#">${LOGO}</a>
         <span class="spacer"></span>
-        ${u.role === 'advisor' && state.companies.length ? `<select id="company" aria-label="Company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select>` : ''}
-        <div class="user-chip">${esc(u.name)}<br><span>${esc({ viewer: 'Management', accountant: 'Finance team', advisor: 'Assura Elevate advisor' }[u.role])}${company && u.role !== 'advisor' ? ' · ' + esc(company.code) : ''}</span></div>
+        ${isStaff(u) && state.companies.length ? `<select id="company" aria-label="Company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select>` : ''}
+        <div class="user-chip">${esc(u.name)}<br><span>${esc(ROLE_LABEL[u.role] || '')}${company && !isStaff(u) ? ' · ' + esc(company.code) : ''}</span></div>
         <button class="btn-ghost" id="logout">Sign out</button>
       </div></header>
       <nav class="tabs" aria-label="Sections"><div class="tabs-inner" role="tablist">
@@ -1618,22 +2428,26 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       <main id="page"></main>`;
     app.querySelector('#logout').addEventListener('click', signOut);
     const sel = app.querySelector('#company');
-    if (sel) sel.addEventListener('change', async () => { state.companyId = Number(sel.value); state.upload = null; await loadDashboard(); });
-    app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { state.tab = b.dataset.tab; state.showAllHighlights = false; render(); window.scrollTo(0, 0); }));
+    if (sel) sel.addEventListener('change', async () => { state.companyId = Number(sel.value); state.upload = null; editor.reset(); await loadDashboard(); });
+    app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { state.tab = b.dataset.tab; state.showAllHighlights = false; if (b.dataset.tab !== 'upload' && b.dataset.tab !== 'edit') state.upload = null; render(); window.scrollTo(0, 0); }));
 
     const page = app.querySelector('#page');
-    if (state.tab === 'admin' && u.role === 'advisor') { adminPage(page); return; }
+    if (!tabsFor(u).some(([k]) => k === state.tab)) state.tab = 'overview';
+    if (state.tab === 'admin') { adminPage(page); return; }
     if (state.tab === 'account') { accountPage(page); return; }
-    if (!company) { page.innerHTML = `<div class="card empty">No company is linked to this login yet.</div>`; return; }
+    if (!company) { page.innerHTML = `<div class="card empty">${isStaff(u) ? 'No client companies yet. Add one under Clients &amp; users.' : 'No company is linked to this login yet.'}</div>`; return; }
+    if (state.tab === 'edit') { editor.render(page, company); if (state.upload) { page.querySelector('.page-head').insertAdjacentHTML('afterend', state.upload); state.upload = null; } return; }
     const a = state.dash && state.dash.analysis;
     if (state.tab !== 'upload' && (!a || !a.months.length)) {
-      page.innerHTML = `<div class="card empty"><h2>No data yet</h2><p>Once your accountant uploads the first monthly workbook, the dashboard builds itself here.</p>
-        <button class="btn" data-go="upload">Go to Data & uploads</button></div>`;
-      page.querySelector('[data-go]').addEventListener('click', () => { state.tab = 'upload'; render(); });
+      page.innerHTML = isStaff(u)
+        ? `<div class="card empty"><h2>No data yet</h2><p>Upload the first monthly workbook for ${esc(company.name)} and the dashboard builds itself here.</p><button class="btn" data-go="upload">Go to Data & uploads</button></div>`
+        : `<div class="card empty"><h2>Your dashboard is being prepared</h2><p>Your Assura Elevate team uploads your monthly figures. The dashboard appears here as soon as the first month is in.</p></div>`;
+      const go = page.querySelector('[data-go]'); if (go) go.addEventListener('click', () => { state.tab = 'upload'; render(); });
       return;
     }
     ({ overview, money, sales, expenses, compliance, upload: uploadPage })[state.tab](page, a, company);
-    page.insertAdjacentHTML('beforeend', `<footer class="page-foot"><span>Prepared from data provided by your finance team. Figures are management estimates and unaudited.</span><span>Built for businesses ready for their next stage.</span></footer>`);
+    if (state.tab !== 'upload') page.insertAdjacentHTML('beforeend', `<footer class="page-foot"><span>Prepared from data provided by your finance team. Figures are management estimates and unaudited. Click any figure to see the detail behind it.</span><span>Built for businesses ready for their next stage.</span></footer>`);
+    wireDrills(page);
   }
 
   function head(eyebrow, title, a, extra) {
@@ -1659,23 +2473,26 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     const ms = a.months; const cur = ms[ms.length - 1]; const prev = ms[ms.length - 2];
     const wrap = document.createElement('div'); wrap.className = 'kpis';
     defs.forEach((d) => {
-      const tile = document.createElement('div'); tile.className = 'kpi';
-      tile.innerHTML = `<div class="label">${esc(d.label)}</div><div class="value">${esc(d.fmt(cur[d.key]))}</div>${delta(cur[d.key], prev && prev[d.key], d)}`;
+      const tile = document.createElement(d.drill ? 'button' : 'div'); tile.className = 'kpi';
+      if (d.drill) { tile.type = 'button'; tile.setAttribute('aria-label', `${d.label}: ${d.fmt(cur[d.key])}. Show details`); tile.addEventListener('click', () => drill.open(Object.assign({ period: cur.period }, d.drill))); }
+      tile.innerHTML = `<div class="label">${esc(d.label)}${d.drill ? '<span class="more" aria-hidden="true">›</span>' : ''}</div><div class="value">${esc(d.fmt(cur[d.key]))}</div>${delta(cur[d.key], prev && prev[d.key], d)}`;
       tile.appendChild(C.sparkline(ms.map((m) => m[d.key])));
       wrap.appendChild(tile);
     });
     container.appendChild(wrap);
   }
+  // Opens a monthly breakdown for the i-th month of a chart.
+  const byMonth = (ms, kind, extra) => (i) => drill.open(Object.assign({ kind, period: ms[i].period }, extra || {}));
 
   function highlightList(list, limit) {
     const shown = limit ? list.slice(0, limit) : list;
     return `<div class="hl-list">${shown.map((h) => `
-      <article class="hl ${h.severity}">
-        <div class="hl-top">${chip(h.severity)}<span class="hl-area">${esc(h.area)}</span></div>
+      <${h.drill ? 'button type="button"' : 'article'} class="hl ${h.severity}${h.drill ? ' clickable' : ''}" ${h.drill ? dAttr(h.drill) : ''}>
+        <div class="hl-top">${chip(h.severity)}<span class="hl-area">${esc(h.area)}</span>${h.drill ? '<span style="flex:1"></span><span class="more">See the detail ›</span>' : ''}</div>
         <div class="hl-title">${esc(h.title)}</div>
         <div class="hl-detail">${esc(h.detail)}</div>
         ${h.action ? `<div class="hl-action"><b>For management review:</b> ${esc(h.action)}</div>` : ''}
-      </article>`).join('')}</div>`;
+      </${h.drill ? 'button' : 'article'}>`).join('')}</div>`;
   }
 
   function card(title, sub, id, extra) {
@@ -1691,6 +2508,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       <tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? 'r' : ''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
+  const TREND_DRILL = { Revenue: 'revenue', 'Gross margin': 'gross', Expenses: 'expenses', Receivables: 'receivables', Inventory: 'inventory', 'Net cash': 'cash' };
+
   // ---------- Overview ----------
   function overview(page, a, company) {
     const ms = a.months; const cur = ms[ms.length - 1];
@@ -1699,18 +2518,18 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       <div class="grid g-main section">
         <div class="card">
           <div class="card-head"><h3>Highlights this month</h3><div class="hl-summary">${counts.map(([s, n]) => chip(s, `${n} ${SEV_LABEL[s]}`)).join('')}</div></div>
-          <p class="muted small" style="margin:-6px 0 12px">Found automatically by comparing this month with your own history: trends, ageing, concentration, unusual spend and due dates.</p>
+          <p class="muted small" style="margin:-6px 0 12px">Found automatically by comparing this month with your own history: trends, ageing, concentration, unusual spend and due dates. Click a highlight to see the records behind it.</p>
           <div id="hl">${a.highlights.length ? highlightList(a.highlights, state.showAllHighlights ? 0 : 6) : '<p class="muted">Nothing unusual this month.</p>'}</div>
           ${a.highlights.length > 6 ? `<button class="hl-more" id="hl-more" style="margin-top:10px;width:100%">${state.showAllHighlights ? 'Show fewer' : `Show all ${a.highlights.length} highlights`}</button>` : ''}
         </div>
         <div class="grid" style="align-content:start">
           <div class="card"><div class="card-head"><h3>Six-month direction</h3></div>
-            <table><tbody>${a.trends.map((t) => `<tr><td>${esc(t.label)}</td><td class="r">${t.dir === 'flat' ? '<span class="muted">Flat</span>' : `<span class="chip ${t.tone === 'good' ? 'positive' : t.tone === 'bad' ? 'watch' : 'info'}">${t.dir === 'rising' ? '▲ Rising' : '▼ Falling'}</span>`}</td><td class="r muted small">${t.dir === 'flat' ? '' : esc(t.perMonth.replace('-', '')) + ' a month'}</td></tr>`).join('')}</tbody></table>
+            <table><tbody>${a.trends.map((t) => `<tr class="clickable" ${dAttr({ kind: TREND_DRILL[t.label] })}><td><button type="button" class="row-link">${esc(t.label)}</button></td><td class="r">${t.dir === 'flat' ? '<span class="muted">Flat</span>' : `<span class="chip ${t.tone === 'good' ? 'positive' : t.tone === 'bad' ? 'watch' : 'info'}">${t.dir === 'rising' ? '▲ Rising' : '▼ Falling'}</span>`}</td><td class="r muted small">${t.dir === 'flat' ? '' : esc(t.perMonth.replace('-', '')) + ' a month'}</td></tr>`).join('')}</tbody></table>
           </div>
           <div class="card"><div class="card-head"><h3>Compliance health</h3><a href="#" data-go="compliance" class="small">Details</a></div>
-            <table><tbody>${Object.entries(a.latest.complianceByArea).map(([area, st]) => `<tr><td>${esc(area)}</td><td class="r">${chip(STATE_CHIP[st][0], STATE_CHIP[st][1])}</td></tr>`).join('') || '<tr><td class="muted">No compliance items in this upload.</td></tr>'}</tbody></table>
+            <table><tbody>${Object.entries(a.latest.complianceByArea).map(([area, st]) => `<tr class="clickable" ${dAttr({ kind: 'compliance', area })}><td><button type="button" class="row-link">${esc(area)}</button></td><td class="r">${chip(STATE_CHIP[st][0], STATE_CHIP[st][1])}</td></tr>`).join('') || '<tr><td class="muted">No compliance items in this upload.</td></tr>'}</tbody></table>
           </div>
-          ${a.latest.notes ? `<div class="card"><div class="card-head"><h3>Accountant's note</h3></div><p style="margin:0">${esc(a.latest.notes)}</p></div>` : ''}
+          ${a.latest.notes ? `<div class="card"><div class="card-head"><h3>Note for this month</h3></div><p style="margin:0">${esc(a.latest.notes)}</p></div>` : ''}
         </div>
       </div>
       <div class="grid g-2 section">
@@ -1720,9 +2539,10 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       <div class="section card"><div class="card-head"><h3>Platform status</h3></div>
         <div class="status-list">
           <div><b>Currently available</b><ul>
-            <li>Monthly data collection workbook (Excel), Tally-export friendly</li>
-            <li>Secure login for each company: management, finance team and Assura advisor roles</li>
+            <li>Secure, view-only login for each client company; each client sees only its own data</li>
+            <li>Assura team logins to upload, correct and manage every client's data, with an activity log</li>
             <li>Dashboard rebuilt on every upload, with full month-on-month history</li>
+            <li>Click any figure, chart or highlight for the detail behind it, with CSV download</li>
             <li>Automated highlights: trends, ageing, concentration, unusual spend, purchase rates, compliance due dates</li></ul></div>
           <div><b>Planned</b><ul>
             <li>AI-written monthly commentary for the management review</li>
@@ -1732,20 +2552,21 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         </div>
       </div>`;
     kpiTiles(page.querySelector('#kpis'), a, [
-      { label: 'Revenue', key: 'revenue', fmt: inr },
-      { label: 'Gross margin', key: 'gmPct', fmt: (v) => pctTxt(v), asPts: true },
-      { label: 'Net profit (estimate)', key: 'netProfit', fmt: inr },
-      { label: 'Net cash', key: 'netCash', fmt: inr },
-      { label: 'Receivables', key: 'receivables', fmt: inr, goodUp: false },
-      { label: 'Payables', key: 'payables', fmt: inr, goodUp: false },
-      { label: 'Inventory', key: 'inventory', fmt: inr, goodUp: false },
+      { label: 'Revenue', key: 'revenue', fmt: inr, drill: { kind: 'revenue' } },
+      { label: 'Gross margin', key: 'gmPct', fmt: (v) => pctTxt(v), asPts: true, drill: { kind: 'gross' } },
+      { label: 'Net profit (estimate)', key: 'netProfit', fmt: inr, drill: { kind: 'net' } },
+      { label: 'Net cash', key: 'netCash', fmt: inr, drill: { kind: 'cash' } },
+      { label: 'Receivables', key: 'receivables', fmt: inr, goodUp: false, drill: { kind: 'receivables' } },
+      { label: 'Payables', key: 'payables', fmt: inr, goodUp: false, drill: { kind: 'payables' } },
+      { label: 'Inventory', key: 'inventory', fmt: inr, goodUp: false, drill: { kind: 'inventory' } },
     ]);
     const labels = mAxis(ms.map((m) => m.period)); const full = ms.map((m) => mLong(m.period));
-    C.columns(page.querySelector('#c-rev'), { labels, fullLabels: full, format: inr, axisFormat: axisInr, title: 'Revenue and gross profit by month',
+    C.columns(page.querySelector('#c-rev'), { labels, fullLabels: full, format: inr, axisFormat: axisInr, title: 'Revenue and gross profit by month', onClick: byMonth(ms, 'revenue'),
       series: [{ name: 'Revenue', values: ms.map((m) => m.revenue), color: 'var(--series-1)' }, { name: 'Gross profit', values: ms.map((m) => m.grossProfit), color: 'var(--series-3)' }] });
-    C.lines(page.querySelector('#c-margin'), { labels, fullLabels: full, format: (v) => pctTxt(v), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Margins by month',
+    C.lines(page.querySelector('#c-margin'), { labels, fullLabels: full, format: (v) => pctTxt(v), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Margins by month', onClick: byMonth(ms, 'gross'),
       series: [{ name: 'Gross margin', values: ms.map((m) => m.gmPct), color: 'var(--series-1)' }, { name: 'Net margin (estimate)', values: ms.map((m) => m.npPct), color: 'var(--series-3)' }] });
-    page.querySelector('#c-rev').insertAdjacentHTML('beforeend', `<details class="data-view"><summary>View as table</summary>${dataTable(['Month', 'Revenue', 'Gross profit', 'Gross margin', 'Expenses', 'Net profit'], ms.map((m) => [mShort(m.period), inr(m.revenue), inr(m.grossProfit), pctTxt(m.gmPct), inr(m.opex), inr(m.netProfit)]))}</details>`);
+    page.querySelector('#c-rev').insertAdjacentHTML('beforeend', `<details class="data-view"><summary>View as table</summary><div class="table-wrap"><table><thead><tr>${['Month', 'Revenue', 'Gross profit', 'Gross margin', 'Expenses', 'Net profit'].map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('')}</tr></thead><tbody>
+      ${ms.map((m) => `<tr><td>${mShort(m.period)}</td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'revenue', period: m.period })}>${inr(m.revenue)}</button></td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'gross', period: m.period })}>${inr(m.grossProfit)}</button></td><td class="r">${pctTxt(m.gmPct)}</td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'expenses', period: m.period })}>${inr(m.opex)}</button></td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'net', period: m.period })}>${inr(m.netProfit)}</button></td></tr>`).join('')}</tbody></table></div></details>`);
     const more = page.querySelector('#hl-more');
     if (more) more.addEventListener('click', () => { state.showAllHighlights = !state.showAllHighlights; render(); });
     page.querySelectorAll('[data-go]').forEach((x) => x.addEventListener('click', (e) => { e.preventDefault(); state.tab = x.dataset.go; render(); }));
@@ -1764,20 +2585,20 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     page.innerHTML = head('Where is the money?', company.name, a) + `
       <div class="card"><div class="card-head"><h3>Money in the business at month end</h3><span class="muted small">${mLong(cur.period)}</span></div>
         <div class="money">
-          <div class="cell"><div class="muted small">Cash and bank</div><div class="v">${inr(cur.cash)}</div></div>
-          <div class="cell"><div class="muted small">With customers (receivables)</div><div class="v">${inr(cur.receivables)}</div></div>
-          <div class="cell"><div class="muted small">In stock (inventory)</div><div class="v">${inr(cur.inventory)}</div></div>
-          <div class="cell out"><div class="muted small">Owed to suppliers</div><div class="v">−${inr(cur.payables)}</div></div>
-          <div class="cell out"><div class="muted small">Bank OD / CC drawn</div><div class="v">−${inr(cur.odUsed)}</div></div>
-          <div class="cell total"><div class="muted small">Locked in receivables and stock</div><div class="v">${inr(locked)}</div><div class="small muted">${pctTxt(locked / ((cur.revenue || 1) * 12), 0)} of annualised revenue</div></div>
+          <button type="button" class="cell clickable" ${dAttr({ kind: 'cash' })}><div class="muted small">Cash and bank</div><div class="v">${inr(cur.cash)}</div></button>
+          <button type="button" class="cell clickable" ${dAttr({ kind: 'receivables' })}><div class="muted small">With customers (receivables)</div><div class="v">${inr(cur.receivables)}</div></button>
+          <button type="button" class="cell clickable" ${dAttr({ kind: 'inventory' })}><div class="muted small">In stock (inventory)</div><div class="v">${inr(cur.inventory)}</div></button>
+          <button type="button" class="cell out clickable" ${dAttr({ kind: 'payables' })}><div class="muted small">Owed to suppliers</div><div class="v">−${inr(cur.payables)}</div></button>
+          <button type="button" class="cell out clickable" ${dAttr({ kind: 'cash' })}><div class="muted small">Bank OD / CC drawn</div><div class="v">−${inr(cur.odUsed)}</div></button>
+          <button type="button" class="cell total clickable" ${dAttr({ kind: 'working-capital' })}><div class="muted small">Locked in receivables and stock</div><div class="v">${inr(locked)}</div><div class="small muted">${pctTxt(locked / ((cur.revenue || 1) * 12), 0)} of annualised revenue</div></button>
         </div>
       </div>
       <div class="card section"><div class="card-head"><h3>Working capital cycle</h3><span class="muted small">Based on the trailing three months</span></div>
         <div class="ratio">
-          <div><span class="muted small">Customers pay in</span><b>${days(cur.dso)}</b>${cmp('dso', false)}</div>
-          <div><span class="muted small">Stock is held for</span><b>${days(cur.dio)}</b>${cmp('dio', false)}</div>
-          <div><span class="muted small">Suppliers paid in</span><b>${days(cur.dpo)}</b>${cmp('dpo', true)}</div>
-          <div><span class="muted small">Cash conversion cycle</span><b>${days(cur.ccc)}</b>${cmp('ccc', false)}</div>
+          <button type="button" class="clickable" ${dAttr({ kind: 'receivables' })}><span class="muted small">Customers pay in</span><b>${days(cur.dso)}</b>${cmp('dso', false)}</button>
+          <button type="button" class="clickable" ${dAttr({ kind: 'inventory' })}><span class="muted small">Stock is held for</span><b>${days(cur.dio)}</b>${cmp('dio', false)}</button>
+          <button type="button" class="clickable" ${dAttr({ kind: 'payables' })}><span class="muted small">Suppliers paid in</span><b>${days(cur.dpo)}</b>${cmp('dpo', true)}</button>
+          <button type="button" class="clickable" ${dAttr({ kind: 'working-capital' })}><span class="muted small">Cash conversion cycle</span><b>${days(cur.ccc)}</b>${cmp('ccc', false)}</button>
         </div>
         <div id="c-days" style="margin-top:16px"></div>
       </div>
@@ -1792,23 +2613,24 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       <div class="card section"><div class="card-head"><h3>Cash and bank accounts</h3></div><div id="t-cash"></div></div>`;
     const labels = mAxis(ms.map((m) => m.period)); const full = ms.map((m) => mLong(m.period));
     page.querySelector('#c-days').insertAdjacentHTML('beforeend', legend([['Customers pay in', 'var(--series-1)'], ['Stock held for', 'var(--series-3)'], ['Suppliers paid in', 'var(--series-2)']]));
-    C.lines(page.querySelector('#c-days'), { labels, fullLabels: full, height: 180, format: days, axisFormat: (v) => v.toFixed(0) + 'd', title: 'Working capital days',
+    C.lines(page.querySelector('#c-days'), { labels, fullLabels: full, height: 180, format: days, axisFormat: (v) => v.toFixed(0) + 'd', title: 'Working capital days', onClick: byMonth(ms, 'working-capital'),
       series: [{ name: 'Customers pay in', values: ms.map((m) => m.dso), color: 'var(--series-1)' }, { name: 'Stock held for', values: ms.map((m) => m.dio), color: 'var(--series-3)' }, { name: 'Suppliers paid in', values: ms.map((m) => m.dpo), color: 'var(--series-2)', dashed: true }] });
-    const ageParts = (obj, keys, labelsMap) => keys.map((k, i) => ({ label: labelsMap ? labelsMap[i] : `${k} days`, value: obj[k] || 0, color: SEQ[i] }));
+    const ageParts = (obj, keys, kind) => keys.map((k, i) => ({ label: `${k} days`, value: obj[k] || 0, color: SEQ[i], onClick: () => drill.open({ kind, bucket: k === '181-365' ? '181+' : k }) }));
     const ra = page.querySelector('#c-ra');
-    C.stack(ra, ageParts(L.recvAgeing, ['0-30', '31-60', '61-90', '90+']), inr);
+    C.stack(ra, ageParts(L.recvAgeing, ['0-30', '31-60', '61-90', '90+'], 'receivables'), inr);
     ra.insertAdjacentHTML('beforeend', L.topOverdue.length ? `<h3 style="margin:18px 0 8px">Largest balances over 90 days</h3>` : '<p class="muted small" style="margin-top:14px">No balances over 90 days.</p>');
-    if (L.topOverdue.length) C.hbars(ra, L.topOverdue, inr);
+    if (L.topOverdue.length) C.hbars(ra, L.topOverdue, inr, { onClick: (it) => drill.open({ kind: 'customer', name: it.name }) });
+    if (L.topOverdue.length) ra.insertAdjacentHTML('beforeend', `<button type="button" class="btn secondary small" style="margin-top:12px" ${dAttr({ kind: 'receivables', bucket: '90+' })}>See every party over 90 days</button>`);
     const ia = page.querySelector('#c-ia');
-    C.stack(ia, ageParts(L.invAgeing, ['0-90', '91-180', '181-365', '365+']), inr);
+    C.stack(ia, ageParts(L.invAgeing, ['0-90', '91-180', '181-365', '365+'], 'inventory'), inr);
     ia.insertAdjacentHTML('beforeend', L.slowStock.length ? `<h3 style="margin:18px 0 8px">Stock not moved for 6+ months</h3>` : '<p class="muted small" style="margin-top:14px">No stock older than six months.</p>');
-    if (L.slowStock.length) C.hbars(ia, L.slowStock.map((s) => ({ name: s.name, value: s.value, note: `${s.days} days` })), inr);
-    C.stack(page.querySelector('#c-pa'), ageParts(L.payAgeing, ['0-30', '31-60', '61-90', '90+']), inr);
+    if (L.slowStock.length) C.hbars(ia, L.slowStock.map((s) => ({ name: s.name, value: s.value, note: `${s.days} days` })), inr, { onClick: () => drill.open({ kind: 'inventory', bucket: '181+' }) });
+    C.stack(page.querySelector('#c-pa'), ageParts(L.payAgeing, ['0-30', '31-60', '61-90', '90+'], 'payables'), inr);
     page.querySelector('#c-pa').insertAdjacentHTML('beforeend', `<p class="muted small" style="margin-top:14px">Payments to micro and small enterprise suppliers beyond 45 days can affect tax deductibility (Section 43B(h)). Keep supplier MSME status up to date.</p>`);
-    C.lines(page.querySelector('#c-wc'), { labels, fullLabels: full, format: inr, axisFormat: axisInr, zero: true, title: 'Working capital components',
+    C.lines(page.querySelector('#c-wc'), { labels, fullLabels: full, format: inr, axisFormat: axisInr, zero: true, title: 'Working capital components', onClick: byMonth(ms, 'working-capital'),
       series: [{ name: 'Receivables', values: ms.map((m) => m.receivables), color: 'var(--series-1)' }, { name: 'Inventory', values: ms.map((m) => m.inventory), color: 'var(--series-3)' }, { name: 'Payables', values: ms.map((m) => m.payables), color: 'var(--series-2)', dashed: true }] });
     page.querySelector('#t-cash').innerHTML = `<div class="table-wrap"><table><thead><tr><th>Account</th><th>Type</th><th class="r">Closing balance</th><th class="r">Limit</th><th class="r">Utilised</th></tr></thead><tbody>
-      ${L.cashAccounts.map((c) => `<tr><td>${esc(c.account)}</td><td>${esc(c.type)}</td><td class="r">${inr(c.closing)}</td><td class="r">${c.limit ? inr(c.limit) : '–'}</td><td class="r">${c.limit && c.closing < 0 ? pctTxt(-c.closing / c.limit, 0) : '–'}</td></tr>`).join('')}</tbody></table></div>`;
+      ${L.cashAccounts.map((c) => `<tr class="clickable" ${dAttr({ kind: 'cash' })}><td>${esc(c.account)}</td><td>${esc(c.type)}</td><td class="r">${inr(c.closing)}</td><td class="r">${c.limit ? inr(c.limit) : '–'}</td><td class="r">${c.limit && c.closing < 0 ? pctTxt(-c.closing / c.limit, 0) : '–'}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   // ---------- Sales & customers ----------
@@ -1824,19 +2646,19 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         ${card('Revenue by region', mLong(cur.period), 'c-reg')}
       </div>`;
     kpiTiles(page.querySelector('#kpis'), a, [
-      { label: 'Revenue', key: 'revenue', fmt: inr },
-      { label: 'Customers billed', key: 'customerCount', fmt: (v) => String(v) },
-      { label: 'Invoices', key: 'invoiceCount', fmt: (v) => String(v) },
-      { label: 'Average invoice', key: 'avgInvoice', fmt: inr },
-      { label: 'B2B share', key: 'b2bShare', fmt: (v) => pctTxt(v, 0), asPts: true },
-      { label: 'Largest customer share', key: 'topCustomerShare', fmt: (v) => pctTxt(v, 0), asPts: true, goodUp: false },
+      { label: 'Revenue', key: 'revenue', fmt: inr, drill: { kind: 'revenue' } },
+      { label: 'Customers billed', key: 'customerCount', fmt: (v) => String(v), drill: { kind: 'revenue' } },
+      { label: 'Invoices', key: 'invoiceCount', fmt: (v) => String(v), drill: { kind: 'revenue' } },
+      { label: 'Average invoice', key: 'avgInvoice', fmt: inr, drill: { kind: 'revenue' } },
+      { label: 'B2B share', key: 'b2bShare', fmt: (v) => pctTxt(v, 0), asPts: true, drill: { kind: 'revenue' } },
+      { label: 'Largest customer share', key: 'topCustomerShare', fmt: (v) => pctTxt(v, 0), asPts: true, goodUp: false, drill: L.topCustomers[0] ? { kind: 'customer', name: L.topCustomers[0].name } : null },
     ]);
-    C.hbars(page.querySelector('#c-cust'), L.topCustomers.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr);
-    C.hbars(page.querySelector('#c-prod'), L.productMix.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr);
-    if (L.regionMix.length) C.hbars(page.querySelector('#c-reg'), L.regionMix.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr);
+    C.hbars(page.querySelector('#c-cust'), L.topCustomers.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr, { onClick: (it) => drill.open({ kind: 'customer', name: it.name }) });
+    C.hbars(page.querySelector('#c-prod'), L.productMix.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr, { onClick: (it) => drill.open({ kind: 'category', name: it.name }) });
+    if (L.regionMix.length) C.hbars(page.querySelector('#c-reg'), L.regionMix.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr, { onClick: (it) => drill.open({ kind: 'region', name: it.name }) });
     else page.querySelector('#c-reg').innerHTML = '<p class="muted">Add the Region / State column in the Sales sheet to see this.</p>';
     const labels = mAxis(ms.map((m) => m.period));
-    C.lines(page.querySelector('#c-conc'), { labels, fullLabels: ms.map((m) => mLong(m.period)), format: (v) => pctTxt(v, 0), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Customer concentration',
+    C.lines(page.querySelector('#c-conc'), { labels, fullLabels: ms.map((m) => mLong(m.period)), format: (v) => pctTxt(v, 0), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Customer concentration', onClick: byMonth(ms, 'revenue'),
       series: [{ name: 'Largest customer', values: ms.map((m) => m.topCustomerShare), color: 'var(--series-1)' }, { name: 'Top five customers', values: ms.map((m) => m.top5Share), color: 'var(--series-3)' }] });
   }
 
@@ -1853,17 +2675,17 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       </div>
       <div class="card section"><div class="card-head"><h3>Expense heads</h3><span class="muted small">${mLong(cur.period)}</span></div><div id="t-heads"></div></div>`;
     kpiTiles(page.querySelector('#kpis'), a, [
-      { label: 'Operating expenses', key: 'opex', fmt: inr, goodUp: false },
-      { label: 'Purchases', key: 'purchases', fmt: inr, goodUp: false },
-      { label: 'Cost of goods sold', key: 'cogs', fmt: inr, goodUp: false },
-      { label: 'Net profit (estimate)', key: 'netProfit', fmt: inr },
+      { label: 'Operating expenses', key: 'opex', fmt: inr, goodUp: false, drill: { kind: 'expenses' } },
+      { label: 'Purchases', key: 'purchases', fmt: inr, goodUp: false, drill: { kind: 'purchases' } },
+      { label: 'Cost of goods sold', key: 'cogs', fmt: inr, goodUp: false, drill: { kind: 'gross' } },
+      { label: 'Net profit (estimate)', key: 'netProfit', fmt: inr, drill: { kind: 'net' } },
     ]);
-    C.columns(page.querySelector('#c-grp'), { labels: groups.map((g) => g.split(' ')[0]), fullLabels: groups, format: inr, axisFormat: axisInr, title: 'Expenses by group',
+    C.columns(page.querySelector('#c-grp'), { labels: groups.map((g) => g.split(' ')[0]), fullLabels: groups, format: inr, axisFormat: axisInr, title: 'Expenses by group', onClick: (i) => drill.open({ kind: 'expenses', group: groups[i] }),
       series: [{ name: mShort(cur.period), values: groups.map((g) => cur.expenseByGroup[g] || 0), color: 'var(--series-1)' }, { name: 'Prior average', values: groups.map(avg), color: 'var(--series-2)' }] });
-    C.lines(page.querySelector('#c-ratio'), { labels: mAxis(ms.map((m) => m.period)), fullLabels: ms.map((m) => mLong(m.period)), format: (v) => pctTxt(v), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Expenses as share of revenue',
+    C.lines(page.querySelector('#c-ratio'), { labels: mAxis(ms.map((m) => m.period)), fullLabels: ms.map((m) => mLong(m.period)), format: (v) => pctTxt(v), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Expenses as share of revenue', onClick: byMonth(ms, 'expenses'),
       series: [{ name: 'Operating expenses / revenue', values: ms.map((m) => (m.revenue ? m.opex / m.revenue : null)), color: 'var(--series-1)' }] });
     page.querySelector('#t-heads').innerHTML = `<div class="table-wrap"><table><thead><tr><th>Head</th><th>Group</th><th class="r">Amount</th><th class="r">% of revenue</th></tr></thead><tbody>
-      ${L.expenseHeads.map((e) => `<tr><td>${esc(e.head)}</td><td>${esc(e.group)}</td><td class="r">${inr(e.amount)}</td><td class="r">${pctTxt(e.amount / cur.revenue)}</td></tr>`).join('')}</tbody></table></div>`;
+      ${L.expenseHeads.map((e) => `<tr class="clickable" ${dAttr({ kind: 'expense-head', head: e.head })}><td><button type="button" class="row-link">${esc(e.head)}</button></td><td>${esc(e.group)}</td><td class="r">${inr(e.amount)}</td><td class="r">${pctTxt(e.amount / cur.revenue)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   // ---------- Compliance & governance ----------
@@ -1873,7 +2695,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     const items = L.compliance.slice().sort((x, y) => order[x.state] - order[y.state] || x.due_date.localeCompare(y.due_date));
     page.innerHTML = head('Compliance & governance', company.name, a) + `
       <div class="card"><div class="card-head"><h3>Status by area</h3><span class="muted small">As reported in the ${mLong(L.period)} workbook, checked against today's date</span></div>
-        <div class="comp-areas">${Object.entries(L.complianceByArea).map(([area, st]) => `<div class="comp-area"><span class="name">${esc(area)}</span>${chip(STATE_CHIP[st][0], STATE_CHIP[st][1])}</div>`).join('')}</div>
+        <div class="comp-areas">${Object.entries(L.complianceByArea).map(([area, st]) => `<button type="button" class="comp-area clickable" ${dAttr({ kind: 'compliance', area })}><span class="name">${esc(area)}</span>${chip(STATE_CHIP[st][0], STATE_CHIP[st][1])}</button>`).join('')}</div>
       </div>
       <div class="card section"><div class="card-head"><h3>Compliance calendar</h3></div>
         <div class="table-wrap"><table><thead><tr><th>Area</th><th>Item</th><th>Period</th><th>Due</th><th>Status</th><th>Filed / paid on</th><th>Remarks</th></tr></thead><tbody>
@@ -1893,8 +2715,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         <div class="card"><div class="card-head"><h3>Your login</h3></div>
           <table><tbody>
             <tr><td>Email</td><td class="r">${esc(u.email)}</td></tr>
-            <tr><td>Role</td><td class="r">${esc({ viewer: 'Management (view only)', accountant: 'Finance team (view and upload)', advisor: 'Assura Elevate advisor (all clients)' }[u.role])}</td></tr>
-            <tr><td>Two-step login</td><td class="r">${u.twoStep ? chip('positive', 'On') : chip('info', u.role === 'advisor' ? 'Off' : 'Not required')}</td></tr>
+            <tr><td>Role</td><td class="r">${esc({ client: 'Client (view only, own company)', team: 'Assura team (all clients, upload and edit)', admin: 'Assura admin (all clients and team logins)' }[u.role])}</td></tr>
+            <tr><td>Two-step login</td><td class="r">${u.twoStep ? chip('positive', 'On') : chip('info', isStaff(u) ? 'Off' : 'Not required')}</td></tr>
           </tbody></table>
           <p class="muted small" style="margin-top:12px">You are signed out after ${esc(window.AE_IDLE_MINUTES || 120)} minutes without activity. Changing your password signs out your other devices.</p>
         </div>
@@ -1902,19 +2724,21 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     wirePasswordForm('acct', () => { page.querySelector('#acct-msg').innerHTML = '<div class="msg ok">Password changed. Your other devices have been signed out.</div>'; page.querySelector('#acct-pw').reset(); });
   }
 
-  // ---------- Clients & users (advisors) ----------
+  // ---------- Clients & users (Assura team) ----------
   const ACTION_LABEL = {
     login: 'Signed in', logout: 'Signed out', 'login.failed': 'Failed sign-in', 'login.code_failed': 'Wrong two-step code', 'login.disabled': 'Sign-in by a switched-off login',
     'dashboard.viewed': 'Viewed dashboard', 'upload.accepted': 'Upload accepted', 'upload.rejected': 'Upload rejected', 'password.changed': 'Changed password', '2fa.enabled': 'Turned on two-step login',
-    'admin.company_added': 'Added company', 'admin.user_added': 'Added login', 'admin.reset-password': 'Reset password', 'admin.reset-2fa': 'Reset two-step login', 'admin.disable': 'Switched off login', 'admin.enable': 'Switched on login',
+    'admin.company_added': 'Added company', 'admin.company_renamed': 'Renamed company', 'admin.user_added': 'Added login',
+    'data.edited': 'Edited data', 'data.restored': 'Restored a version', 'data.month_removed': 'Removed a month', 'admin.reset-password': 'Reset password', 'admin.reset-2fa': 'Reset two-step login', 'admin.disable': 'Switched off login', 'admin.enable': 'Switched on login',
   };
-  const ROLE_LABEL = { viewer: 'Management', accountant: 'Finance team', advisor: 'Assura advisor' };
 
   async function adminPage(page) {
     page.innerHTML = head('Clients & users', 'Manage client companies and logins', null) + '<div class="card empty">Loading…</div>';
     let d;
     try { d = await api.get('/api/admin/overview'); } catch (e) { page.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
     const notice = state.adminNotice || ''; state.adminNotice = '';
+    const admin = state.me.role === 'admin';
+    const canManage = (x) => admin || x.role === 'client';
     page.innerHTML = head('Clients & users', 'Manage client companies and logins', null) + notice + `
       <div class="grid g-2">
         <form class="card stack-form" id="f-company"><div class="card-head"><h3>Add a client company</h3></div>
@@ -1925,23 +2749,24 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
           <div class="form-row" style="margin-top:0"><div><label for="u-name">Name</label><input id="u-name" type="text" required maxlength="120"></div>
           <div><label for="u-email">Email</label><input id="u-email" type="email" required></div></div>
           <div class="form-row" style="margin-top:0"><div><label for="u-role">Role</label><select id="u-role" class="field">
-            <option value="viewer">Management (view only)</option><option value="accountant">Finance team (view and upload)</option><option value="advisor">Assura advisor (all clients)</option></select></div>
+            <option value="client">Client (view only, one company)</option>${admin ? '<option value="team">Assura team (all clients, upload and edit)</option><option value="admin">Assura admin (also manages team logins)</option>' : ''}</select></div>
           <div id="u-company-wrap"><label for="u-company">Company</label><select id="u-company" class="field">${d.companies.map((c) => `<option value="${c.id}">${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select></div></div>
-          <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in; advisors also set up two-step login.</p>
+          <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in; Assura team logins also set up two-step login.${admin ? '' : ' Only an Assura admin can add team logins.'}</p>
           <div id="u-msg"></div><div><button class="btn" type="submit">Add login</button></div></form>
       </div>
       <div class="card section"><div class="card-head"><h3>Client companies</h3><span class="muted small">${d.companies.length}</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th class="r">Logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last upload</th></tr></thead><tbody>
-        ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No companies yet.</td></tr>'}
+        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th class="r">Client logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last change</th><th></th></tr></thead><tbody>
+        ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td>
+          <td class="r nowrap"><button class="link-btn" data-open="${c.id}">Open dashboard</button> <button class="link-btn" data-rename="${c.id}" data-name="${esc(c.name)}">Rename</button></td></tr>`).join('') || '<tr><td colspan="7" class="muted">No companies yet.</td></tr>'}
         </tbody></table></div></div>
       <div class="card section"><div class="card-head"><h3>Logins</h3><span class="muted small">${d.users.length}</span></div>
         <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Company</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
         ${d.users.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.email)}</td><td>${esc(ROLE_LABEL[x.role])}</td><td>${esc(x.company_code || 'All')}</td>
-          <td>${x.disabled ? chip('critical', 'Switched off') : x.must_change_password ? chip('info', 'Not yet signed in') : chip('positive', 'Active')}${x.role === 'advisor' ? ' ' + (x.two_step ? chip('positive', 'Two-step on') : chip('watch', 'Two-step pending')) : ''}</td>
+          <td>${x.disabled ? chip('critical', 'Switched off') : x.must_change_password ? chip('info', 'Not yet signed in') : chip('positive', 'Active')}${x.role !== 'client' ? ' ' + (x.two_step ? chip('positive', 'Two-step on') : chip('watch', 'Two-step pending')) : ''}</td>
           <td>${x.last_login_at ? esc(stamp(x.last_login_at)) : '–'}</td>
-          <td class="r nowrap">${x.id === state.me.id ? '<span class="muted small">You</span>' : `
+          <td class="r nowrap">${x.id === state.me.id ? '<span class="muted small">You</span>' : !canManage(x) ? '<span class="muted small">Admin only</span>' : `
             <button class="link-btn" data-act="reset-password" data-id="${x.id}" data-name="${esc(x.name)}">Reset password</button>
-            ${x.role === 'advisor' && x.two_step ? `<button class="link-btn" data-act="reset-2fa" data-id="${x.id}" data-name="${esc(x.name)}">Reset two-step</button>` : ''}
+            ${x.role !== 'client' && x.two_step ? `<button class="link-btn" data-act="reset-2fa" data-id="${x.id}" data-name="${esc(x.name)}">Reset two-step</button>` : ''}
             <button class="link-btn" data-act="${x.disabled ? 'enable' : 'disable'}" data-id="${x.id}" data-name="${esc(x.name)}">${x.disabled ? 'Switch on' : 'Switch off'}</button>`}</td></tr>`).join('')}
         </tbody></table></div></div>
       <div class="card section"><div class="card-head"><h3>Activity log</h3><span class="muted small">Latest 200 events · times in IST</span></div>
@@ -1950,7 +2775,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         </tbody></table></div></div>`;
 
     const role = page.querySelector('#u-role'); const cw = page.querySelector('#u-company-wrap');
-    const syncRole = () => { cw.style.visibility = role.value === 'advisor' ? 'hidden' : 'visible'; };
+    const syncRole = () => { cw.style.visibility = role.value === 'client' ? 'visible' : 'hidden'; };
     role.addEventListener('change', syncRole); syncRole();
     const oneTime = (name, email, pw) => `<div class="msg ok onetime"><b>One-time password for ${esc(name)}${email ? ' (' + esc(email) + ')' : ''}:</b>
       <code class="secret">${esc(pw)}</code> <button type="button" class="link-btn" data-copy="${esc(pw)}">Copy</button>
@@ -1963,7 +2788,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       e.preventDefault();
       try {
         const r = await api.post('/api/admin/company', { code: page.querySelector('#c-code').value, name: page.querySelector('#c-name').value });
-        state.adminNotice = `<div class="msg ok">${esc(r.company.code)} · ${esc(r.company.name)} added. Add its management and finance team logins next.</div>`;
+        state.adminNotice = `<div class="msg ok">${esc(r.company.code)} · ${esc(r.company.name)} added. Add the client's view-only logins next, then upload its first month under Data &amp; uploads.</div>`;
         const me = await api.get('/api/me'); state.companies = me.companies; if (!state.companyId) state.companyId = r.company.id;
         adminPage(page);
       } catch (err) { page.querySelector('#c-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
@@ -1977,6 +2802,22 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
         adminPage(page);
       } catch (err) { page.querySelector('#u-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
     });
+    page.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', async () => {
+      state.companyId = Number(b.dataset.open); state.tab = 'overview'; editor.reset(); await loadDashboard(); window.scrollTo(0, 0);
+    }));
+    page.querySelectorAll('[data-rename]').forEach((b) => b.addEventListener('click', () => {
+      const td = b.closest('tr').children[1];
+      td.innerHTML = `<form class="btn-row" data-rf><input type="text" value="${esc(b.dataset.name)}" maxlength="160" aria-label="New company name" style="max-width:260px"><button class="btn small" type="submit">Save</button></form>`;
+      const f = td.querySelector('form'); f.querySelector('input').focus();
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await api.post('/api/admin/company/update', { company_id: Number(b.dataset.rename), name: f.querySelector('input').value });
+          const me = await api.get('/api/me'); state.companies = me.companies;
+          state.adminNotice = '<div class="msg ok">Company renamed.</div>'; adminPage(page);
+        } catch (err) { state.adminNotice = `<div class="msg err">${esc(err.message)}</div>`; adminPage(page); }
+      });
+    }));
     page.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
       // Two-tap confirm: the first tap arms the button, the second carries it out.
       if (!b.dataset.armed) { b.dataset.armed = '1'; b.dataset.label = b.textContent; b.textContent = 'Tap again to confirm'; b.classList.add('armed'); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = b.dataset.label; b.classList.remove('armed'); } }, 4000); return; }
@@ -1990,18 +2831,20 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
 
   // ---------- Data & uploads ----------
   function uploadPage(page, a, company) {
-    const canUpload = state.me.role !== 'viewer';
+    const canUpload = isStaff(state.me);
     const hist = (state.history && state.history.uploads) || [];
+    const liveVersion = {};
+    hist.forEach((h) => { if (!liveVersion[h.period] || h.version > liveVersion[h.period]) liveVersion[h.period] = h.version; });
     const periods = (state.dash && state.dash.periods) || [];
     const schema = window.AE_SCHEMA;
     const tableSections = schema ? schema.sheets.filter((s) => s.layout === 'table') : [];
     page.innerHTML = head('Data & uploads', company.name, null) + `
       <div class="grid g-2">
         <div class="card"><div class="card-head"><h3>1. Monthly data workbook</h3></div>
-          <p style="margin-top:0">Your accountant fills one workbook a month: sales and purchase registers, expenses, receivables, payables, stock, bank balances and compliance status. Each sheet says which Tally report to paste from.</p>
+          <p style="margin-top:0">One workbook a month per client: sales and purchase registers, expenses, receivables, payables, stock, bank balances and compliance status. Each sheet says which Tally report to paste from. The client's accountant can fill it, or the Assura team can prepare it from their Tally exports.</p>
           ${window.AE_TEMPLATE_NOTE ? `<p class="small">${window.AE_TEMPLATE_NOTE}</p>` : `<div class="btn-row"><a class="btn secondary" href="${window.AE_TEMPLATE_URL || '/template.xlsx'}" download="Assura_Elevate_Monthly_Data_Template.xlsx">Download the blank workbook</a>
             ${window.AE_SAMPLE_URL ? `<a class="btn secondary" href="${window.AE_SAMPLE_URL}" download="Sample_Meridian_Polymers_Sep-2026.xlsx">Download a filled sample</a>` : ''}</div>
-            ${window.AE_SAMPLE_URL ? '<p class="muted small">The filled sample is for Meridian Polymers (AE-0001). Upload it here while signed in as the Meridian finance team or the advisor to watch the dashboard update.</p>' : ''}`}
+            ${window.AE_SAMPLE_URL ? '<p class="muted small">The filled sample is for Meridian Polymers (AE-0001). Upload it here with Meridian selected to watch the dashboard update.</p>' : ''}`}
           <p class="muted small">Company code for this workbook: <b>${esc(company.code)}</b></p>
         </div>
         <div class="card"><div class="card-head"><h3>2. Upload</h3></div>
@@ -2015,18 +2858,30 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
             <div><label for="csv-period">For the month</label><input type="month" id="csv-period" value="${periods.length ? periods[periods.length - 1] : ''}"></div>
             <div style="align-self:end"><button class="btn" id="csv-go">Upload CSV</button></div>
           </div>
-          <div id="up-msg">${state.upload || ''}</div>` : `<p>Your login can view the dashboard. Uploads are made by your finance team.</p>`}
+          <div id="up-msg">${state.upload || ''}</div>
+          <p class="muted small" style="margin-top:12px">Uploading a month that is already on record replaces it on the dashboard. To correct a few figures instead, use Edit data.</p>` : `<p>Your login can view the dashboard. Uploads are made by the Assura Elevate team.</p>`}
         </div>
       </div>
       <div class="card section"><div class="card-head"><h3>Months on record</h3><span class="muted small">${periods.length} month${periods.length === 1 ? '' : 's'}</span></div>
         <div class="hl-summary">${periods.map((p) => `<span class="chip outline">${mShort(p)}</span>`).join('') || '<span class="muted">None yet</span>'}</div>
       </div>
-      <div class="card section"><div class="card-head"><h3>Upload history</h3><span class="muted small">Re-uploading a month replaces it on the dashboard; earlier versions are kept</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Uploaded</th><th>Month</th><th>Version</th><th>File</th><th>By</th><th>Sections</th><th>Checks</th></tr></thead><tbody>
-        ${hist.map((h) => `<tr><td class="num">${esc(stamp(h.created_at))}</td><td>${mShort(h.period)}</td><td class="num">v${h.version}</td><td>${esc(h.filename || '')}</td><td>${esc(h.uploaded_by || 'Setup')}</td><td>${h.sections.length}</td><td>${h.warnings.length ? chip('watch', `${h.warnings.length} note${h.warnings.length > 1 ? 's' : ''}`) : chip('positive', 'Clean')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No uploads yet.</td></tr>'}
+      <div class="card section"><div class="card-head"><h3>Version history</h3><span class="muted small">Every upload and edit is kept. The newest version of each month is the live one; restore any earlier version to make it live again.</span></div>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Month</th><th>Version</th><th>What</th><th>By</th><th>Checks</th><th></th></tr></thead><tbody>
+        ${hist.map((h) => { const live = liveVersion[h.period] === h.version; return `<tr><td class="num nowrap">${esc(stamp(h.created_at))}</td><td>${mShort(h.period)}</td><td class="num">v${h.version}${live ? ' ' + (h.source === 'Month removed' ? chip('watch', 'Off dashboard') : chip('positive', 'Live')) : ''}</td>
+          <td>${esc(h.source && h.source !== 'upload' ? h.source : 'Upload' + (h.filename ? ': ' + h.filename : ''))}</td><td>${esc(h.uploaded_by || 'Setup')}</td>
+          <td>${h.warnings.length ? chip('watch', `${h.warnings.length} note${h.warnings.length > 1 ? 's' : ''}`) : chip('positive', 'Clean')}</td>
+          <td class="r nowrap">${!live && h.source !== 'Month removed' ? `<button class="link-btn" data-restore="${h.version}" data-period="${h.period}">Restore this version</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">No uploads yet.</td></tr>'}
         </tbody></table></div>
       </div>`;
     if (!canUpload) return;
+    page.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', async () => {
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to restore'; b.classList.add('armed'); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Restore this version'; b.classList.remove('armed'); } }, 4000); return; }
+      try {
+        const r = await api.post('/api/data/restore', { company: state.companyId, period: b.dataset.period, version: Number(b.dataset.restore) });
+        state.upload = `<div class="msg ok">${mLong(r.period)}: version ${b.dataset.restore} restored as version ${r.version}. The dashboard has been updated.</div>`;
+        await loadDashboard();
+      } catch (e) { page.querySelector('#up-msg').innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+    }));
     const drop = page.querySelector('#drop'); const input = page.querySelector('#file');
     let pendingCsv = null;
     drop.addEventListener('click', () => input.click());

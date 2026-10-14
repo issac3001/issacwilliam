@@ -215,7 +215,8 @@
 
   function buildHighlights(months, entries, detail) {
     const H = [];
-    const add = (severity, area, title, detail, action) => H.push({ severity, area, title, detail, action });
+    // drill: what opens when the highlight is clicked, e.g. { kind: 'receivables', bucket: '90+' }.
+    const add = (severity, area, title, detail, action, drill) => H.push({ severity, area, title, detail, action, drill: drill || null });
     const n = months.length;
     const cur = months[n - 1];
     const prev = months[n - 2];
@@ -225,17 +226,17 @@
     if (prev && prev.revenue) {
       const ch = cur.revenue / prev.revenue - 1;
       if (ch <= -0.1) add('watch', 'Revenue', `Revenue down ${pctTxt(-ch, 0)} on last month`,
-        `${inr(cur.revenue)} against ${inr(prev.revenue)} last month.`, 'Confirm whether this is seasonal, a lost account or delayed billing.');
+        `${inr(cur.revenue)} against ${inr(prev.revenue)} last month.`, 'Confirm whether this is seasonal, a lost account or delayed billing.', { kind: 'revenue' });
       else if (ch >= 0.1) add('positive', 'Revenue', `Revenue up ${pctTxt(ch, 0)} on last month`,
-        `${inr(cur.revenue)} against ${inr(prev.revenue)} last month.`, 'Check that receivables and stock are keeping pace with the growth.');
+        `${inr(cur.revenue)} against ${inr(prev.revenue)} last month.`, 'Check that receivables and stock are keeping pace with the growth.', { kind: 'revenue' });
     }
     if (n >= 4) {
       const last = months.slice(-4).map((m) => m.revenue);
       if (last[1] < last[0] && last[2] < last[1] && last[3] < last[2]) add('critical', 'Revenue', 'Revenue has fallen three months in a row',
-        `From ${inr(last[0])} to ${inr(last[3])} over the last three months.`, 'Review pipeline, pricing and top-customer volumes at the management review.');
+        `From ${inr(last[0])} to ${inr(last[3])} over the last three months.`, 'Review pipeline, pricing and top-customer volumes at the management review.', { kind: 'revenue' });
       const high = Math.max(...months.slice(-12).map((m) => m.revenue));
       if (n >= 6 && cur.revenue === high) add('positive', 'Revenue', 'Highest monthly revenue in the period on record',
-        `${inr(cur.revenue)} is the best month of the last ${Math.min(n, 12)}.`, null);
+        `${inr(cur.revenue)} is the best month of the last ${Math.min(n, 12)}.`, null, { kind: 'revenue' });
     }
 
     // Margin
@@ -243,9 +244,9 @@
     if (cur.gmPct != null && gmTrail.length >= 2) {
       const diff = cur.gmPct - mean(gmTrail);
       if (diff <= -0.02) add(diff <= -0.04 ? 'critical' : 'watch', 'Margin', `Gross margin down ${(Math.abs(diff) * 100).toFixed(1)} points`,
-        `${pctTxt(cur.gmPct)} this month against a ${gmTrail.length}-month average of ${pctTxt(mean(gmTrail))}.`, 'Look at purchase rates, discounts and product mix.');
+        `${pctTxt(cur.gmPct)} this month against a ${gmTrail.length}-month average of ${pctTxt(mean(gmTrail))}.`, 'Look at purchase rates, discounts and product mix.', { kind: 'gross' });
       else if (diff >= 0.02) add('positive', 'Margin', `Gross margin up ${(diff * 100).toFixed(1)} points`,
-        `${pctTxt(cur.gmPct)} this month against a ${gmTrail.length}-month average of ${pctTxt(mean(gmTrail))}.`, null);
+        `${pctTxt(cur.gmPct)} this month against a ${gmTrail.length}-month average of ${pctTxt(mean(gmTrail))}.`, null, { kind: 'gross' });
     }
 
     // Purchase price movement by item (weighted unit rate)
@@ -265,12 +266,12 @@
         const b = before.get(item);
         if (!b || !b.q) return;
         const ch = (r.v / r.q) / (b.v / b.q) - 1;
-        if (ch >= 0.08 && r.v > cur.purchases * 0.03) rises.push({ item, ch, value: r.v });
+        if (ch >= 0.08 && r.v > cur.purchases * 0.03) rises.push({ item, ch, value: r.v, now: r.v / r.q, before: b.v / b.q });
       });
       rises.sort((a, b) => b.value - a.value);
       if (rises.length) add('watch', 'Purchases', `Purchase rates up on ${rises.length} key item${rises.length > 1 ? 's' : ''}`,
         rises.slice(0, 3).map((r) => `${r.item} +${pctTxt(r.ch, 0)}`).join(', ') + ' against the prior three-month average rate.',
-        'Check whether selling prices have moved with input costs.');
+        'Check whether selling prices have moved with input costs.', { kind: 'purchase-rates', rows: rises.map((r) => ({ item: r.item, before: r.before, now: r.now, change: r.ch, value: r.value })) });
     }
 
     // Receivables
@@ -280,14 +281,14 @@
     if (over90 != null && over90 > 0.15) {
       const names = detail.topOverdue.slice(0, 3).map((t) => `${t.name} (${inr(t.value)})`).join(', ');
       add(over90 > 0.25 ? 'critical' : 'watch', 'Receivables', `${inr(ra['90+'])} of receivables is over 90 days old`,
-        `${pctTxt(over90, 0)} of total receivables. Largest: ${names}.`, 'Agree a collection plan for each account and consider credit holds.');
+        `${pctTxt(over90, 0)} of total receivables. Largest: ${names}.`, 'Agree a collection plan for each account and consider credit holds.', { kind: 'receivables', bucket: '90+' });
     }
     const dsoSeries = months.slice(-4).map((m) => m.dso);
     if (dsoSeries.length === 4 && dsoSeries.every((x, i) => i === 0 || x > dsoSeries[i - 1]))
       add('watch', 'Receivables', 'Customers are taking longer to pay',
-        `Collection period has stretched for three months running, from ${dsoSeries[0]} to ${dsoSeries[3]} days.`, 'Review credit terms on the largest accounts.');
+        `Collection period has stretched for three months running, from ${dsoSeries[0]} to ${dsoSeries[3]} days.`, 'Review credit terms on the largest accounts.', { kind: 'receivables' });
     else if (prev && prev.dso && cur.dso && cur.dso <= prev.dso - 7)
-      add('positive', 'Receivables', `Collections improved by ${prev.dso - cur.dso} days`, `Collection period is now ${cur.dso} days.`, null);
+      add('positive', 'Receivables', `Collections improved by ${prev.dso - cur.dso} days`, `Collection period is now ${cur.dso} days.`, null, { kind: 'receivables' });
 
     // Customers: concentration, lost and new accounts
     if (n >= 1) {
@@ -297,7 +298,7 @@
       const top = topN(rev3, 1)[0];
       if (top && total3 && top.value / total3 > 0.25)
         add('watch', 'Concentration', `${top.name} is ${pctTxt(top.value / total3, 0)} of revenue`,
-          `Based on the last ${window.length} month(s). Losing or delaying this account would move results materially.`, 'Track this account closely and widen the customer base.');
+          `Based on the last ${window.length} month(s). Losing or delaying this account would move results materially.`, 'Track this account closely and widen the customer base.', { kind: 'customer', name: top.name });
     }
     if (n >= 4) {
       const custSet = (e) => new Set((e.data.sales || []).map((s) => s.customer));
@@ -311,11 +312,11 @@
         const atRisk = sum(ranked, (r) => r.v);
         add(atRisk > cur.revenue * 0.05 ? 'watch' : 'info', 'Customers', `${lost.length} regular customer${lost.length > 1 ? 's' : ''} did not buy this month`,
           `${ranked.slice(0, 3).map((r) => r.c).join(', ')}${lost.length > 3 ? ' and others' : ''}. Together they averaged ${inr(atRisk)} a month.`,
-          'Check with sales whether these accounts are lost or delayed.');
+          'Check with sales whether these accounts are lost or delayed.', { kind: 'lost-customers', rows: ranked.map((r) => ({ customer: r.c, average: r.v })) });
       }
       const ever = new Set([].concat(...entries.slice(0, n - 1).map((e) => [...custSet(e)])));
       const fresh = [...nowSet].filter((c) => !ever.has(c));
-      if (fresh.length >= 2) add('positive', 'Customers', `${fresh.length} new customers billed this month`, fresh.slice(0, 4).join(', ') + (fresh.length > 4 ? ' and others.' : '.'), null);
+      if (fresh.length >= 2) add('positive', 'Customers', `${fresh.length} new customers billed this month`, fresh.slice(0, 4).join(', ') + (fresh.length > 4 ? ' and others.' : '.'), null, { kind: 'new-customers', names: fresh });
     }
 
     // Billing pattern: month-end loading
@@ -323,7 +324,7 @@
     if (cur.monthEndShare != null && cur.monthEndShare > 0.4 && (meTrail == null || cur.monthEndShare > meTrail + 0.1))
       add('watch', 'Billing pattern', `${pctTxt(cur.monthEndShare, 0)} of sales billed in the last five days`,
         meTrail != null ? `Usually ${pctTxt(meTrail, 0)}. Heavy month-end billing can signal pushed sales or cut-off issues.` : 'Heavy month-end billing can signal pushed sales or cut-off issues.',
-        'Ask the accountant to confirm dispatch dates for late invoices.');
+        'Ask the accountant to confirm dispatch dates for late invoices.', { kind: 'month-end' });
 
     // Inventory
     const ia = detail.invAgeing;
@@ -331,11 +332,11 @@
     const slow = (ia['181-365'] || 0) + (ia['365+'] || 0);
     if (invTotal && slow / invTotal > 0.15)
       add(slow / invTotal > 0.3 ? 'critical' : 'watch', 'Inventory', `${inr(slow)} of cash is locked in stock not moved for 6+ months`,
-        `${pctTxt(slow / invTotal, 0)} of closing stock. Largest: ${detail.slowStock.slice(0, 3).map((s) => s.name).join(', ')}.`, 'Decide on liquidation, return or write-down for slow items.');
+        `${pctTxt(slow / invTotal, 0)} of closing stock. Largest: ${detail.slowStock.slice(0, 3).map((s) => s.name).join(', ')}.`, 'Decide on liquidation, return or write-down for slow items.', { kind: 'inventory', bucket: '181+' });
     const dioS = months.slice(-4).map((m) => m.dio).filter((x) => x != null);
     if (dioS.length === 4 && dioS[3] > dioS[0] * 1.2)
       add('watch', 'Inventory', 'Stock is building up faster than sales',
-        `Days of inventory rose from ${dioS[0]} to ${dioS[3]} over three months.`, 'Align purchase planning with the sales run-rate.');
+        `Days of inventory rose from ${dioS[0]} to ${dioS[3]} over three months.`, 'Align purchase planning with the sales run-rate.', { kind: 'inventory' });
 
     // Expenses: anomaly against each head's own history
     if (n >= 4) {
@@ -349,29 +350,29 @@
       });
       flagged.sort((a, b) => (b.amount - b.avg) - (a.amount - a.avg));
       if (flagged.length) add('watch', 'Expenses', `Unusual spend on ${flagged.map((f) => f.head).slice(0, 3).join(', ')}`,
-        flagged.slice(0, 3).map((f) => `${f.head} ${inr(f.amount)} vs usual ${inr(f.avg)}`).join('; ') + '.', 'Confirm whether these are one-offs or a new run-rate.');
+        flagged.slice(0, 3).map((f) => `${f.head} ${inr(f.amount)} vs usual ${inr(f.avg)}`).join('; ') + '.', 'Confirm whether these are one-offs or a new run-rate.', { kind: 'expense-spikes', rows: flagged });
       const r3 = sum(months.slice(-3), (m) => m.revenue); const r3p = sum(months.slice(-6, -3), (m) => m.revenue);
       const e3 = sum(months.slice(-3), (m) => m.opex); const e3p = sum(months.slice(-6, -3), (m) => m.opex);
       if (n >= 6 && r3p && e3p && e3 / e3p - 1 > (r3 / r3p - 1) + 0.08)
         add('watch', 'Expenses', 'Overheads are growing faster than revenue',
-          `Last quarter: expenses ${pctTxt(e3 / e3p - 1, 0)}, revenue ${pctTxt(r3 / r3p - 1, 0)} against the quarter before.`, 'Review discretionary spend and headcount additions.');
+          `Last quarter: expenses ${pctTxt(e3 / e3p - 1, 0)}, revenue ${pctTxt(r3 / r3p - 1, 0)} against the quarter before.`, 'Review discretionary spend and headcount additions.', { kind: 'expenses' });
     }
 
     // Cash and borrowing
     if (cur.odLimit && cur.odUsed / cur.odLimit > 0.85)
       add(cur.odUsed / cur.odLimit > 0.95 ? 'critical' : 'watch', 'Cash', `Working capital limits ${pctTxt(cur.odUsed / cur.odLimit, 0)} utilised`,
-        `${inr(cur.odUsed)} drawn of ${inr(cur.odLimit)} sanctioned.`, 'Plan collections and payments for the coming weeks; consider a limit review with the bank.');
+        `${inr(cur.odUsed)} drawn of ${inr(cur.odLimit)} sanctioned.`, 'Plan collections and payments for the coming weeks; consider a limit review with the bank.', { kind: 'cash' });
     if (n >= 4) {
       const nc = months.slice(-4).map((m) => m.netCash);
       if (nc[1] < nc[0] && nc[2] < nc[1] && nc[3] < nc[2])
-        add('watch', 'Cash', 'Net cash position has declined three months in a row', `From ${inr(nc[0])} to ${inr(nc[3])}.`, 'Look at where cash is going: receivables, stock or overheads.');
+        add('watch', 'Cash', 'Net cash position has declined three months in a row', `From ${inr(nc[0])} to ${inr(nc[3])}.`, 'Look at where cash is going: receivables, stock or overheads.', { kind: 'cash' });
     }
     if (prev) {
       const wcCh = cur.workingCapital - prev.workingCapital;
       if (prev.workingCapital && Math.abs(wcCh) / prev.workingCapital > 0.1)
         add(wcCh > 0 && cur.revenue <= prev.revenue ? 'watch' : 'info', 'Working capital',
           `${inr(Math.abs(wcCh))} ${wcCh > 0 ? 'more' : 'less'} cash tied up in working capital`,
-          `Receivables plus stock less payables is now ${inr(cur.workingCapital)}.`, wcCh > 0 ? 'See "Where is the money" for the breakdown.' : null);
+          `Receivables plus stock less payables is now ${inr(cur.workingCapital)}.`, wcCh > 0 ? 'See "Where is the money" for the breakdown.' : null, { kind: 'working-capital' });
     }
 
     // Payables to possible MSME suppliers
@@ -380,20 +381,20 @@
     if (payOld > 0 && cur.payables && payOld / cur.payables > 0.2)
       add('watch', 'Payables', `${inr(payOld)} owed to suppliers for over 60 days`,
         'Delayed payments strain supply and, for micro and small enterprise suppliers, payments beyond 45 days can affect tax deductibility (Section 43B(h)).',
-        'Confirm the MSME status of these suppliers and prioritise them.');
+        'Confirm the MSME status of these suppliers and prioritise them.', { kind: 'payables', bucket: '61+' });
 
     // Compliance
     const overdue = detail.compliance.filter((c) => c.state === 'overdue');
     const soon = detail.compliance.filter((c) => c.state === 'due-soon');
     const late = detail.compliance.filter((c) => c.late);
     if (overdue.length) add('critical', 'Compliance', `${overdue.length} compliance item${overdue.length > 1 ? 's' : ''} overdue`,
-      overdue.map((c) => `${c.item} (due ${dmy(c.due_date)})`).join(', ') + '.', 'File immediately to limit interest and late fees.');
+      overdue.map((c) => `${c.item} (due ${dmy(c.due_date)})`).join(', ') + '.', 'File immediately to limit interest and late fees.', { kind: 'compliance', state: 'overdue' });
     if (soon.length) add('info', 'Compliance', `${soon.length} item${soon.length > 1 ? 's' : ''} due in the next 15 days`,
-      soon.map((c) => `${c.item} by ${dmy(c.due_date)}`).join(', ') + '.', null);
+      soon.map((c) => `${c.item} by ${dmy(c.due_date)}`).join(', ') + '.', null, { kind: 'compliance', state: 'due-soon' });
     if (late.length) add('watch', 'Compliance', `${late.length} item${late.length > 1 ? 's were' : ' was'} filed after the due date`,
-      late.map((c) => c.item).join(', ') + '.', 'Check for interest or fees and fix the cause in the monthly calendar.');
+      late.map((c) => c.item).join(', ') + '.', 'Check for interest or fees and fix the cause in the monthly calendar.', { kind: 'compliance', state: 'late' });
     if (!overdue.length && !late.length && detail.compliance.length)
-      add('positive', 'Compliance', 'All compliance items this month are on time', `${detail.compliance.filter((c) => c.state === 'done').length} items filed or paid.`, null);
+      add('positive', 'Compliance', 'All compliance items this month are on time', `${detail.compliance.filter((c) => c.state === 'done').length} items filed or paid.`, null, { kind: 'compliance' });
 
     H.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
     return H;
@@ -437,5 +438,6 @@
     return { months, latest, highlights, trends: trends(months), generatedAt: new Date().toISOString() };
   }
 
-  return { analyse, inr, pctTxt };
+  // Shared with the drill-down views so their ageing matches the dashboard exactly.
+  return { analyse, inr, pctTxt, dmy, monthEnd, daysBetween, BUCKETS, INV_BUCKETS };
 });

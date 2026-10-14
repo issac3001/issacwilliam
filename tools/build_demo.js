@@ -23,7 +23,7 @@ const script = (code) => `<script>\n${safe(code)}\n</script>`;
 
 function body(extraGlobals) {
   return `<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
 ${R('public', 'styles.css')}
 </style>
@@ -35,7 +35,10 @@ window.AE_LOGO_ON_DARK = 'data:image/png;base64,${B64('public', 'brand', 'assura
 ${extraGlobals}`)}
 ${script(R('shared', 'parse.js'))}
 ${script(R('shared', 'analysis.js'))}
+${script(R('shared', 'edit.js'))}
 ${script(R('public', 'charts.js'))}
+${script(R('public', 'drill.js'))}
+${script(R('public', 'editor.js'))}
 ${script(R('tools', 'demo', 'demo-api.js'))}
 ${script(R('public', 'app.js'))}
 `;

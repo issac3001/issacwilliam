@@ -68,6 +68,10 @@ test('analysis finds the storylines planted in the sample data', () => {
   assert.match(titles, /Working capital limits/);
   assert.match(titles, /compliance item overdue/);
   assert.strictEqual(a.highlights[0].severity, 'critical');
+  // Each highlight says what opens when it is clicked.
+  const over90 = a.highlights.find((h) => /over 90 days/.test(h.title));
+  assert.deepStrictEqual(over90.drill, { kind: 'receivables', bucket: '90+' });
+  assert.ok(a.highlights.every((h) => h.drill && h.drill.kind), 'every highlight opens a breakdown');
   const b = analyse(load('AE-0002'), { asOf: '2026-10-08' });
   assert.ok(b.highlights.some((h) => h.severity === 'positive' && /Revenue up/.test(h.title)));
   assert.ok(b.highlights.some((h) => /billed in the last five days/.test(h.title)));
@@ -87,8 +91,8 @@ function client(port) {
   return { call, login: (email, extra) => call('POST', '/api/login', Object.assign({ email, password: 'test-password-1' }, extra)) };
 }
 
-// Completes an advisor's first sign-in: enrols two-step login and returns the secret.
-async function enrolAdvisor(c) {
+// Completes a team member's first sign-in: enrols two-step login and returns the secret.
+async function enrolStaff(c) {
   const start = await c.call('POST', '/api/2fa/start');
   assert.strictEqual(start.status, 200);
   const code = totp.codeAt(start.body.secret, Math.floor(Date.now() / 30000));
@@ -97,16 +101,16 @@ async function enrolAdvisor(c) {
   return start.body.secret;
 }
 
-test('each login sees only its own company; uploads build history', async (t) => {
+test('a client sees only its own company and is view only; the Assura team uploads and edits', async (t) => {
   const db = store.open(':memory:');
   const a = store.createCompany(db, 'AE-0001', 'Alpha');
   const b = store.createCompany(db, 'AE-0002', 'Beta');
   const pw = 'test-password-1';
-  store.createUser(db, { email: 'md@a.test', name: 'MD A', role: 'viewer', companyId: a.id, password: pw });
-  store.createUser(db, { email: 'acc@a.test', name: 'Acc A', role: 'accountant', companyId: a.id, password: pw });
-  store.createUser(db, { email: 'md@b.test', name: 'MD B', role: 'viewer', companyId: b.id, password: pw });
-  store.createUser(db, { email: 'adv@x.test', name: 'Adv', role: 'advisor', companyId: null, password: pw });
+  store.createUser(db, { email: 'md@a.test', name: 'MD A', role: 'client', companyId: a.id, password: pw });
+  store.createUser(db, { email: 'md@b.test', name: 'MD B', role: 'client', companyId: b.id, password: pw });
+  store.createUser(db, { email: 'team@x.test', name: 'Team', role: 'team', companyId: null, password: pw });
   for (const p of ['2026-08', '2026-09']) store.saveUpload(db, { companyId: b.id, period: p, userId: null, filename: 'seed', sections: [], warnings: [], data: sample('AE-0002', p) });
+  assert.throws(() => store.createUser(db, { email: 'x@a.test', name: 'X', role: 'client', companyId: null, password: pw }), 'a client login must belong to a company');
 
   const server = http.createServer(createApp(db)).listen(0);
   t.after(() => server.close());
@@ -115,6 +119,7 @@ test('each login sees only its own company; uploads build history', async (t) =>
   const anon = client(port);
   assert.strictEqual((await anon.call('GET', '/api/me')).status, 401);
   assert.strictEqual((await anon.call('GET', `/api/dashboard?company=${b.id}`)).status, 401);
+  assert.strictEqual((await anon.call('GET', `/api/data?company=${b.id}&period=2026-09`)).status, 401);
   assert.strictEqual((await anon.call('POST', '/api/login', { email: 'md@a.test', password: 'wrong-password' })).status, 401);
 
   const mdA = client(port);
@@ -122,57 +127,124 @@ test('each login sees only its own company; uploads build history', async (t) =>
   const me = await mdA.call('GET', '/api/me');
   assert.deepStrictEqual(me.body.companies.map((c) => c.code), ['AE-0001']);
   assert.strictEqual((await mdA.call('GET', '/api/dashboard')).status, 200);
-  assert.strictEqual((await mdA.call('GET', `/api/dashboard?company=${b.id}`)).status, 403, 'viewer of A must not read B');
+  assert.strictEqual((await mdA.call('GET', `/api/dashboard?company=${b.id}`)).status, 403, 'client A must not read B');
   assert.strictEqual((await mdA.call('GET', `/api/uploads?company=${b.id}`)).status, 403);
-  assert.strictEqual((await mdA.call('POST', '/api/upload', { sheets: {} })).status, 403, 'viewers cannot upload');
+  assert.strictEqual((await mdA.call('GET', `/api/data?company=${b.id}&period=2026-09`)).status, 403, 'client A must not open B\'s detail');
+  // A client login is view only: no upload, edit, restore, removal or administration.
+  assert.strictEqual((await mdA.call('POST', '/api/upload', { sheets: {} })).status, 403);
+  assert.strictEqual((await mdA.call('POST', '/api/data/edit', { period: '2026-09', section: 'expenses', values: [] })).status, 403);
+  assert.strictEqual((await mdA.call('POST', '/api/data/restore', { period: '2026-09', version: 1 })).status, 403);
+  assert.strictEqual((await mdA.call('POST', '/api/data/remove-month', { period: '2026-09' })).status, 403);
+  assert.strictEqual((await mdA.call('GET', '/api/admin/overview')).status, 403);
 
-  const accA = client(port);
-  await accA.login('acc@a.test');
+  const team = client(port);
+  assert.strictEqual((await team.login('team@x.test')).body.next, 'enrol-2fa');
+  assert.strictEqual((await team.call('GET', `/api/dashboard?company=${a.id}`)).status, 403, 'team must finish two-step setup first');
+  await enrolStaff(team);
+  assert.strictEqual((await team.call('GET', '/api/me')).body.companies.length, 2);
+
   // Upload of company B's workbook into A is refused by company code.
   const wbB = xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0002', '2026-09.xlsx'));
-  const wrong = await accA.call('POST', '/api/upload', { filename: 'b.xlsx', sheets: wbB });
+  const wrong = await team.call('POST', '/api/upload', { company: a.id, filename: 'b.xlsx', sheets: wbB });
   assert.strictEqual(wrong.status, 422);
   assert.match(wrong.body.errors[0], /company code AE-0002/);
-  // Explicitly targeting B is refused by access control.
-  assert.strictEqual((await accA.call('POST', '/api/upload', { company: b.id, filename: 'b.xlsx', sheets: wbB })).status, 403);
   // Missing CSRF header is refused.
-  assert.strictEqual((await accA.call('POST', '/api/upload', { sheets: {} }, { 'X-Requested-With': '' })).status, 403);
+  assert.strictEqual((await team.call('POST', '/api/upload', { company: a.id, sheets: {} }, { 'X-Requested-With': '' })).status, 403);
 
   for (const p of ['2026-07', '2026-08', '2026-09']) {
     const wb = xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0001', `${p}.xlsx`));
-    const r = await accA.call('POST', '/api/upload', { filename: `${p}.xlsx`, sheets: wb });
+    const r = await team.call('POST', '/api/upload', { company: a.id, filename: `${p}.xlsx`, sheets: wb });
     assert.strictEqual(r.status, 200, JSON.stringify(r.body));
   }
   let dash = await mdA.call('GET', '/api/dashboard');
   assert.deepStrictEqual(dash.body.periods, ['2026-07', '2026-08', '2026-09']);
   const revBefore = dash.body.analysis.months[2].revenue;
 
+  // The client can open the detail behind its own figures; the rows add up to the dashboard.
+  const detail = await mdA.call('GET', '/api/data?period=2026-09');
+  assert.strictEqual(detail.status, 200);
+  assert.strictEqual(Math.round(detail.body.data.sales.reduce((s, x) => s + x.taxable_value, 0)), Math.round(revBefore));
+  assert.strictEqual((await mdA.call('GET', '/api/data?period=2026-09&version=1')).status, 403, 'earlier versions are for the team');
+  assert.strictEqual((await mdA.call('GET', '/api/uploads')).body.uploads[0].uploaded_by, undefined, 'clients do not see who uploaded');
+
   // CSV-style single-section upload replaces one section of a month, as a new version.
   const csv = [['Expense Head', 'Expense Group', 'Amount'], ['Salaries and wages', 'Employee Cost', '100']];
-  const up = await accA.call('POST', '/api/upload', { filename: 'expenses.csv', section: 'expenses', period: '2026-09', sheets: { 'expenses.csv': csv } });
+  const up = await team.call('POST', '/api/upload', { company: a.id, filename: 'expenses.csv', section: 'expenses', period: '2026-09', sheets: { 'expenses.csv': csv } });
   assert.strictEqual(up.status, 200, JSON.stringify(up.body));
   assert.strictEqual(up.body.version, 2);
   dash = await mdA.call('GET', '/api/dashboard');
   assert.strictEqual(dash.body.analysis.months[2].opex, 100);
   assert.strictEqual(dash.body.analysis.months[2].revenue, revBefore);
-  const hist = await mdA.call('GET', '/api/uploads');
-  assert.strictEqual(hist.body.uploads.length, 4);
+
+  // The team edits a section in the portal: bad rows are refused with row numbers, good rows save as a new version.
+  const bad = await team.call('POST', '/api/data/edit', { company: a.id, period: '2026-09', section: 'expenses', values: [{ head: 'Rent', group: 'Nonsense', amount: 'abc' }] });
+  assert.strictEqual(bad.status, 422);
+  assert.match(bad.body.errors.join('\n'), /row 1: .*Expense Group/);
+  const stale = await team.call('POST', '/api/data/edit', { company: a.id, period: '2026-09', section: 'expenses', baseVersion: 1, values: [] });
+  assert.strictEqual(stale.status, 409, 'an edit based on an old version is refused');
+  const edit = await team.call('POST', '/api/data/edit', { company: a.id, period: '2026-09', section: 'expenses', baseVersion: 2,
+    values: [{ head: 'Salaries and wages', group: 'Employee Cost', amount: '1,50,000' }, { head: 'Rent', group: 'Occupancy', amount: 25000 }] });
+  assert.strictEqual(edit.status, 200, JSON.stringify(edit.body));
+  assert.strictEqual(edit.body.version, 3);
+  dash = await mdA.call('GET', '/api/dashboard');
+  assert.strictEqual(dash.body.analysis.months[2].opex, 175000);
+  const formEdit = await team.call('POST', '/api/data/edit', { company: a.id, period: '2026-09', section: 'company', values: { company_code: 'AE-0002', period: '2026-01', notes: 'Reviewed with the MD', other_income: '5,000' } });
+  assert.strictEqual(formEdit.status, 200, JSON.stringify(formEdit.body));
+  const after = (await mdA.call('GET', '/api/data?period=2026-09')).body.data.company;
+  assert.strictEqual(after.company_code, 'AE-0001', 'code cannot be changed by an edit');
+  assert.strictEqual(after.period, '2026-09', 'month cannot be changed by an edit');
+  assert.strictEqual(after.notes, 'Reviewed with the MD');
+  assert.strictEqual(after.other_income, 5000);
+  assert.strictEqual((await team.call('POST', '/api/data/edit', { company: b.id, period: '2026-07', section: 'expenses', values: [] })).status, 404);
+
+  // Restoring version 1 brings the original expenses back, as a new version.
+  const restore = await team.call('POST', '/api/data/restore', { company: a.id, period: '2026-09', version: 1 });
+  assert.strictEqual(restore.status, 200);
+  dash = await mdA.call('GET', '/api/dashboard');
+  assert.notStrictEqual(dash.body.analysis.months[2].opex, 175000);
+
+  // Removing a month takes it off the dashboard; it stays in history and can be restored.
+  assert.strictEqual((await team.call('POST', '/api/data/remove-month', { company: a.id, period: '2026-07' })).status, 200);
+  assert.deepStrictEqual((await mdA.call('GET', '/api/dashboard')).body.periods, ['2026-08', '2026-09']);
+  assert.strictEqual((await mdA.call('GET', '/api/data?period=2026-07')).status, 404);
+  assert.strictEqual((await team.call('POST', '/api/data/restore', { company: a.id, period: '2026-07', version: 1 })).status, 200);
+  assert.deepStrictEqual((await mdA.call('GET', '/api/dashboard')).body.periods, ['2026-07', '2026-08', '2026-09']);
+  const hist = await team.call('GET', `/api/uploads?company=${a.id}`);
+  assert.deepStrictEqual(hist.body.uploads.slice(0, 3).map((x) => x.source), ['Restored v1', 'Month removed', 'Restored v1']);
 
   const mdB = client(port);
   await mdB.login('md@b.test');
-  assert.strictEqual((await mdB.call('GET', `/api/dashboard?company=${a.id}`)).status, 403, 'viewer of B must not read A');
+  assert.strictEqual((await mdB.call('GET', `/api/dashboard?company=${a.id}`)).status, 403, 'client B must not read A');
+  assert.strictEqual((await mdB.call('GET', `/api/data?company=${a.id}&period=2026-09`)).status, 403);
   assert.deepStrictEqual((await mdB.call('GET', '/api/dashboard')).body.periods, ['2026-08', '2026-09']);
 
-  const adv = client(port);
-  assert.strictEqual((await adv.login('adv@x.test')).body.next, 'enrol-2fa');
-  assert.strictEqual((await adv.call('GET', `/api/dashboard?company=${a.id}`)).status, 403, 'advisor must finish two-step setup first');
-  await enrolAdvisor(adv);
-  assert.strictEqual((await adv.call('GET', '/api/me')).body.companies.length, 2);
-  assert.strictEqual((await adv.call('GET', `/api/dashboard?company=${a.id}`)).status, 200);
-  assert.strictEqual((await adv.call('GET', `/api/dashboard?company=${b.id}`)).status, 200);
-
+  const actions = db.prepare('SELECT action FROM audit').all().map((x) => x.action);
+  for (const x of ['upload.accepted', 'data.edited', 'data.restored', 'data.month_removed']) assert.ok(actions.includes(x), `audit has ${x}`);
   await mdA.call('POST', '/api/logout');
   assert.strictEqual((await mdA.call('GET', '/api/me')).status, 401);
+});
+
+test('first-release logins are carried over to the new roles', (t) => {
+  const os = require('os');
+  const { DatabaseSync } = require('node:sqlite');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ae-migrate-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'old.db');
+  const old = new DatabaseSync(file);
+  old.exec(`CREATE TABLE companies (id INTEGER PRIMARY KEY, code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+    CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL COLLATE NOCASE, name TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('viewer', 'accountant', 'advisor')), company_id INTEGER REFERENCES companies(id),
+      password_hash TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), CHECK (role = 'advisor' OR company_id IS NOT NULL));
+    CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL);
+    INSERT INTO companies (code, name) VALUES ('AE-0001', 'Alpha');
+    INSERT INTO users (email, name, role, company_id, password_hash) VALUES ('v@a', 'V', 'viewer', 1, 'x'), ('acc@a', 'A', 'accountant', 1, 'x'), ('adv@x', 'D', 'advisor', NULL, 'x');
+    INSERT INTO sessions VALUES ('t', 2, 0);`);
+  old.close();
+  const db = store.open(file);
+  assert.deepStrictEqual(db.prepare('SELECT email, role FROM users ORDER BY id').all().map((r) => `${r.email}:${r.role}`), ['v@a:client', 'acc@a:client', 'adv@x:admin']);
+  assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n, 1, 'sessions survive the change');
+  assert.throws(() => db.prepare("INSERT INTO users (email, name, role, password_hash) VALUES ('c@x', 'C', 'client', 'x')").run());
+  db.close();
 });
 
 test('static files cannot escape the public folder', async (t) => {
@@ -186,14 +258,14 @@ test('static files cannot escape the public folder', async (t) => {
 test('first sign-in, two-step login, admin, disable, idle timeout and audit', async (t) => {
   const db = store.open(':memory:');
   const co = store.createCompany(db, 'AE-0001', 'Alpha');
-  store.createUser(db, { email: 'lead@assura.test', name: 'Lead', role: 'advisor', companyId: null, password: 'test-password-1' });
+  store.createUser(db, { email: 'lead@assura.test', name: 'Lead', role: 'admin', companyId: null, password: 'test-password-1' });
   const server = http.createServer(createApp(db)).listen(0);
   t.after(() => server.close());
   const port = server.address().port;
 
   const lead = client(port);
   await lead.login('lead@assura.test');
-  const secret = await enrolAdvisor(lead);
+  const secret = await enrolStaff(lead);
   assert.strictEqual((await lead.call('GET', '/api/admin/overview')).status, 200);
 
   // Second sign-in needs the code; a wrong or replayed code is refused.
@@ -206,14 +278,29 @@ test('first sign-in, two-step login, admin, disable, idle timeout and audit', as
   assert.strictEqual((await again.login('lead@assura.test', { code: good })).status, 200);
   assert.strictEqual((await client(port).login('lead@assura.test', { code: good })).status, 401, 'a code cannot be reused');
 
-  // Advisor adds a management login; it gets a one-time password and must change it.
-  const bad = await lead.call('POST', '/api/admin/user', { name: 'X', email: 'not-an-email', role: 'viewer', company_id: co.id });
+  // The admin adds a client login; it gets a one-time password and must change it.
+  const bad = await lead.call('POST', '/api/admin/user', { name: 'X', email: 'not-an-email', role: 'client', company_id: co.id });
   assert.strictEqual(bad.status, 400);
-  const add = await lead.call('POST', '/api/admin/user', { name: 'MD Alpha', email: 'MD@alpha.test', role: 'viewer', company_id: co.id });
+  assert.strictEqual((await lead.call('POST', '/api/admin/user', { name: 'X', email: 'x@alpha.test', role: 'client' })).status, 400, 'a client login needs a company');
+  const add = await lead.call('POST', '/api/admin/user', { name: 'MD Alpha', email: 'MD@alpha.test', role: 'client', company_id: co.id });
   assert.strictEqual(add.status, 200, JSON.stringify(add.body));
   const temp = add.body.temporaryPassword;
   assert.match(temp, /^[A-Za-z0-9]{7}-[A-Za-z0-9]{7}$/);
-  assert.strictEqual((await lead.call('POST', '/api/admin/user', { name: 'Dup', email: 'md@alpha.test', role: 'viewer', company_id: co.id })).status, 409);
+  assert.strictEqual((await lead.call('POST', '/api/admin/user', { name: 'Dup', email: 'md@alpha.test', role: 'client', company_id: co.id })).status, 409);
+
+  // Only an admin adds team logins; a team member manages clients but not the team.
+  const addTeam = await lead.call('POST', '/api/admin/user', { name: 'Team One', email: 'one@assura.test', role: 'team' });
+  assert.strictEqual(addTeam.status, 200, JSON.stringify(addTeam.body));
+  const one = client(port);
+  await one.call('POST', '/api/login', { email: 'one@assura.test', password: addTeam.body.temporaryPassword });
+  await one.call('POST', '/api/password', { current: addTeam.body.temporaryPassword, next: 'blue-harbour-lantern-42' });
+  await enrolStaff(one);
+  assert.strictEqual((await one.call('GET', '/api/admin/overview')).status, 200);
+  assert.strictEqual((await one.call('POST', '/api/admin/user', { name: 'Two', email: 'two@assura.test', role: 'team' })).status, 403);
+  assert.strictEqual((await one.call('POST', '/api/admin/user', { name: 'Two', email: 'two@assura.test', role: 'admin' })).status, 403);
+  assert.strictEqual((await one.call('POST', '/api/admin/user/action', { user_id: 1, action: 'disable' })).status, 403, 'team cannot switch off an admin');
+  assert.strictEqual((await one.call('POST', '/api/admin/company/update', { company_id: co.id, name: 'Alpha Industries' })).status, 200);
+  assert.strictEqual(db.prepare('SELECT name FROM companies WHERE id = ?').get(co.id).name, 'Alpha Industries');
 
   assert.strictEqual((await client(port).call('POST', '/api/login', { email: 'md@alpha.test', password: 'not-the-password' })).status, 401);
   const md = client(port);
@@ -239,7 +326,7 @@ test('first sign-in, two-step login, admin, disable, idle timeout and audit', as
   assert.strictEqual((await lead.call('POST', '/api/admin/user/action', { user_id: add.body.user.id, action: 'disable' })).status, 200);
   assert.strictEqual((await md2.call('GET', '/api/me')).status, 401);
   assert.strictEqual((await client(port).call('POST', '/api/login', { email: 'md@alpha.test', password: 'a-long-new-passphrase' })).status, 401);
-  assert.strictEqual((await lead.call('POST', '/api/admin/user/action', { user_id: 1, action: 'disable' })).status, 400, 'advisors cannot switch themselves off');
+  assert.strictEqual((await lead.call('POST', '/api/admin/user/action', { user_id: 1, action: 'disable' })).status, 400, 'admins cannot switch themselves off');
 
   // Password reset issues a new one-time password.
   await lead.call('POST', '/api/admin/user/action', { user_id: add.body.user.id, action: 'enable' });

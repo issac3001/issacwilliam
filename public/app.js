@@ -20,7 +20,9 @@
     post(url, body) { return this.request('POST', url, body || {}); },
   };
 
-  const state = { me: null, companies: [], companyId: null, dash: null, tab: 'overview', showAllHighlights: false, upload: null };
+  const state = { me: null, companies: [], companyId: null, dash: null, tab: 'overview', showAllHighlights: false, upload: null, monthCache: {} };
+  // Assura team and admins work across every client; client logins are view only.
+  const isStaff = (u) => !!u && (u.role === 'team' || u.role === 'admin');
   const app = document.getElementById('app');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -52,8 +54,37 @@
   };
   const SEQ = ['var(--seq-1)', 'var(--seq-2)', 'var(--seq-3)', 'var(--seq-4)'];
 
-  // The logo sits on navy (top bar, login panel), so the light-on-dark cut is used.
+  // The logo sits on espresso (top bar, login panel), so the light-on-dark cut is used.
   const LOGO = `<img src="${window.AE_LOGO_ON_DARK || '/brand/assura-elevate-logo-on-dark.png'}" alt="Assura Elevate">`;
+
+  // ---------- click-through details and the data editor ----------
+  const ctx = {
+    esc, inr, pctTxt, mLong, mShort, dLong, api,
+    companyId: () => state.companyId,
+    company: () => state.companies.find((c) => c.id === state.companyId),
+    periods: () => (state.dash && state.dash.periods) || [],
+    metrics: (p) => state.dash && state.dash.analysis.months.find((m) => m.period === p),
+    latest: () => state.dash && state.dash.analysis.latest,
+    latestPeriod: () => { const ps = (state.dash && state.dash.periods) || []; return ps[ps.length - 1]; },
+    month(p) {
+      const key = `${state.companyId}|${p}`;
+      if (!state.monthCache[key]) state.monthCache[key] = api.get(`/api/data?company=${state.companyId}&period=${p}`).then((r) => r.data).catch((e) => { delete state.monthCache[key]; throw e; });
+      return state.monthCache[key];
+    },
+    head: (eyebrow, title) => head(eyebrow, title, null),
+    notice(html) { state.upload = html; },
+    async reload() { await loadDashboard(); },
+  };
+  const drill = window.AEDrill(ctx);
+  const editor = window.AEEditor(ctx);
+  // Wires every [data-drill] element in a container to open its breakdown.
+  function wireDrills(root) {
+    root.querySelectorAll('[data-drill]').forEach((el) => el.addEventListener('click', (e) => {
+      if (e.target.closest('a,[data-go]') && e.target.closest('a,[data-go]') !== el) return;
+      e.preventDefault(); drill.open(JSON.parse(el.dataset.drill));
+    }));
+  }
+  const dAttr = (spec) => `data-drill="${esc(JSON.stringify(spec))}"`;
 
   // ---------- data loading ----------
   async function boot() {
@@ -69,6 +100,7 @@
     }
   }
   async function loadDashboard() {
+    state.monthCache = {};
     if (!state.companyId) { state.dash = null; state.history = null; render(); return; }
     state.dash = await api.get(`/api/dashboard?company=${state.companyId}`);
     state.history = await api.get(`/api/uploads?company=${state.companyId}`);
@@ -93,13 +125,13 @@
         </section>
         <section class="login-form">
           <form id="login" autocomplete="on">
-            <div><div class="eyebrow">Client login</div><h2>Sign in</h2></div>
+            <div><div class="eyebrow">Client and team login</div><h2>Sign in</h2></div>
             <div><label for="email">Email</label><input id="email" type="email" required autocomplete="username"></div>
             <div><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"></div>
             ${needCode ? `<div><label for="code">Code from your authenticator app</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></div>` : ''}
             ${error ? `<div class="msg ${needCode && /Enter the 6-digit/.test(error) ? '' : 'err'}">${esc(error)}</div>` : ''}
             <button class="btn" type="submit">Sign in</button>
-            <p class="small muted">Each login sees only its own company's data. Contact your Assura Elevate partner for access.</p>
+            <p class="small muted">A client login sees only its own company's data. Contact your Assura Elevate partner for access.</p>
             ${demo}
           </form>
         </section>
@@ -130,7 +162,7 @@
   }
   let loginDraft = {};
 
-  // ---------- account setup: first-login password change and advisor two-step login ----------
+  // ---------- account setup: first-login password change and team two-step login ----------
   function setupShell(inner) {
     app.innerHTML = `<header class="topbar"><div class="topbar-inner"><span class="wordmark">${LOGO}</span><span class="spacer"></span>
       <button class="btn-ghost" id="logout">Sign out</button></div></header>
@@ -167,8 +199,8 @@
       return;
     }
     // enrol-2fa
-    setupShell(`<div class="eyebrow">Assura Elevate advisor</div><h2>Set up two-step login</h2>
-      <p>Your login can see every client, so it needs a second step. Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or similar), then scan this code.</p>
+    setupShell(`<div class="eyebrow">Assura Elevate team</div><h2>Set up two-step login</h2>
+      <p>Your login can see and change every client's data, so it needs a second step. Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or similar), then scan this code.</p>
       <div id="qr" class="qr"><span class="muted small">Preparing…</span></div>
       <p class="small">Can't scan? Enter this key in the app instead: <code id="secret" class="secret"></code></p>
       <form id="confirm-2fa" class="stack-form"><div><label for="code2fa">6-digit code shown in the app</label>
@@ -191,7 +223,8 @@
 
   async function signOut() {
     await api.post('/api/logout').catch(() => {});
-    state.me = null; state.companyId = null; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null;
+    drill.close(); editor.reset();
+    state.me = null; state.companyId = null; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null; state.monthCache = {};
     renderLogin();
   }
 
@@ -203,9 +236,10 @@
   // ---------- shell ----------
   const TABS = [
     ['overview', 'Overview'], ['money', 'Where is the money?'], ['sales', 'Sales & customers'],
-    ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'], ['upload', 'Data & uploads'],
+    ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'],
   ];
-  const tabsFor = (u) => TABS.concat(u.role === 'advisor' ? [['admin', 'Clients & users']] : [], [['account', 'Account']]);
+  const tabsFor = (u) => TABS.concat(isStaff(u) ? [['upload', 'Data & uploads'], ['edit', 'Edit data'], ['admin', 'Clients & users']] : [], [['account', 'Account']]);
+  const ROLE_LABEL = { client: 'Client (view only)', team: 'Assura team', admin: 'Assura admin' };
 
   function render() {
     C.hideTip();
@@ -215,8 +249,8 @@
       <header class="topbar"><div class="topbar-inner">
         <a class="wordmark" href="#">${LOGO}</a>
         <span class="spacer"></span>
-        ${u.role === 'advisor' && state.companies.length ? `<select id="company" aria-label="Company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select>` : ''}
-        <div class="user-chip">${esc(u.name)}<br><span>${esc({ viewer: 'Management', accountant: 'Finance team', advisor: 'Assura Elevate advisor' }[u.role])}${company && u.role !== 'advisor' ? ' · ' + esc(company.code) : ''}</span></div>
+        ${isStaff(u) && state.companies.length ? `<select id="company" aria-label="Company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select>` : ''}
+        <div class="user-chip">${esc(u.name)}<br><span>${esc(ROLE_LABEL[u.role] || '')}${company && !isStaff(u) ? ' · ' + esc(company.code) : ''}</span></div>
         <button class="btn-ghost" id="logout">Sign out</button>
       </div></header>
       <nav class="tabs" aria-label="Sections"><div class="tabs-inner" role="tablist">
@@ -225,22 +259,26 @@
       <main id="page"></main>`;
     app.querySelector('#logout').addEventListener('click', signOut);
     const sel = app.querySelector('#company');
-    if (sel) sel.addEventListener('change', async () => { state.companyId = Number(sel.value); state.upload = null; await loadDashboard(); });
-    app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { state.tab = b.dataset.tab; state.showAllHighlights = false; render(); window.scrollTo(0, 0); }));
+    if (sel) sel.addEventListener('change', async () => { state.companyId = Number(sel.value); state.upload = null; editor.reset(); await loadDashboard(); });
+    app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { state.tab = b.dataset.tab; state.showAllHighlights = false; if (b.dataset.tab !== 'upload' && b.dataset.tab !== 'edit') state.upload = null; render(); window.scrollTo(0, 0); }));
 
     const page = app.querySelector('#page');
-    if (state.tab === 'admin' && u.role === 'advisor') { adminPage(page); return; }
+    if (!tabsFor(u).some(([k]) => k === state.tab)) state.tab = 'overview';
+    if (state.tab === 'admin') { adminPage(page); return; }
     if (state.tab === 'account') { accountPage(page); return; }
-    if (!company) { page.innerHTML = `<div class="card empty">No company is linked to this login yet.</div>`; return; }
+    if (!company) { page.innerHTML = `<div class="card empty">${isStaff(u) ? 'No client companies yet. Add one under Clients &amp; users.' : 'No company is linked to this login yet.'}</div>`; return; }
+    if (state.tab === 'edit') { editor.render(page, company); if (state.upload) { page.querySelector('.page-head').insertAdjacentHTML('afterend', state.upload); state.upload = null; } return; }
     const a = state.dash && state.dash.analysis;
     if (state.tab !== 'upload' && (!a || !a.months.length)) {
-      page.innerHTML = `<div class="card empty"><h2>No data yet</h2><p>Once your accountant uploads the first monthly workbook, the dashboard builds itself here.</p>
-        <button class="btn" data-go="upload">Go to Data & uploads</button></div>`;
-      page.querySelector('[data-go]').addEventListener('click', () => { state.tab = 'upload'; render(); });
+      page.innerHTML = isStaff(u)
+        ? `<div class="card empty"><h2>No data yet</h2><p>Upload the first monthly workbook for ${esc(company.name)} and the dashboard builds itself here.</p><button class="btn" data-go="upload">Go to Data & uploads</button></div>`
+        : `<div class="card empty"><h2>Your dashboard is being prepared</h2><p>Your Assura Elevate team uploads your monthly figures. The dashboard appears here as soon as the first month is in.</p></div>`;
+      const go = page.querySelector('[data-go]'); if (go) go.addEventListener('click', () => { state.tab = 'upload'; render(); });
       return;
     }
     ({ overview, money, sales, expenses, compliance, upload: uploadPage })[state.tab](page, a, company);
-    page.insertAdjacentHTML('beforeend', `<footer class="page-foot"><span>Prepared from data provided by your finance team. Figures are management estimates and unaudited.</span><span>Built for businesses ready for their next stage.</span></footer>`);
+    if (state.tab !== 'upload') page.insertAdjacentHTML('beforeend', `<footer class="page-foot"><span>Prepared from data provided by your finance team. Figures are management estimates and unaudited. Click any figure to see the detail behind it.</span><span>Built for businesses ready for their next stage.</span></footer>`);
+    wireDrills(page);
   }
 
   function head(eyebrow, title, a, extra) {
@@ -266,23 +304,26 @@
     const ms = a.months; const cur = ms[ms.length - 1]; const prev = ms[ms.length - 2];
     const wrap = document.createElement('div'); wrap.className = 'kpis';
     defs.forEach((d) => {
-      const tile = document.createElement('div'); tile.className = 'kpi';
-      tile.innerHTML = `<div class="label">${esc(d.label)}</div><div class="value">${esc(d.fmt(cur[d.key]))}</div>${delta(cur[d.key], prev && prev[d.key], d)}`;
+      const tile = document.createElement(d.drill ? 'button' : 'div'); tile.className = 'kpi';
+      if (d.drill) { tile.type = 'button'; tile.setAttribute('aria-label', `${d.label}: ${d.fmt(cur[d.key])}. Show details`); tile.addEventListener('click', () => drill.open(Object.assign({ period: cur.period }, d.drill))); }
+      tile.innerHTML = `<div class="label">${esc(d.label)}${d.drill ? '<span class="more" aria-hidden="true">›</span>' : ''}</div><div class="value">${esc(d.fmt(cur[d.key]))}</div>${delta(cur[d.key], prev && prev[d.key], d)}`;
       tile.appendChild(C.sparkline(ms.map((m) => m[d.key])));
       wrap.appendChild(tile);
     });
     container.appendChild(wrap);
   }
+  // Opens a monthly breakdown for the i-th month of a chart.
+  const byMonth = (ms, kind, extra) => (i) => drill.open(Object.assign({ kind, period: ms[i].period }, extra || {}));
 
   function highlightList(list, limit) {
     const shown = limit ? list.slice(0, limit) : list;
     return `<div class="hl-list">${shown.map((h) => `
-      <article class="hl ${h.severity}">
-        <div class="hl-top">${chip(h.severity)}<span class="hl-area">${esc(h.area)}</span></div>
+      <${h.drill ? 'button type="button"' : 'article'} class="hl ${h.severity}${h.drill ? ' clickable' : ''}" ${h.drill ? dAttr(h.drill) : ''}>
+        <div class="hl-top">${chip(h.severity)}<span class="hl-area">${esc(h.area)}</span>${h.drill ? '<span style="flex:1"></span><span class="more">See the detail ›</span>' : ''}</div>
         <div class="hl-title">${esc(h.title)}</div>
         <div class="hl-detail">${esc(h.detail)}</div>
         ${h.action ? `<div class="hl-action"><b>For management review:</b> ${esc(h.action)}</div>` : ''}
-      </article>`).join('')}</div>`;
+      </${h.drill ? 'button' : 'article'}>`).join('')}</div>`;
   }
 
   function card(title, sub, id, extra) {
@@ -298,6 +339,8 @@
       <tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? 'r' : ''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
+  const TREND_DRILL = { Revenue: 'revenue', 'Gross margin': 'gross', Expenses: 'expenses', Receivables: 'receivables', Inventory: 'inventory', 'Net cash': 'cash' };
+
   // ---------- Overview ----------
   function overview(page, a, company) {
     const ms = a.months; const cur = ms[ms.length - 1];
@@ -306,18 +349,18 @@
       <div class="grid g-main section">
         <div class="card">
           <div class="card-head"><h3>Highlights this month</h3><div class="hl-summary">${counts.map(([s, n]) => chip(s, `${n} ${SEV_LABEL[s]}`)).join('')}</div></div>
-          <p class="muted small" style="margin:-6px 0 12px">Found automatically by comparing this month with your own history: trends, ageing, concentration, unusual spend and due dates.</p>
+          <p class="muted small" style="margin:-6px 0 12px">Found automatically by comparing this month with your own history: trends, ageing, concentration, unusual spend and due dates. Click a highlight to see the records behind it.</p>
           <div id="hl">${a.highlights.length ? highlightList(a.highlights, state.showAllHighlights ? 0 : 6) : '<p class="muted">Nothing unusual this month.</p>'}</div>
           ${a.highlights.length > 6 ? `<button class="hl-more" id="hl-more" style="margin-top:10px;width:100%">${state.showAllHighlights ? 'Show fewer' : `Show all ${a.highlights.length} highlights`}</button>` : ''}
         </div>
         <div class="grid" style="align-content:start">
           <div class="card"><div class="card-head"><h3>Six-month direction</h3></div>
-            <table><tbody>${a.trends.map((t) => `<tr><td>${esc(t.label)}</td><td class="r">${t.dir === 'flat' ? '<span class="muted">Flat</span>' : `<span class="chip ${t.tone === 'good' ? 'positive' : t.tone === 'bad' ? 'watch' : 'info'}">${t.dir === 'rising' ? '▲ Rising' : '▼ Falling'}</span>`}</td><td class="r muted small">${t.dir === 'flat' ? '' : esc(t.perMonth.replace('-', '')) + ' a month'}</td></tr>`).join('')}</tbody></table>
+            <table><tbody>${a.trends.map((t) => `<tr class="clickable" ${dAttr({ kind: TREND_DRILL[t.label] })}><td><button type="button" class="row-link">${esc(t.label)}</button></td><td class="r">${t.dir === 'flat' ? '<span class="muted">Flat</span>' : `<span class="chip ${t.tone === 'good' ? 'positive' : t.tone === 'bad' ? 'watch' : 'info'}">${t.dir === 'rising' ? '▲ Rising' : '▼ Falling'}</span>`}</td><td class="r muted small">${t.dir === 'flat' ? '' : esc(t.perMonth.replace('-', '')) + ' a month'}</td></tr>`).join('')}</tbody></table>
           </div>
           <div class="card"><div class="card-head"><h3>Compliance health</h3><a href="#" data-go="compliance" class="small">Details</a></div>
-            <table><tbody>${Object.entries(a.latest.complianceByArea).map(([area, st]) => `<tr><td>${esc(area)}</td><td class="r">${chip(STATE_CHIP[st][0], STATE_CHIP[st][1])}</td></tr>`).join('') || '<tr><td class="muted">No compliance items in this upload.</td></tr>'}</tbody></table>
+            <table><tbody>${Object.entries(a.latest.complianceByArea).map(([area, st]) => `<tr class="clickable" ${dAttr({ kind: 'compliance', area })}><td><button type="button" class="row-link">${esc(area)}</button></td><td class="r">${chip(STATE_CHIP[st][0], STATE_CHIP[st][1])}</td></tr>`).join('') || '<tr><td class="muted">No compliance items in this upload.</td></tr>'}</tbody></table>
           </div>
-          ${a.latest.notes ? `<div class="card"><div class="card-head"><h3>Accountant's note</h3></div><p style="margin:0">${esc(a.latest.notes)}</p></div>` : ''}
+          ${a.latest.notes ? `<div class="card"><div class="card-head"><h3>Note for this month</h3></div><p style="margin:0">${esc(a.latest.notes)}</p></div>` : ''}
         </div>
       </div>
       <div class="grid g-2 section">
@@ -327,9 +370,10 @@
       <div class="section card"><div class="card-head"><h3>Platform status</h3></div>
         <div class="status-list">
           <div><b>Currently available</b><ul>
-            <li>Monthly data collection workbook (Excel), Tally-export friendly</li>
-            <li>Secure login for each company: management, finance team and Assura advisor roles</li>
+            <li>Secure, view-only login for each client company; each client sees only its own data</li>
+            <li>Assura team logins to upload, correct and manage every client's data, with an activity log</li>
             <li>Dashboard rebuilt on every upload, with full month-on-month history</li>
+            <li>Click any figure, chart or highlight for the detail behind it, with CSV download</li>
             <li>Automated highlights: trends, ageing, concentration, unusual spend, purchase rates, compliance due dates</li></ul></div>
           <div><b>Planned</b><ul>
             <li>AI-written monthly commentary for the management review</li>
@@ -339,20 +383,21 @@
         </div>
       </div>`;
     kpiTiles(page.querySelector('#kpis'), a, [
-      { label: 'Revenue', key: 'revenue', fmt: inr },
-      { label: 'Gross margin', key: 'gmPct', fmt: (v) => pctTxt(v), asPts: true },
-      { label: 'Net profit (estimate)', key: 'netProfit', fmt: inr },
-      { label: 'Net cash', key: 'netCash', fmt: inr },
-      { label: 'Receivables', key: 'receivables', fmt: inr, goodUp: false },
-      { label: 'Payables', key: 'payables', fmt: inr, goodUp: false },
-      { label: 'Inventory', key: 'inventory', fmt: inr, goodUp: false },
+      { label: 'Revenue', key: 'revenue', fmt: inr, drill: { kind: 'revenue' } },
+      { label: 'Gross margin', key: 'gmPct', fmt: (v) => pctTxt(v), asPts: true, drill: { kind: 'gross' } },
+      { label: 'Net profit (estimate)', key: 'netProfit', fmt: inr, drill: { kind: 'net' } },
+      { label: 'Net cash', key: 'netCash', fmt: inr, drill: { kind: 'cash' } },
+      { label: 'Receivables', key: 'receivables', fmt: inr, goodUp: false, drill: { kind: 'receivables' } },
+      { label: 'Payables', key: 'payables', fmt: inr, goodUp: false, drill: { kind: 'payables' } },
+      { label: 'Inventory', key: 'inventory', fmt: inr, goodUp: false, drill: { kind: 'inventory' } },
     ]);
     const labels = mAxis(ms.map((m) => m.period)); const full = ms.map((m) => mLong(m.period));
-    C.columns(page.querySelector('#c-rev'), { labels, fullLabels: full, format: inr, axisFormat: axisInr, title: 'Revenue and gross profit by month',
+    C.columns(page.querySelector('#c-rev'), { labels, fullLabels: full, format: inr, axisFormat: axisInr, title: 'Revenue and gross profit by month', onClick: byMonth(ms, 'revenue'),
       series: [{ name: 'Revenue', values: ms.map((m) => m.revenue), color: 'var(--series-1)' }, { name: 'Gross profit', values: ms.map((m) => m.grossProfit), color: 'var(--series-3)' }] });
-    C.lines(page.querySelector('#c-margin'), { labels, fullLabels: full, format: (v) => pctTxt(v), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Margins by month',
+    C.lines(page.querySelector('#c-margin'), { labels, fullLabels: full, format: (v) => pctTxt(v), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Margins by month', onClick: byMonth(ms, 'gross'),
       series: [{ name: 'Gross margin', values: ms.map((m) => m.gmPct), color: 'var(--series-1)' }, { name: 'Net margin (estimate)', values: ms.map((m) => m.npPct), color: 'var(--series-3)' }] });
-    page.querySelector('#c-rev').insertAdjacentHTML('beforeend', `<details class="data-view"><summary>View as table</summary>${dataTable(['Month', 'Revenue', 'Gross profit', 'Gross margin', 'Expenses', 'Net profit'], ms.map((m) => [mShort(m.period), inr(m.revenue), inr(m.grossProfit), pctTxt(m.gmPct), inr(m.opex), inr(m.netProfit)]))}</details>`);
+    page.querySelector('#c-rev').insertAdjacentHTML('beforeend', `<details class="data-view"><summary>View as table</summary><div class="table-wrap"><table><thead><tr>${['Month', 'Revenue', 'Gross profit', 'Gross margin', 'Expenses', 'Net profit'].map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('')}</tr></thead><tbody>
+      ${ms.map((m) => `<tr><td>${mShort(m.period)}</td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'revenue', period: m.period })}>${inr(m.revenue)}</button></td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'gross', period: m.period })}>${inr(m.grossProfit)}</button></td><td class="r">${pctTxt(m.gmPct)}</td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'expenses', period: m.period })}>${inr(m.opex)}</button></td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'net', period: m.period })}>${inr(m.netProfit)}</button></td></tr>`).join('')}</tbody></table></div></details>`);
     const more = page.querySelector('#hl-more');
     if (more) more.addEventListener('click', () => { state.showAllHighlights = !state.showAllHighlights; render(); });
     page.querySelectorAll('[data-go]').forEach((x) => x.addEventListener('click', (e) => { e.preventDefault(); state.tab = x.dataset.go; render(); }));
@@ -371,20 +416,20 @@
     page.innerHTML = head('Where is the money?', company.name, a) + `
       <div class="card"><div class="card-head"><h3>Money in the business at month end</h3><span class="muted small">${mLong(cur.period)}</span></div>
         <div class="money">
-          <div class="cell"><div class="muted small">Cash and bank</div><div class="v">${inr(cur.cash)}</div></div>
-          <div class="cell"><div class="muted small">With customers (receivables)</div><div class="v">${inr(cur.receivables)}</div></div>
-          <div class="cell"><div class="muted small">In stock (inventory)</div><div class="v">${inr(cur.inventory)}</div></div>
-          <div class="cell out"><div class="muted small">Owed to suppliers</div><div class="v">−${inr(cur.payables)}</div></div>
-          <div class="cell out"><div class="muted small">Bank OD / CC drawn</div><div class="v">−${inr(cur.odUsed)}</div></div>
-          <div class="cell total"><div class="muted small">Locked in receivables and stock</div><div class="v">${inr(locked)}</div><div class="small muted">${pctTxt(locked / ((cur.revenue || 1) * 12), 0)} of annualised revenue</div></div>
+          <button type="button" class="cell clickable" ${dAttr({ kind: 'cash' })}><div class="muted small">Cash and bank</div><div class="v">${inr(cur.cash)}</div></button>
+          <button type="button" class="cell clickable" ${dAttr({ kind: 'receivables' })}><div class="muted small">With customers (receivables)</div><div class="v">${inr(cur.receivables)}</div></button>
+          <button type="button" class="cell clickable" ${dAttr({ kind: 'inventory' })}><div class="muted small">In stock (inventory)</div><div class="v">${inr(cur.inventory)}</div></button>
+          <button type="button" class="cell out clickable" ${dAttr({ kind: 'payables' })}><div class="muted small">Owed to suppliers</div><div class="v">−${inr(cur.payables)}</div></button>
+          <button type="button" class="cell out clickable" ${dAttr({ kind: 'cash' })}><div class="muted small">Bank OD / CC drawn</div><div class="v">−${inr(cur.odUsed)}</div></button>
+          <button type="button" class="cell total clickable" ${dAttr({ kind: 'working-capital' })}><div class="muted small">Locked in receivables and stock</div><div class="v">${inr(locked)}</div><div class="small muted">${pctTxt(locked / ((cur.revenue || 1) * 12), 0)} of annualised revenue</div></button>
         </div>
       </div>
       <div class="card section"><div class="card-head"><h3>Working capital cycle</h3><span class="muted small">Based on the trailing three months</span></div>
         <div class="ratio">
-          <div><span class="muted small">Customers pay in</span><b>${days(cur.dso)}</b>${cmp('dso', false)}</div>
-          <div><span class="muted small">Stock is held for</span><b>${days(cur.dio)}</b>${cmp('dio', false)}</div>
-          <div><span class="muted small">Suppliers paid in</span><b>${days(cur.dpo)}</b>${cmp('dpo', true)}</div>
-          <div><span class="muted small">Cash conversion cycle</span><b>${days(cur.ccc)}</b>${cmp('ccc', false)}</div>
+          <button type="button" class="clickable" ${dAttr({ kind: 'receivables' })}><span class="muted small">Customers pay in</span><b>${days(cur.dso)}</b>${cmp('dso', false)}</button>
+          <button type="button" class="clickable" ${dAttr({ kind: 'inventory' })}><span class="muted small">Stock is held for</span><b>${days(cur.dio)}</b>${cmp('dio', false)}</button>
+          <button type="button" class="clickable" ${dAttr({ kind: 'payables' })}><span class="muted small">Suppliers paid in</span><b>${days(cur.dpo)}</b>${cmp('dpo', true)}</button>
+          <button type="button" class="clickable" ${dAttr({ kind: 'working-capital' })}><span class="muted small">Cash conversion cycle</span><b>${days(cur.ccc)}</b>${cmp('ccc', false)}</button>
         </div>
         <div id="c-days" style="margin-top:16px"></div>
       </div>
@@ -399,23 +444,24 @@
       <div class="card section"><div class="card-head"><h3>Cash and bank accounts</h3></div><div id="t-cash"></div></div>`;
     const labels = mAxis(ms.map((m) => m.period)); const full = ms.map((m) => mLong(m.period));
     page.querySelector('#c-days').insertAdjacentHTML('beforeend', legend([['Customers pay in', 'var(--series-1)'], ['Stock held for', 'var(--series-3)'], ['Suppliers paid in', 'var(--series-2)']]));
-    C.lines(page.querySelector('#c-days'), { labels, fullLabels: full, height: 180, format: days, axisFormat: (v) => v.toFixed(0) + 'd', title: 'Working capital days',
+    C.lines(page.querySelector('#c-days'), { labels, fullLabels: full, height: 180, format: days, axisFormat: (v) => v.toFixed(0) + 'd', title: 'Working capital days', onClick: byMonth(ms, 'working-capital'),
       series: [{ name: 'Customers pay in', values: ms.map((m) => m.dso), color: 'var(--series-1)' }, { name: 'Stock held for', values: ms.map((m) => m.dio), color: 'var(--series-3)' }, { name: 'Suppliers paid in', values: ms.map((m) => m.dpo), color: 'var(--series-2)', dashed: true }] });
-    const ageParts = (obj, keys, labelsMap) => keys.map((k, i) => ({ label: labelsMap ? labelsMap[i] : `${k} days`, value: obj[k] || 0, color: SEQ[i] }));
+    const ageParts = (obj, keys, kind) => keys.map((k, i) => ({ label: `${k} days`, value: obj[k] || 0, color: SEQ[i], onClick: () => drill.open({ kind, bucket: k === '181-365' ? '181+' : k }) }));
     const ra = page.querySelector('#c-ra');
-    C.stack(ra, ageParts(L.recvAgeing, ['0-30', '31-60', '61-90', '90+']), inr);
+    C.stack(ra, ageParts(L.recvAgeing, ['0-30', '31-60', '61-90', '90+'], 'receivables'), inr);
     ra.insertAdjacentHTML('beforeend', L.topOverdue.length ? `<h3 style="margin:18px 0 8px">Largest balances over 90 days</h3>` : '<p class="muted small" style="margin-top:14px">No balances over 90 days.</p>');
-    if (L.topOverdue.length) C.hbars(ra, L.topOverdue, inr);
+    if (L.topOverdue.length) C.hbars(ra, L.topOverdue, inr, { onClick: (it) => drill.open({ kind: 'customer', name: it.name }) });
+    if (L.topOverdue.length) ra.insertAdjacentHTML('beforeend', `<button type="button" class="btn secondary small" style="margin-top:12px" ${dAttr({ kind: 'receivables', bucket: '90+' })}>See every party over 90 days</button>`);
     const ia = page.querySelector('#c-ia');
-    C.stack(ia, ageParts(L.invAgeing, ['0-90', '91-180', '181-365', '365+']), inr);
+    C.stack(ia, ageParts(L.invAgeing, ['0-90', '91-180', '181-365', '365+'], 'inventory'), inr);
     ia.insertAdjacentHTML('beforeend', L.slowStock.length ? `<h3 style="margin:18px 0 8px">Stock not moved for 6+ months</h3>` : '<p class="muted small" style="margin-top:14px">No stock older than six months.</p>');
-    if (L.slowStock.length) C.hbars(ia, L.slowStock.map((s) => ({ name: s.name, value: s.value, note: `${s.days} days` })), inr);
-    C.stack(page.querySelector('#c-pa'), ageParts(L.payAgeing, ['0-30', '31-60', '61-90', '90+']), inr);
+    if (L.slowStock.length) C.hbars(ia, L.slowStock.map((s) => ({ name: s.name, value: s.value, note: `${s.days} days` })), inr, { onClick: () => drill.open({ kind: 'inventory', bucket: '181+' }) });
+    C.stack(page.querySelector('#c-pa'), ageParts(L.payAgeing, ['0-30', '31-60', '61-90', '90+'], 'payables'), inr);
     page.querySelector('#c-pa').insertAdjacentHTML('beforeend', `<p class="muted small" style="margin-top:14px">Payments to micro and small enterprise suppliers beyond 45 days can affect tax deductibility (Section 43B(h)). Keep supplier MSME status up to date.</p>`);
-    C.lines(page.querySelector('#c-wc'), { labels, fullLabels: full, format: inr, axisFormat: axisInr, zero: true, title: 'Working capital components',
+    C.lines(page.querySelector('#c-wc'), { labels, fullLabels: full, format: inr, axisFormat: axisInr, zero: true, title: 'Working capital components', onClick: byMonth(ms, 'working-capital'),
       series: [{ name: 'Receivables', values: ms.map((m) => m.receivables), color: 'var(--series-1)' }, { name: 'Inventory', values: ms.map((m) => m.inventory), color: 'var(--series-3)' }, { name: 'Payables', values: ms.map((m) => m.payables), color: 'var(--series-2)', dashed: true }] });
     page.querySelector('#t-cash').innerHTML = `<div class="table-wrap"><table><thead><tr><th>Account</th><th>Type</th><th class="r">Closing balance</th><th class="r">Limit</th><th class="r">Utilised</th></tr></thead><tbody>
-      ${L.cashAccounts.map((c) => `<tr><td>${esc(c.account)}</td><td>${esc(c.type)}</td><td class="r">${inr(c.closing)}</td><td class="r">${c.limit ? inr(c.limit) : '–'}</td><td class="r">${c.limit && c.closing < 0 ? pctTxt(-c.closing / c.limit, 0) : '–'}</td></tr>`).join('')}</tbody></table></div>`;
+      ${L.cashAccounts.map((c) => `<tr class="clickable" ${dAttr({ kind: 'cash' })}><td>${esc(c.account)}</td><td>${esc(c.type)}</td><td class="r">${inr(c.closing)}</td><td class="r">${c.limit ? inr(c.limit) : '–'}</td><td class="r">${c.limit && c.closing < 0 ? pctTxt(-c.closing / c.limit, 0) : '–'}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   // ---------- Sales & customers ----------
@@ -431,19 +477,19 @@
         ${card('Revenue by region', mLong(cur.period), 'c-reg')}
       </div>`;
     kpiTiles(page.querySelector('#kpis'), a, [
-      { label: 'Revenue', key: 'revenue', fmt: inr },
-      { label: 'Customers billed', key: 'customerCount', fmt: (v) => String(v) },
-      { label: 'Invoices', key: 'invoiceCount', fmt: (v) => String(v) },
-      { label: 'Average invoice', key: 'avgInvoice', fmt: inr },
-      { label: 'B2B share', key: 'b2bShare', fmt: (v) => pctTxt(v, 0), asPts: true },
-      { label: 'Largest customer share', key: 'topCustomerShare', fmt: (v) => pctTxt(v, 0), asPts: true, goodUp: false },
+      { label: 'Revenue', key: 'revenue', fmt: inr, drill: { kind: 'revenue' } },
+      { label: 'Customers billed', key: 'customerCount', fmt: (v) => String(v), drill: { kind: 'revenue' } },
+      { label: 'Invoices', key: 'invoiceCount', fmt: (v) => String(v), drill: { kind: 'revenue' } },
+      { label: 'Average invoice', key: 'avgInvoice', fmt: inr, drill: { kind: 'revenue' } },
+      { label: 'B2B share', key: 'b2bShare', fmt: (v) => pctTxt(v, 0), asPts: true, drill: { kind: 'revenue' } },
+      { label: 'Largest customer share', key: 'topCustomerShare', fmt: (v) => pctTxt(v, 0), asPts: true, goodUp: false, drill: L.topCustomers[0] ? { kind: 'customer', name: L.topCustomers[0].name } : null },
     ]);
-    C.hbars(page.querySelector('#c-cust'), L.topCustomers.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr);
-    C.hbars(page.querySelector('#c-prod'), L.productMix.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr);
-    if (L.regionMix.length) C.hbars(page.querySelector('#c-reg'), L.regionMix.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr);
+    C.hbars(page.querySelector('#c-cust'), L.topCustomers.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr, { onClick: (it) => drill.open({ kind: 'customer', name: it.name }) });
+    C.hbars(page.querySelector('#c-prod'), L.productMix.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr, { onClick: (it) => drill.open({ kind: 'category', name: it.name }) });
+    if (L.regionMix.length) C.hbars(page.querySelector('#c-reg'), L.regionMix.map((c) => ({ name: c.name, value: c.value, note: pctTxt(c.value / cur.revenue, 0) })), inr, { onClick: (it) => drill.open({ kind: 'region', name: it.name }) });
     else page.querySelector('#c-reg').innerHTML = '<p class="muted">Add the Region / State column in the Sales sheet to see this.</p>';
     const labels = mAxis(ms.map((m) => m.period));
-    C.lines(page.querySelector('#c-conc'), { labels, fullLabels: ms.map((m) => mLong(m.period)), format: (v) => pctTxt(v, 0), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Customer concentration',
+    C.lines(page.querySelector('#c-conc'), { labels, fullLabels: ms.map((m) => mLong(m.period)), format: (v) => pctTxt(v, 0), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Customer concentration', onClick: byMonth(ms, 'revenue'),
       series: [{ name: 'Largest customer', values: ms.map((m) => m.topCustomerShare), color: 'var(--series-1)' }, { name: 'Top five customers', values: ms.map((m) => m.top5Share), color: 'var(--series-3)' }] });
   }
 
@@ -460,17 +506,17 @@
       </div>
       <div class="card section"><div class="card-head"><h3>Expense heads</h3><span class="muted small">${mLong(cur.period)}</span></div><div id="t-heads"></div></div>`;
     kpiTiles(page.querySelector('#kpis'), a, [
-      { label: 'Operating expenses', key: 'opex', fmt: inr, goodUp: false },
-      { label: 'Purchases', key: 'purchases', fmt: inr, goodUp: false },
-      { label: 'Cost of goods sold', key: 'cogs', fmt: inr, goodUp: false },
-      { label: 'Net profit (estimate)', key: 'netProfit', fmt: inr },
+      { label: 'Operating expenses', key: 'opex', fmt: inr, goodUp: false, drill: { kind: 'expenses' } },
+      { label: 'Purchases', key: 'purchases', fmt: inr, goodUp: false, drill: { kind: 'purchases' } },
+      { label: 'Cost of goods sold', key: 'cogs', fmt: inr, goodUp: false, drill: { kind: 'gross' } },
+      { label: 'Net profit (estimate)', key: 'netProfit', fmt: inr, drill: { kind: 'net' } },
     ]);
-    C.columns(page.querySelector('#c-grp'), { labels: groups.map((g) => g.split(' ')[0]), fullLabels: groups, format: inr, axisFormat: axisInr, title: 'Expenses by group',
+    C.columns(page.querySelector('#c-grp'), { labels: groups.map((g) => g.split(' ')[0]), fullLabels: groups, format: inr, axisFormat: axisInr, title: 'Expenses by group', onClick: (i) => drill.open({ kind: 'expenses', group: groups[i] }),
       series: [{ name: mShort(cur.period), values: groups.map((g) => cur.expenseByGroup[g] || 0), color: 'var(--series-1)' }, { name: 'Prior average', values: groups.map(avg), color: 'var(--series-2)' }] });
-    C.lines(page.querySelector('#c-ratio'), { labels: mAxis(ms.map((m) => m.period)), fullLabels: ms.map((m) => mLong(m.period)), format: (v) => pctTxt(v), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Expenses as share of revenue',
+    C.lines(page.querySelector('#c-ratio'), { labels: mAxis(ms.map((m) => m.period)), fullLabels: ms.map((m) => mLong(m.period)), format: (v) => pctTxt(v), axisFormat: (v) => (v * 100).toFixed(0) + '%', title: 'Expenses as share of revenue', onClick: byMonth(ms, 'expenses'),
       series: [{ name: 'Operating expenses / revenue', values: ms.map((m) => (m.revenue ? m.opex / m.revenue : null)), color: 'var(--series-1)' }] });
     page.querySelector('#t-heads').innerHTML = `<div class="table-wrap"><table><thead><tr><th>Head</th><th>Group</th><th class="r">Amount</th><th class="r">% of revenue</th></tr></thead><tbody>
-      ${L.expenseHeads.map((e) => `<tr><td>${esc(e.head)}</td><td>${esc(e.group)}</td><td class="r">${inr(e.amount)}</td><td class="r">${pctTxt(e.amount / cur.revenue)}</td></tr>`).join('')}</tbody></table></div>`;
+      ${L.expenseHeads.map((e) => `<tr class="clickable" ${dAttr({ kind: 'expense-head', head: e.head })}><td><button type="button" class="row-link">${esc(e.head)}</button></td><td>${esc(e.group)}</td><td class="r">${inr(e.amount)}</td><td class="r">${pctTxt(e.amount / cur.revenue)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   // ---------- Compliance & governance ----------
@@ -480,7 +526,7 @@
     const items = L.compliance.slice().sort((x, y) => order[x.state] - order[y.state] || x.due_date.localeCompare(y.due_date));
     page.innerHTML = head('Compliance & governance', company.name, a) + `
       <div class="card"><div class="card-head"><h3>Status by area</h3><span class="muted small">As reported in the ${mLong(L.period)} workbook, checked against today's date</span></div>
-        <div class="comp-areas">${Object.entries(L.complianceByArea).map(([area, st]) => `<div class="comp-area"><span class="name">${esc(area)}</span>${chip(STATE_CHIP[st][0], STATE_CHIP[st][1])}</div>`).join('')}</div>
+        <div class="comp-areas">${Object.entries(L.complianceByArea).map(([area, st]) => `<button type="button" class="comp-area clickable" ${dAttr({ kind: 'compliance', area })}><span class="name">${esc(area)}</span>${chip(STATE_CHIP[st][0], STATE_CHIP[st][1])}</button>`).join('')}</div>
       </div>
       <div class="card section"><div class="card-head"><h3>Compliance calendar</h3></div>
         <div class="table-wrap"><table><thead><tr><th>Area</th><th>Item</th><th>Period</th><th>Due</th><th>Status</th><th>Filed / paid on</th><th>Remarks</th></tr></thead><tbody>
@@ -500,8 +546,8 @@
         <div class="card"><div class="card-head"><h3>Your login</h3></div>
           <table><tbody>
             <tr><td>Email</td><td class="r">${esc(u.email)}</td></tr>
-            <tr><td>Role</td><td class="r">${esc({ viewer: 'Management (view only)', accountant: 'Finance team (view and upload)', advisor: 'Assura Elevate advisor (all clients)' }[u.role])}</td></tr>
-            <tr><td>Two-step login</td><td class="r">${u.twoStep ? chip('positive', 'On') : chip('info', u.role === 'advisor' ? 'Off' : 'Not required')}</td></tr>
+            <tr><td>Role</td><td class="r">${esc({ client: 'Client (view only, own company)', team: 'Assura team (all clients, upload and edit)', admin: 'Assura admin (all clients and team logins)' }[u.role])}</td></tr>
+            <tr><td>Two-step login</td><td class="r">${u.twoStep ? chip('positive', 'On') : chip('info', isStaff(u) ? 'Off' : 'Not required')}</td></tr>
           </tbody></table>
           <p class="muted small" style="margin-top:12px">You are signed out after ${esc(window.AE_IDLE_MINUTES || 120)} minutes without activity. Changing your password signs out your other devices.</p>
         </div>
@@ -509,19 +555,21 @@
     wirePasswordForm('acct', () => { page.querySelector('#acct-msg').innerHTML = '<div class="msg ok">Password changed. Your other devices have been signed out.</div>'; page.querySelector('#acct-pw').reset(); });
   }
 
-  // ---------- Clients & users (advisors) ----------
+  // ---------- Clients & users (Assura team) ----------
   const ACTION_LABEL = {
     login: 'Signed in', logout: 'Signed out', 'login.failed': 'Failed sign-in', 'login.code_failed': 'Wrong two-step code', 'login.disabled': 'Sign-in by a switched-off login',
     'dashboard.viewed': 'Viewed dashboard', 'upload.accepted': 'Upload accepted', 'upload.rejected': 'Upload rejected', 'password.changed': 'Changed password', '2fa.enabled': 'Turned on two-step login',
-    'admin.company_added': 'Added company', 'admin.user_added': 'Added login', 'admin.reset-password': 'Reset password', 'admin.reset-2fa': 'Reset two-step login', 'admin.disable': 'Switched off login', 'admin.enable': 'Switched on login',
+    'admin.company_added': 'Added company', 'admin.company_renamed': 'Renamed company', 'admin.user_added': 'Added login',
+    'data.edited': 'Edited data', 'data.restored': 'Restored a version', 'data.month_removed': 'Removed a month', 'admin.reset-password': 'Reset password', 'admin.reset-2fa': 'Reset two-step login', 'admin.disable': 'Switched off login', 'admin.enable': 'Switched on login',
   };
-  const ROLE_LABEL = { viewer: 'Management', accountant: 'Finance team', advisor: 'Assura advisor' };
 
   async function adminPage(page) {
     page.innerHTML = head('Clients & users', 'Manage client companies and logins', null) + '<div class="card empty">Loading…</div>';
     let d;
     try { d = await api.get('/api/admin/overview'); } catch (e) { page.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
     const notice = state.adminNotice || ''; state.adminNotice = '';
+    const admin = state.me.role === 'admin';
+    const canManage = (x) => admin || x.role === 'client';
     page.innerHTML = head('Clients & users', 'Manage client companies and logins', null) + notice + `
       <div class="grid g-2">
         <form class="card stack-form" id="f-company"><div class="card-head"><h3>Add a client company</h3></div>
@@ -532,23 +580,24 @@
           <div class="form-row" style="margin-top:0"><div><label for="u-name">Name</label><input id="u-name" type="text" required maxlength="120"></div>
           <div><label for="u-email">Email</label><input id="u-email" type="email" required></div></div>
           <div class="form-row" style="margin-top:0"><div><label for="u-role">Role</label><select id="u-role" class="field">
-            <option value="viewer">Management (view only)</option><option value="accountant">Finance team (view and upload)</option><option value="advisor">Assura advisor (all clients)</option></select></div>
+            <option value="client">Client (view only, one company)</option>${admin ? '<option value="team">Assura team (all clients, upload and edit)</option><option value="admin">Assura admin (also manages team logins)</option>' : ''}</select></div>
           <div id="u-company-wrap"><label for="u-company">Company</label><select id="u-company" class="field">${d.companies.map((c) => `<option value="${c.id}">${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select></div></div>
-          <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in; advisors also set up two-step login.</p>
+          <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in; Assura team logins also set up two-step login.${admin ? '' : ' Only an Assura admin can add team logins.'}</p>
           <div id="u-msg"></div><div><button class="btn" type="submit">Add login</button></div></form>
       </div>
       <div class="card section"><div class="card-head"><h3>Client companies</h3><span class="muted small">${d.companies.length}</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th class="r">Logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last upload</th></tr></thead><tbody>
-        ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No companies yet.</td></tr>'}
+        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th class="r">Client logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last change</th><th></th></tr></thead><tbody>
+        ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td>
+          <td class="r nowrap"><button class="link-btn" data-open="${c.id}">Open dashboard</button> <button class="link-btn" data-rename="${c.id}" data-name="${esc(c.name)}">Rename</button></td></tr>`).join('') || '<tr><td colspan="7" class="muted">No companies yet.</td></tr>'}
         </tbody></table></div></div>
       <div class="card section"><div class="card-head"><h3>Logins</h3><span class="muted small">${d.users.length}</span></div>
         <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Company</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
         ${d.users.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.email)}</td><td>${esc(ROLE_LABEL[x.role])}</td><td>${esc(x.company_code || 'All')}</td>
-          <td>${x.disabled ? chip('critical', 'Switched off') : x.must_change_password ? chip('info', 'Not yet signed in') : chip('positive', 'Active')}${x.role === 'advisor' ? ' ' + (x.two_step ? chip('positive', 'Two-step on') : chip('watch', 'Two-step pending')) : ''}</td>
+          <td>${x.disabled ? chip('critical', 'Switched off') : x.must_change_password ? chip('info', 'Not yet signed in') : chip('positive', 'Active')}${x.role !== 'client' ? ' ' + (x.two_step ? chip('positive', 'Two-step on') : chip('watch', 'Two-step pending')) : ''}</td>
           <td>${x.last_login_at ? esc(stamp(x.last_login_at)) : '–'}</td>
-          <td class="r nowrap">${x.id === state.me.id ? '<span class="muted small">You</span>' : `
+          <td class="r nowrap">${x.id === state.me.id ? '<span class="muted small">You</span>' : !canManage(x) ? '<span class="muted small">Admin only</span>' : `
             <button class="link-btn" data-act="reset-password" data-id="${x.id}" data-name="${esc(x.name)}">Reset password</button>
-            ${x.role === 'advisor' && x.two_step ? `<button class="link-btn" data-act="reset-2fa" data-id="${x.id}" data-name="${esc(x.name)}">Reset two-step</button>` : ''}
+            ${x.role !== 'client' && x.two_step ? `<button class="link-btn" data-act="reset-2fa" data-id="${x.id}" data-name="${esc(x.name)}">Reset two-step</button>` : ''}
             <button class="link-btn" data-act="${x.disabled ? 'enable' : 'disable'}" data-id="${x.id}" data-name="${esc(x.name)}">${x.disabled ? 'Switch on' : 'Switch off'}</button>`}</td></tr>`).join('')}
         </tbody></table></div></div>
       <div class="card section"><div class="card-head"><h3>Activity log</h3><span class="muted small">Latest 200 events · times in IST</span></div>
@@ -557,7 +606,7 @@
         </tbody></table></div></div>`;
 
     const role = page.querySelector('#u-role'); const cw = page.querySelector('#u-company-wrap');
-    const syncRole = () => { cw.style.visibility = role.value === 'advisor' ? 'hidden' : 'visible'; };
+    const syncRole = () => { cw.style.visibility = role.value === 'client' ? 'visible' : 'hidden'; };
     role.addEventListener('change', syncRole); syncRole();
     const oneTime = (name, email, pw) => `<div class="msg ok onetime"><b>One-time password for ${esc(name)}${email ? ' (' + esc(email) + ')' : ''}:</b>
       <code class="secret">${esc(pw)}</code> <button type="button" class="link-btn" data-copy="${esc(pw)}">Copy</button>
@@ -570,7 +619,7 @@
       e.preventDefault();
       try {
         const r = await api.post('/api/admin/company', { code: page.querySelector('#c-code').value, name: page.querySelector('#c-name').value });
-        state.adminNotice = `<div class="msg ok">${esc(r.company.code)} · ${esc(r.company.name)} added. Add its management and finance team logins next.</div>`;
+        state.adminNotice = `<div class="msg ok">${esc(r.company.code)} · ${esc(r.company.name)} added. Add the client's view-only logins next, then upload its first month under Data &amp; uploads.</div>`;
         const me = await api.get('/api/me'); state.companies = me.companies; if (!state.companyId) state.companyId = r.company.id;
         adminPage(page);
       } catch (err) { page.querySelector('#c-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
@@ -584,6 +633,22 @@
         adminPage(page);
       } catch (err) { page.querySelector('#u-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
     });
+    page.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', async () => {
+      state.companyId = Number(b.dataset.open); state.tab = 'overview'; editor.reset(); await loadDashboard(); window.scrollTo(0, 0);
+    }));
+    page.querySelectorAll('[data-rename]').forEach((b) => b.addEventListener('click', () => {
+      const td = b.closest('tr').children[1];
+      td.innerHTML = `<form class="btn-row" data-rf><input type="text" value="${esc(b.dataset.name)}" maxlength="160" aria-label="New company name" style="max-width:260px"><button class="btn small" type="submit">Save</button></form>`;
+      const f = td.querySelector('form'); f.querySelector('input').focus();
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await api.post('/api/admin/company/update', { company_id: Number(b.dataset.rename), name: f.querySelector('input').value });
+          const me = await api.get('/api/me'); state.companies = me.companies;
+          state.adminNotice = '<div class="msg ok">Company renamed.</div>'; adminPage(page);
+        } catch (err) { state.adminNotice = `<div class="msg err">${esc(err.message)}</div>`; adminPage(page); }
+      });
+    }));
     page.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
       // Two-tap confirm: the first tap arms the button, the second carries it out.
       if (!b.dataset.armed) { b.dataset.armed = '1'; b.dataset.label = b.textContent; b.textContent = 'Tap again to confirm'; b.classList.add('armed'); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = b.dataset.label; b.classList.remove('armed'); } }, 4000); return; }
@@ -597,18 +662,20 @@
 
   // ---------- Data & uploads ----------
   function uploadPage(page, a, company) {
-    const canUpload = state.me.role !== 'viewer';
+    const canUpload = isStaff(state.me);
     const hist = (state.history && state.history.uploads) || [];
+    const liveVersion = {};
+    hist.forEach((h) => { if (!liveVersion[h.period] || h.version > liveVersion[h.period]) liveVersion[h.period] = h.version; });
     const periods = (state.dash && state.dash.periods) || [];
     const schema = window.AE_SCHEMA;
     const tableSections = schema ? schema.sheets.filter((s) => s.layout === 'table') : [];
     page.innerHTML = head('Data & uploads', company.name, null) + `
       <div class="grid g-2">
         <div class="card"><div class="card-head"><h3>1. Monthly data workbook</h3></div>
-          <p style="margin-top:0">Your accountant fills one workbook a month: sales and purchase registers, expenses, receivables, payables, stock, bank balances and compliance status. Each sheet says which Tally report to paste from.</p>
+          <p style="margin-top:0">One workbook a month per client: sales and purchase registers, expenses, receivables, payables, stock, bank balances and compliance status. Each sheet says which Tally report to paste from. The client's accountant can fill it, or the Assura team can prepare it from their Tally exports.</p>
           ${window.AE_TEMPLATE_NOTE ? `<p class="small">${window.AE_TEMPLATE_NOTE}</p>` : `<div class="btn-row"><a class="btn secondary" href="${window.AE_TEMPLATE_URL || '/template.xlsx'}" download="Assura_Elevate_Monthly_Data_Template.xlsx">Download the blank workbook</a>
             ${window.AE_SAMPLE_URL ? `<a class="btn secondary" href="${window.AE_SAMPLE_URL}" download="Sample_Meridian_Polymers_Sep-2026.xlsx">Download a filled sample</a>` : ''}</div>
-            ${window.AE_SAMPLE_URL ? '<p class="muted small">The filled sample is for Meridian Polymers (AE-0001). Upload it here while signed in as the Meridian finance team or the advisor to watch the dashboard update.</p>' : ''}`}
+            ${window.AE_SAMPLE_URL ? '<p class="muted small">The filled sample is for Meridian Polymers (AE-0001). Upload it here with Meridian selected to watch the dashboard update.</p>' : ''}`}
           <p class="muted small">Company code for this workbook: <b>${esc(company.code)}</b></p>
         </div>
         <div class="card"><div class="card-head"><h3>2. Upload</h3></div>
@@ -622,18 +689,30 @@
             <div><label for="csv-period">For the month</label><input type="month" id="csv-period" value="${periods.length ? periods[periods.length - 1] : ''}"></div>
             <div style="align-self:end"><button class="btn" id="csv-go">Upload CSV</button></div>
           </div>
-          <div id="up-msg">${state.upload || ''}</div>` : `<p>Your login can view the dashboard. Uploads are made by your finance team.</p>`}
+          <div id="up-msg">${state.upload || ''}</div>
+          <p class="muted small" style="margin-top:12px">Uploading a month that is already on record replaces it on the dashboard. To correct a few figures instead, use Edit data.</p>` : `<p>Your login can view the dashboard. Uploads are made by the Assura Elevate team.</p>`}
         </div>
       </div>
       <div class="card section"><div class="card-head"><h3>Months on record</h3><span class="muted small">${periods.length} month${periods.length === 1 ? '' : 's'}</span></div>
         <div class="hl-summary">${periods.map((p) => `<span class="chip outline">${mShort(p)}</span>`).join('') || '<span class="muted">None yet</span>'}</div>
       </div>
-      <div class="card section"><div class="card-head"><h3>Upload history</h3><span class="muted small">Re-uploading a month replaces it on the dashboard; earlier versions are kept</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Uploaded</th><th>Month</th><th>Version</th><th>File</th><th>By</th><th>Sections</th><th>Checks</th></tr></thead><tbody>
-        ${hist.map((h) => `<tr><td class="num">${esc(stamp(h.created_at))}</td><td>${mShort(h.period)}</td><td class="num">v${h.version}</td><td>${esc(h.filename || '')}</td><td>${esc(h.uploaded_by || 'Setup')}</td><td>${h.sections.length}</td><td>${h.warnings.length ? chip('watch', `${h.warnings.length} note${h.warnings.length > 1 ? 's' : ''}`) : chip('positive', 'Clean')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No uploads yet.</td></tr>'}
+      <div class="card section"><div class="card-head"><h3>Version history</h3><span class="muted small">Every upload and edit is kept. The newest version of each month is the live one; restore any earlier version to make it live again.</span></div>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Month</th><th>Version</th><th>What</th><th>By</th><th>Checks</th><th></th></tr></thead><tbody>
+        ${hist.map((h) => { const live = liveVersion[h.period] === h.version; return `<tr><td class="num nowrap">${esc(stamp(h.created_at))}</td><td>${mShort(h.period)}</td><td class="num">v${h.version}${live ? ' ' + (h.source === 'Month removed' ? chip('watch', 'Off dashboard') : chip('positive', 'Live')) : ''}</td>
+          <td>${esc(h.source && h.source !== 'upload' ? h.source : 'Upload' + (h.filename ? ': ' + h.filename : ''))}</td><td>${esc(h.uploaded_by || 'Setup')}</td>
+          <td>${h.warnings.length ? chip('watch', `${h.warnings.length} note${h.warnings.length > 1 ? 's' : ''}`) : chip('positive', 'Clean')}</td>
+          <td class="r nowrap">${!live && h.source !== 'Month removed' ? `<button class="link-btn" data-restore="${h.version}" data-period="${h.period}">Restore this version</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">No uploads yet.</td></tr>'}
         </tbody></table></div>
       </div>`;
     if (!canUpload) return;
+    page.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', async () => {
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to restore'; b.classList.add('armed'); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Restore this version'; b.classList.remove('armed'); } }, 4000); return; }
+      try {
+        const r = await api.post('/api/data/restore', { company: state.companyId, period: b.dataset.period, version: Number(b.dataset.restore) });
+        state.upload = `<div class="msg ok">${mLong(r.period)}: version ${b.dataset.restore} restored as version ${r.version}. The dashboard has been updated.</div>`;
+        await loadDashboard();
+      } catch (e) { page.querySelector('#up-msg').innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+    }));
     const drop = page.querySelector('#drop'); const input = page.querySelector('#file');
     let pendingCsv = null;
     drop.addEventListener('click', () => input.click());

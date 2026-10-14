@@ -13,12 +13,14 @@ const store = require('./db');
 const totp = require('./totp');
 const { parseWorkbook, parseMonth } = require('../shared/parse');
 const { analyse } = require('../shared/analysis');
+const { applyEdit } = require('../shared/edit');
 const schema = require('../shared/schema.json');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const STATIC_EXTRA = {
   '/shared/parse.js': path.join(__dirname, '..', 'shared', 'parse.js'),
   '/shared/analysis.js': path.join(__dirname, '..', 'shared', 'analysis.js'),
+  '/shared/edit.js': path.join(__dirname, '..', 'shared', 'edit.js'),
   '/shared/schema.json': path.join(__dirname, '..', 'shared', 'schema.json'),
   '/template.xlsx': path.join(__dirname, '..', 'templates', 'Assura_Elevate_Monthly_Data_Template.xlsx'),
 };
@@ -27,8 +29,9 @@ const SESSION_DAYS = 7;
 const MAX_BODY = 25 * 1024 * 1024;
 const SECURE_COOKIE = process.env.AE_SECURE_COOKIE === '1';
 const IDLE_MINUTES = Number(process.env.AE_IDLE_MINUTES || 120);
-// Assura staff can see every client, so their logins need a second step by default.
-const ADVISOR_2FA = process.env.AE_REQUIRE_ADVISOR_2FA !== '0';
+// Assura staff can see and change every client, so their logins need a second step by default.
+const STAFF_2FA = (process.env.AE_REQUIRE_STAFF_2FA || process.env.AE_REQUIRE_ADVISOR_2FA) !== '0';
+const { isStaff } = store;
 
 class HttpError extends Error { constructor(status, message, extra) { super(message); this.status = status; this.extra = extra; } }
 
@@ -81,7 +84,7 @@ function createApp(db) {
   // What a signed-in user must do before using the platform, if anything.
   function nextStep(u) {
     if (u.must_change_password) return 'change-password';
-    if (u.role === 'advisor' && ADVISOR_2FA && !u.totp_secret) return 'enrol-2fa';
+    if (isStaff(u.role) && STAFF_2FA && !u.totp_secret) return 'enrol-2fa';
     return null;
   }
 
@@ -93,9 +96,16 @@ function createApp(db) {
     return u;
   }
 
-  function requireAdvisor(req) {
+  // Assura team and admins: every client, upload, edit and client logins.
+  function requireStaff(req) {
     const u = requireUser(req);
-    if (u.role !== 'advisor') throw new HttpError(403, 'Only Assura Elevate advisors can manage clients and users.');
+    if (!isStaff(u.role)) throw new HttpError(403, 'Only the Assura Elevate team can do this. Client logins are view only.');
+    return u;
+  }
+  // Admins only: logins for the Assura team itself.
+  function requireAdmin(req) {
+    const u = requireStaff(req);
+    if (u.role !== 'admin') throw new HttpError(403, 'Only an Assura Elevate admin can manage team logins.');
     return u;
   }
 
@@ -105,11 +115,11 @@ function createApp(db) {
     return nextStep(fresh);
   }
 
-  // The one access rule: advisors see every company, everyone else only their own.
+  // The one access rule: the Assura team sees every company, a client login only its own.
   function companyFor(user, requestedId) {
     const id = requestedId == null || requestedId === '' ? user.company_id : Number(requestedId);
     if (!id) throw new HttpError(400, 'Choose a company.');
-    if (user.role !== 'advisor' && id !== user.company_id) throw new HttpError(403, 'You do not have access to this company.');
+    if (!isStaff(user.role) && id !== user.company_id) throw new HttpError(403, 'You do not have access to this company.');
     const c = db.prepare('SELECT id, code, name FROM companies WHERE id = ?').get(id);
     if (!c) throw new HttpError(404, 'Company not found.');
     return c;
@@ -167,7 +177,7 @@ function createApp(db) {
     'GET /api/me': async (req, res) => {
       const u = requireUser(req, { allowSetup: true });
       const next = nextStep(u);
-      const companies = next ? [] : u.role === 'advisor'
+      const companies = next ? [] : isStaff(u.role)
         ? db.prepare('SELECT id, code, name FROM companies ORDER BY name').all()
         : db.prepare('SELECT id, code, name FROM companies WHERE id = ?').all(u.company_id);
       send(res, 200, { user: publicUser(u), companies, next });
@@ -209,9 +219,9 @@ function createApp(db) {
       send(res, 200, { ok: true, next: upgradeIfReady(u) });
     },
 
-    // ---------- Advisor administration ----------
+    // ---------- Administration (Assura team) ----------
     'GET /api/admin/overview': async (req, res) => {
-      requireAdvisor(req);
+      requireStaff(req);
       const companies = db.prepare(`SELECT c.id, c.code, c.name, c.created_at,
           (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) AS users,
           (SELECT COUNT(DISTINCT period) FROM uploads x WHERE x.company_id = c.id) AS months,
@@ -220,13 +230,13 @@ function createApp(db) {
         FROM companies c ORDER BY c.name`).all();
       const users = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.company_id, c.code AS company_code, u.disabled,
           u.must_change_password, (u.totp_secret IS NOT NULL) AS two_step, u.last_login_at, u.created_at
-        FROM users u LEFT JOIN companies c ON c.id = u.company_id ORDER BY u.role = 'advisor' DESC, c.code, u.email`).all();
+        FROM users u LEFT JOIN companies c ON c.id = u.company_id ORDER BY u.role = 'client', c.code, u.email`).all();
       const activity = db.prepare(`SELECT a.at, a.email, a.action, c.code AS company_code, a.detail, a.ip
         FROM audit a LEFT JOIN companies c ON c.id = a.company_id ORDER BY a.id DESC LIMIT 200`).all();
       send(res, 200, { companies, users, activity });
     },
     'POST /api/admin/company': async (req, res) => {
-      const u = requireAdvisor(req);
+      const u = requireStaff(req);
       const body = await readJson(req);
       const code = String(body.code || '').trim().toUpperCase();
       const name = String(body.name || '').trim();
@@ -237,18 +247,30 @@ function createApp(db) {
       log(req, u, 'admin.company_added', { companyId: c.id, detail: `${code} ${name}` });
       send(res, 200, { company: c });
     },
+    // Body: { company_id, name }. The company code stays fixed because workbooks carry it.
+    'POST /api/admin/company/update': async (req, res) => {
+      const u = requireStaff(req);
+      const body = await readJson(req);
+      const c = companyFor(u, body.company_id);
+      const name = String(body.name || '').trim();
+      if (name.length < 2 || name.length > 160) throw new HttpError(400, 'Enter the company name.');
+      db.prepare('UPDATE companies SET name = ? WHERE id = ?').run(name, c.id);
+      log(req, u, 'admin.company_renamed', { companyId: c.id, detail: `${c.name} → ${name}` });
+      send(res, 200, { company: Object.assign({}, c, { name }) });
+    },
     // Creates a login with a one-time password that must be changed at first sign-in.
     'POST /api/admin/user': async (req, res) => {
-      const u = requireAdvisor(req);
+      const u = requireStaff(req);
       const body = await readJson(req);
       const email = String(body.email || '').trim().toLowerCase();
       const name = String(body.name || '').trim();
       const role = body.role;
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'Enter a valid email address.');
       if (name.length < 2 || name.length > 120) throw new HttpError(400, 'Enter the person\'s name.');
-      if (!['viewer', 'accountant', 'advisor'].includes(role)) throw new HttpError(400, 'Choose a role.');
+      if (!store.ROLES.includes(role)) throw new HttpError(400, 'Choose a role.');
+      if (isStaff(role) && u.role !== 'admin') throw new HttpError(403, 'Only an Assura Elevate admin can add team logins.');
       let companyId = null;
-      if (role !== 'advisor') {
+      if (role === 'client') {
         companyId = Number(body.company_id);
         if (!db.prepare('SELECT 1 FROM companies WHERE id = ?').get(companyId)) throw new HttpError(400, 'Choose the company this login belongs to.');
       }
@@ -260,11 +282,12 @@ function createApp(db) {
     },
     // Body: { user_id, action: 'reset-password' | 'reset-2fa' | 'disable' | 'enable' }
     'POST /api/admin/user/action': async (req, res) => {
-      const u = requireAdvisor(req);
+      const u = requireStaff(req);
       const body = await readJson(req);
       const target = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(body.user_id));
       if (!target) throw new HttpError(404, 'User not found.');
-      if (target.id === u.id && body.action !== 'reset-password') throw new HttpError(400, 'You cannot change this for your own login. Ask another advisor.');
+      if (isStaff(target.role) && u.role !== 'admin') throw new HttpError(403, 'Only an Assura Elevate admin can change team logins.');
+      if (target.id === u.id && body.action !== 'reset-password') throw new HttpError(400, 'You cannot change this for your own login. Ask another admin.');
       const endSessions = () => db.prepare('DELETE FROM sessions WHERE user_id = ?').run(target.id);
       let out = { ok: true };
       if (body.action === 'reset-password') {
@@ -291,17 +314,76 @@ function createApp(db) {
       send(res, 200, { company: c, analysis: analyse(datasets), periods: datasets.map((d) => d.period) });
     },
 
+    // One month's figures, for drill-downs (all users) and the data editor (Assura team).
+    'GET /api/data': async (req, res, url) => {
+      const u = requireUser(req);
+      const c = companyFor(u, url.searchParams.get('company'));
+      const period = parseMonth(url.searchParams.get('period'));
+      if (!period) throw new HttpError(400, 'Choose a month.');
+      const version = url.searchParams.get('version');
+      if (version && !isStaff(u.role)) throw new HttpError(403, 'Only the Assura Elevate team can open earlier versions.');
+      const d = store.datasetVersion(db, c.id, period, version);
+      if (!d || (!version && d.data.removed)) throw new HttpError(404, 'No data for this month.');
+      send(res, 200, { company: c, period, version: d.version, data: d.data });
+    },
+
+    // Body: { company, period, section, values }. Saves the edited section as a new version.
+    'POST /api/data/edit': async (req, res) => {
+      const u = requireStaff(req);
+      const body = await readJson(req);
+      const c = companyFor(u, body.company);
+      const period = parseMonth(body.period);
+      const cur = period && store.datasetVersion(db, c.id, period);
+      if (!cur || cur.data.removed) throw new HttpError(404, 'No data for this month. Upload the workbook first.');
+      const def = schema.sheets.find((s) => s.key === body.section);
+      if (!def) throw new HttpError(400, 'Unknown section.');
+      if (body.baseVersion && Number(body.baseVersion) !== cur.version)
+        throw new HttpError(409, `Someone saved a newer version (v${cur.version}) of this month while you were editing. Reload it and make your change again.`);
+      const out = applyEdit(cur.data, body.section, body.values, schema);
+      if (out.errors.length) throw new HttpError(422, 'Some rows need fixing before they can be saved.', { errors: out.errors, warnings: out.warnings });
+      const version = store.saveUpload(db, { companyId: c.id, period, userId: u.id, filename: null, sections: [body.section], warnings: out.warnings, data: out.data, source: `Edited: ${def.name}` });
+      log(req, u, 'data.edited', { companyId: c.id, detail: `${period} ${def.name} v${version}` });
+      send(res, 200, { ok: true, period, version, warnings: out.warnings });
+    },
+
+    // Body: { company, period, version }. Makes an earlier version live again, as a new version.
+    'POST /api/data/restore': async (req, res) => {
+      const u = requireStaff(req);
+      const body = await readJson(req);
+      const c = companyFor(u, body.company);
+      const period = parseMonth(body.period);
+      const old = period && store.datasetVersion(db, c.id, period, body.version);
+      if (!old || !body.version) throw new HttpError(404, 'That version was not found.');
+      const version = store.saveUpload(db, { companyId: c.id, period, userId: u.id, filename: null, sections: Object.keys(old.data), warnings: [], data: old.data, source: `Restored v${old.version}` });
+      log(req, u, 'data.restored', { companyId: c.id, detail: `${period} v${old.version} as v${version}` });
+      send(res, 200, { ok: true, period, version });
+    },
+
+    // Body: { company, period }. Takes a month off the dashboard; earlier versions stay and can be restored.
+    'POST /api/data/remove-month': async (req, res) => {
+      const u = requireStaff(req);
+      const body = await readJson(req);
+      const c = companyFor(u, body.company);
+      const period = parseMonth(body.period);
+      const cur = period && store.datasetVersion(db, c.id, period);
+      if (!cur || cur.data.removed) throw new HttpError(404, 'No data for this month.');
+      const version = store.saveUpload(db, { companyId: c.id, period, userId: u.id, filename: null, sections: [], warnings: [], data: { removed: true }, source: 'Month removed' });
+      log(req, u, 'data.month_removed', { companyId: c.id, detail: `${period} v${version}` });
+      send(res, 200, { ok: true, period, version });
+    },
+
     'GET /api/uploads': async (req, res, url) => {
       const u = requireUser(req);
       const c = companyFor(u, url.searchParams.get('company'));
-      send(res, 200, { company: c, uploads: store.uploadHistory(db, c.id) });
+      // Who uploaded what is internal to the Assura team.
+      const uploads = store.uploadHistory(db, c.id).map((x) => (isStaff(u.role) ? x : { period: x.period, version: x.version, created_at: x.created_at, sections: x.sections, warnings: [] }));
+      send(res, 200, { company: c, uploads });
     },
 
     // Body: { company?, filename, sheets: {name: rows[][]} }            full workbook
     //   or: { company?, filename, section, period, sheets: {name: rows} } one section from CSV
     'POST /api/upload': async (req, res) => {
-      const u = requireUser(req);
-      if (u.role === 'viewer') throw new HttpError(403, 'Your login can view the dashboard but not upload data.');
+      const u = requireStaff(req);
       const body = await readJson(req);
       const c = companyFor(u, body.company);
       if (!body.sheets || typeof body.sheets !== 'object') throw new HttpError(400, 'No file content received.');
@@ -313,7 +395,8 @@ function createApp(db) {
         if (!period) throw new HttpError(422, 'Choose the month this file relates to.', { errors: ['Choose the month this file relates to.'] });
         const parsed = parseWorkbook(body.sheets, schema, { only: [body.section] });
         if (parsed.errors.length) throw new HttpError(422, 'The file needs fixing before it can be accepted.', { errors: parsed.errors, warnings: parsed.warnings });
-        data = store.latestDataset(db, c.id, period) || {
+        const prev = store.latestDataset(db, c.id, period);
+        data = prev && !prev.removed ? Object.assign({}, prev) : {
           company: { company_code: c.code, company_name: c.name, period, prepared_by: u.name },
         };
         data[body.section] = parsed.data[body.section];
@@ -375,7 +458,9 @@ function createApp(db) {
 if (require.main === module) {
   const db = store.open();
   const port = Number(process.env.PORT || 3000);
-  http.createServer(createApp(db)).listen(port, () => console.log(`Assura Elevate running on http://localhost:${port}`));
+  // In production the server sits behind Caddy (HTTPS), so it listens on 127.0.0.1 only (HOST).
+  const host = process.env.HOST || '0.0.0.0';
+  http.createServer(createApp(db)).listen(port, host, () => console.log(`Assura Elevate running on http://${host}:${port}`));
 }
 
 module.exports = { createApp };

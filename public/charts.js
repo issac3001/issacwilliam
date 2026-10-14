@@ -88,6 +88,7 @@
       hit.addEventListener('mousemove', (e) => showTip(e, `<b>${esc(cfg.fullLabels ? cfg.fullLabels[i] : lab)}</b><br>` +
         cfg.series.map((s) => `${esc(s.name)}: ${s.values[i] == null ? '–' : esc(cfg.format(s.values[i]))}`).join('<br>')));
       hit.addEventListener('mouseleave', hideTip);
+      if (cfg.onClick) { hit.classList.add('clickable'); hit.addEventListener('click', () => { hideTip(); cfg.onClick(i); }); }
     });
     container.appendChild(svg);
   }
@@ -124,16 +125,26 @@
       showTip(e, `<b>${esc(cfg.fullLabels ? cfg.fullLabels[i] : cfg.labels[i])}</b><br>` + cfg.series.map((s) => `${esc(s.name)}: ${s.values[i] == null ? '–' : esc(cfg.format(s.values[i]))}`).join('<br>'));
     });
     hit.addEventListener('mouseleave', () => { cross.setAttribute('visibility', 'hidden'); hideTip(); });
+    if (cfg.onClick) {
+      hit.classList.add('clickable');
+      hit.addEventListener('click', (e) => {
+        const r = svg.getBoundingClientRect();
+        const px = ((e.clientX - r.left) / r.width) * W;
+        hideTip(); cfg.onClick(Math.max(0, Math.min(n - 1, Math.round(((px - pad.l) / iw) * (n - 1)))));
+      });
+    }
     container.appendChild(svg);
   }
 
   // Horizontal bars as HTML (readable names at any width). items: [{ name, value, note }]
+  // opts.onClick(item) makes each row a button that opens its breakdown.
   function hbars(container, items, format, opts) {
     opts = opts || {};
     const max = Math.max(...items.map((i) => i.value), 1);
     const wrap = document.createElement('div'); wrap.className = 'hbar';
     items.forEach((it) => {
-      const row = document.createElement('div'); row.className = 'hbar-row';
+      const row = document.createElement(opts.onClick ? 'button' : 'div'); row.className = 'hbar-row';
+      if (opts.onClick) { row.type = 'button'; row.classList.add('clickable'); row.addEventListener('click', () => { hideTip(); opts.onClick(it); }); }
       row.innerHTML = `<span class="name" title="${esc(it.name)}">${esc(it.name)}</span>
         <div class="hbar-track"><div class="hbar-fill" style="width:${(it.value / max) * 100}%;${it.color ? 'background:' + it.color : ''}"></div></div>
         <span class="num small">${esc(format(it.value))}${it.note ? ` <span class="muted">${esc(it.note)}</span>` : ''}</span>`;
@@ -145,7 +156,7 @@
     container.appendChild(wrap);
   }
 
-  // Single stacked bar with a value legend underneath. parts: [{ label, value, color }]
+  // Single stacked bar with a value legend underneath. parts: [{ label, value, color, onClick? }]
   function stack(container, parts, format) {
     const total = parts.reduce((a, p) => a + p.value, 0) || 1;
     const bar = document.createElement('div'); bar.className = 'stack';
@@ -155,10 +166,16 @@
       s.style.width = (p.value / total) * 100 + '%'; s.style.background = p.color;
       s.addEventListener('mousemove', (e) => showTip(e, `<b>${esc(p.label)}</b><br>${esc(format(p.value))} · ${((p.value / total) * 100).toFixed(0)}%`));
       s.addEventListener('mouseleave', hideTip);
+      if (p.onClick) { s.classList.add('clickable'); s.addEventListener('click', () => { hideTip(); p.onClick(); }); }
       bar.appendChild(s);
     });
     const leg = document.createElement('div'); leg.className = 'stack-legend';
-    leg.innerHTML = parts.map((p) => `<div><i style="background:${p.color}"></i>${esc(p.label)}<b>${esc(format(p.value))}</b><span class="muted">${((p.value / total) * 100).toFixed(0)}%</span></div>`).join('');
+    parts.forEach((p) => {
+      const row = document.createElement(p.onClick ? 'button' : 'div');
+      if (p.onClick) { row.type = 'button'; row.className = 'clickable'; row.addEventListener('click', p.onClick); }
+      row.innerHTML = `<i style="background:${p.color}"></i>${esc(p.label)}<b>${esc(format(p.value))}</b><span class="muted">${((p.value / total) * 100).toFixed(0)}%</span>`;
+      leg.appendChild(row);
+    });
     container.appendChild(bar); container.appendChild(leg);
   }
 
