@@ -54,8 +54,8 @@
   };
   const SEQ = ['var(--seq-1)', 'var(--seq-2)', 'var(--seq-3)', 'var(--seq-4)'];
 
-  // The logo sits on espresso (top bar, login panel), so the light-on-dark cut is used.
-  const LOGO = `<img src="${window.AE_LOGO_ON_DARK || '/brand/assura-elevate-logo-on-dark.png'}" alt="Assura Elevate">`;
+  // Beige panels carry the dark logo; dark mode swaps in the light-on-dark cut (see .logo-on-dark in the CSS).
+  const LOGO = `<img class="logo-on-light" src="${window.AE_LOGO || '/brand/assura-elevate-logo.png'}" alt="Assura Elevate"><img class="logo-on-dark" src="${window.AE_LOGO_ON_DARK || '/brand/assura-elevate-logo-on-dark.png'}" alt="Assura Elevate">`;
 
   // ---------- click-through details and the data editor ----------
   const ctx = {

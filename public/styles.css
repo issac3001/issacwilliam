@@ -1,7 +1,11 @@
-/* Assura Elevate client platform. Colours follow the pitch deck: cream pages, espresso panels, logo gold. */
+/* Assura Elevate client platform. Colours follow the pitch deck: cream pages, beige panels, espresso text, logo gold. */
 :root {
   --brand: #2D271F;          /* espresso: dark panels, primary text accents */
-  --brand-strong: #221D17;   /* deepest espresso: top bar and login panel */
+  --brand-strong: #221D17;   /* deepest espresso: text and accents on beige panels */
+  --panel: #F2EDDC;          /* beige: top bar, login panel, detail panel header */
+  --on-panel: #221D17;
+  --on-panel-2: #574D3E;
+  --panel-line: #DDD3BC;
   --accent: #DFA500;         /* logo gold: rules, marks, active tab */
   --accent-hi: #F6CD29;      /* deck highlight yellow: primary buttons */
   --accent-ink: #8E6900;     /* gold dark enough for small text on cream */
@@ -32,7 +36,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #F6CD29; --brand-strong: #14110D; --accent: #F6CD29; --accent-hi: #F6CD29; --accent-ink: #F6CD29; --accent-soft: #3A3014; --link: #F6CD29;
+    --panel: #14110D; --on-panel: #F5F0E3; --on-panel-2: #CFC5AF; --panel-line: #3A3226; --brand: #F6CD29; --brand-strong: #14110D; --accent: #F6CD29; --accent-hi: #F6CD29; --accent-ink: #F6CD29; --accent-soft: #3A3014; --link: #F6CD29;
     --bg: #1B1712; --surface: #221D17; --surface-2: #2D271F; --line: #3A3226;
     --ink: #F5F0E3; --ink-2: #CFC5AF; --ink-3: #A0947D;
     --series-1: #E9DFC7; --series-2: #7D705A; --series-3: #DFA500;
@@ -43,7 +47,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --brand: #F6CD29; --brand-strong: #14110D; --accent: #F6CD29; --accent-hi: #F6CD29; --accent-ink: #F6CD29; --accent-soft: #3A3014; --link: #F6CD29;
+  --panel: #14110D; --on-panel: #F5F0E3; --on-panel-2: #CFC5AF; --panel-line: #3A3226; --brand: #F6CD29; --brand-strong: #14110D; --accent: #F6CD29; --accent-hi: #F6CD29; --accent-ink: #F6CD29; --accent-soft: #3A3014; --link: #F6CD29;
   --bg: #1B1712; --surface: #221D17; --surface-2: #2D271F; --line: #3A3226;
   --ink: #F5F0E3; --ink-2: #CFC5AF; --ink-3: #A0947D;
   --series-1: #E9DFC7; --series-2: #7D705A; --series-3: #DFA500;
@@ -68,17 +72,22 @@ button, input, select { font: inherit; color: inherit; }
 .hidden { display: none !important; }
 
 /* ---------- top bar ---------- */
-.topbar { background: var(--brand-strong); color: #fff; }
+.topbar { background: var(--panel); color: var(--on-panel); border-bottom: 1px solid var(--panel-line); }
 .topbar-inner { max-width: 1240px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.wordmark { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; }
+.wordmark { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--on-panel); }
+/* Dark logo on beige; the light-on-dark cut in dark mode. */
+.logo-on-dark { display: none !important; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo-on-light { display: none !important; } :root:not([data-theme="light"]) .logo-on-dark { display: block !important; } }
+:root[data-theme="dark"] .logo-on-light { display: none !important; }
+:root[data-theme="dark"] .logo-on-dark { display: block !important; }
 .wordmark img { display: block; height: 40px; width: auto; }
 .login-brand .wordmark img { height: 64px; }
 .topbar .spacer { flex: 1; }
-.topbar select { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); color: #fff; border-radius: 8px; padding: 6px 10px; max-width: 280px; }
+.topbar select { background: var(--surface); border: 1px solid var(--panel-line); color: var(--on-panel); border-radius: 8px; padding: 6px 10px; max-width: 280px; }
 .topbar select option { color: #221D17; }
 .user-chip { font-size: 12px; opacity: .85; text-align: right; line-height: 1.3; }
-.btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,.25); color: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
-.btn-ghost:hover { background: rgba(255,255,255,.08); }
+.btn-ghost { background: transparent; border: 1px solid var(--panel-line); color: var(--on-panel); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.btn-ghost:hover { background: var(--surface); }
 
 .tabs { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
 .tabs-inner { max-width: 1240px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
@@ -161,8 +170,8 @@ details.data-view summary { cursor: pointer; color: var(--ink-3); font-size: 12p
 .money .cell { border-radius: var(--radius); padding: 16px; background: var(--surface-2); }
 .money .cell .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .money .cell.out .v { color: var(--ink-2); }
-.money .cell.total { background: var(--brand-strong); color: #fff; }
-.money .cell.total .muted { color: rgba(255,255,255,.7); }
+.money .cell.total { background: var(--accent-soft); color: var(--ink); border: 1px solid var(--accent) !important; }
+.money .cell.total .muted { color: var(--ink-2); }
 .ratio { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 640px) { .ratio { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ratio div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
@@ -184,7 +193,7 @@ td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
 .btn { background: var(--accent-hi); color: var(--on-accent); border: 1px solid transparent; border-radius: 8px; padding: 10px 16px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
 .btn:hover { filter: brightness(.96); }
 .btn.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
-.btn.dark { background: var(--brand-strong); color: #FAF7ED; }
+.btn.dark { background: var(--ink); color: var(--bg); }
 .btn.small { padding: 6px 12px; font-size: 13px; }
 .btn:disabled { opacity: .6; cursor: default; }
 label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; font-weight: 600; }
@@ -200,10 +209,10 @@ input[type=text], input[type=email], input[type=password], input[type=month], se
 
 .login-wrap { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; }
 @media (max-width: 860px) { .login-wrap { grid-template-columns: 1fr; } .login-brand { display: none; } }
-.login-brand { background: var(--brand-strong); color: #fff; padding: 56px; display: flex; flex-direction: column; justify-content: space-between; }
-.login-brand h1 { color: #fff; font-size: 40px; max-width: 460px; }
-.login-brand em { color: var(--accent); font-style: italic; }
-.login-brand p { color: rgba(255,255,255,.75); max-width: 440px; }
+.login-brand { background: var(--panel); color: var(--on-panel); border-right: 1px solid var(--panel-line); padding: 56px; display: flex; flex-direction: column; justify-content: space-between; }
+.login-brand h1 { color: var(--on-panel); font-size: 40px; max-width: 460px; }
+.login-brand em { color: var(--accent-ink); font-style: italic; }
+.login-brand p { color: var(--on-panel-2); max-width: 440px; }
 .login-form { display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
 .login-form form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; }
 .demo-box { border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 12px; background: var(--surface); }
@@ -265,10 +274,10 @@ tr.clickable:hover td { background: var(--surface-2); }
 
 .drawer-back { position: fixed; inset: 0; background: rgba(20, 17, 13, .45); z-index: 40; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100vw); background: var(--bg); z-index: 41; display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,.18); }
-.drawer-head { background: var(--brand-strong); color: #FAF7ED; padding: 18px 22px; display: flex; gap: 12px; align-items: flex-start; border-top: 3px solid var(--accent); }
-.drawer-head .eyebrow { color: var(--accent-hi); }
-.drawer-head h2 { color: #FAF7ED; font-size: 26px; }
-.drawer-head .sub { color: rgba(250,247,237,.75); font-size: 13px; margin-top: 4px; }
+.drawer-head { background: var(--panel); color: var(--on-panel); border-bottom: 1px solid var(--panel-line); padding: 18px 22px; display: flex; gap: 12px; align-items: flex-start; border-top: 3px solid var(--accent); }
+.drawer-head .eyebrow { color: var(--accent-ink); }
+.drawer-head h2 { color: var(--on-panel); font-size: 26px; }
+.drawer-head .sub { color: var(--on-panel-2); font-size: 13px; margin-top: 4px; }
 .drawer-head .spacer { flex: 1; }
 .drawer-head button { flex: none; }
 .drawer-nav { display: flex; gap: 8px; padding: 10px 22px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; align-items: center; }
@@ -281,7 +290,7 @@ tr.clickable:hover td { background: var(--surface-2); }
 .calc tr.total td { font-weight: 700; border-top: 2px solid var(--ink); }
 .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .filter-chips button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; color: var(--ink-2); }
-.filter-chips button[aria-pressed="true"] { background: var(--brand-strong); color: #FAF7ED; border-color: var(--brand-strong); }
+.filter-chips button[aria-pressed="true"] { background: var(--accent-hi); color: var(--on-accent); border-color: var(--accent); font-weight: 700; }
 td.age-old { color: var(--critical); font-weight: 600; }
 .group-row td { background: var(--surface-2); font-weight: 600; }
 .search { width: 100%; max-width: 280px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
@@ -306,6 +315,6 @@ td.age-old { color: var(--critical); font-weight: 600; }
 input[type=number], input[type=date] { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 @media (max-width: 640px) { .drawer-head, .drawer-body, .drawer-nav { padding-left: 16px; padding-right: 16px; } }
 .money .cell.clickable { display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; }
-.money .cell.total.clickable { color: #FAF7ED; }
+.money .cell.total.clickable { color: var(--ink); }
 .ratio .clickable { display: block; }
 .grid-edit input[type=text]:not(.num) { min-width: 150px; }

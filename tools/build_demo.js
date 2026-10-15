@@ -31,6 +31,7 @@ ${R('public', 'styles.css')}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 ${script(`window.AE_SCHEMA = ${R('shared', 'schema.json')};
 window.AE_DEMO_DATA = ${JSON.stringify({ companies })};
+window.AE_LOGO = 'data:image/png;base64,${B64('public', 'brand', 'assura-elevate-logo.png')}';
 window.AE_LOGO_ON_DARK = 'data:image/png;base64,${B64('public', 'brand', 'assura-elevate-logo-on-dark.png')}';
 ${extraGlobals}`)}
 ${script(R('shared', 'parse.js'))}
@@ -51,7 +52,7 @@ const embedded = `<title>Assura Elevate Client Dashboard</title>\n` + body(
 fs.writeFileSync(path.join(ROOT, 'dist', 'assura-elevate-demo.html'), embedded);
 
 const standalone = `<!doctype html>
-<html lang="en-IN">
+<html lang="en-IN" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
