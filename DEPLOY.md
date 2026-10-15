@@ -15,9 +15,12 @@ A 1 GB server comfortably handles dozens of client companies with several years 
 
 ## Steps
 
-1. Create the server (Ubuntu 24.04) in the Mumbai or Bangalore region and note its public IP address.
+1. Create the server. On **AWS Lightsail** (the chosen option): Create instance → region **Mumbai (ap-south-1)** → Linux/Unix → OS only → **Ubuntu 24.04 LTS** → the **1 GB** plan → name it `assura-portal`. Then:
+   - **Networking → Create static IP** and attach it to the instance, so the address never changes (free while attached).
+   - **Networking → IPv4 firewall → Add rule → HTTPS (443)**. Lightsail opens only SSH and HTTP by default.
+   - **Snapshots → Enable automatic snapshots** for a daily copy of the whole server (about $0.05 per GB a month).
 2. At your domain provider, add an `A` record for the portal sub-domain pointing to that IP.
-3. Connect to the server as root and run:
+3. Connect to the server (Lightsail: the **Connect using SSH** button), type `sudo -i` to become root, and run:
 
    ```bash
    git clone https://github.com/issac3001/issacwilliam.git /tmp/ae
