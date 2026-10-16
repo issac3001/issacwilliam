@@ -14,6 +14,7 @@ const totp = require('./totp');
 const { parseWorkbook, parseMonth } = require('../shared/parse');
 const { analyse } = require('../shared/analysis');
 const { applyEdit } = require('../shared/edit');
+const workflow = require('../shared/workflow');
 const schema = require('../shared/schema.json');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
@@ -22,6 +23,7 @@ const STATIC_EXTRA = {
   '/shared/analysis.js': path.join(__dirname, '..', 'shared', 'analysis.js'),
   '/shared/edit.js': path.join(__dirname, '..', 'shared', 'edit.js'),
   '/shared/schema.json': path.join(__dirname, '..', 'shared', 'schema.json'),
+  '/workflow': path.join(__dirname, '..', 'public', 'workflow.html'),
   '/template.xlsx': path.join(__dirname, '..', 'templates', 'Assura_Elevate_Monthly_Data_Template.xlsx'),
 };
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
@@ -38,6 +40,8 @@ class HttpError extends Error { constructor(status, message, extra) { super(mess
 function createApp(db) {
   const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
   const attempts = new Map(); // login throttling: key -> { n, until }
+  workflow.install(db);
+  const wf = workflow.createWorkflow(db);
 
   function send(res, status, body, headers = {}) {
     const data = typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body);
@@ -441,7 +445,17 @@ function createApp(db) {
     const url = new URL(req.url, 'http://localhost');
     try {
       const route = routes[`${req.method} ${url.pathname}`];
-      if (route) {
+      if (url.pathname.startsWith('/api/wf/')) {
+        // Internal workflow (Assura team only). Same login, same 2FA and same CSRF rule as the portal.
+        if (req.method !== 'GET' && req.headers['x-requested-with'] !== 'assura') throw new HttpError(403, 'Forbidden');
+        const u = requireStaff(req);
+        const body = req.method === 'POST' ? await readJson(req) : {};
+        let out;
+        try { out = wf.call(u, `${req.method} ${url.pathname}`, Object.fromEntries(url.searchParams), body); }
+        catch (e) { if (e instanceof workflow.WfError) throw new HttpError(e.status, e.message); throw e; }
+        if (req.method === 'POST') log(req, u, `workflow.${url.pathname.slice(8).replace(/\//g, '.')}`, { detail: JSON.stringify(body).slice(0, 300) });
+        send(res, 200, out);
+      } else if (route) {
         // Same-origin check for state-changing calls (in addition to SameSite cookies).
         if (req.method !== 'GET' && req.headers['x-requested-with'] !== 'assura') throw new HttpError(403, 'Forbidden');
         await route(req, res, url);

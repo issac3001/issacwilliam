@@ -4,12 +4,14 @@
   "private": true,
   "description": "Assura Elevate client platform: monthly data collection, company dashboard and automated highlights.",
   "engines": { "node": ">=22.5" },
+  "devDependencies": { "sql.js": "1.10.3" },
   "scripts": {
     "start": "node --no-warnings server/server.js",
     "seed:demo": "node --no-warnings tools/seed_demo.js",
     "samples": "node tools/make_sample.js && python3 tools/build_workbooks.py --samples",
     "template": "python3 tools/build_workbooks.py",
     "build:demo": "node tools/build_demo.js",
+    "build:workflow-demo": "node tools/build_workflow_demo.js",
     "test": "node --no-warnings --test test/*.test.js"
   }
 }
