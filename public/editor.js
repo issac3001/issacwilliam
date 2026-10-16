@@ -68,13 +68,13 @@
     }
 
     function formView(body, def) {
-      const locked = ['company_code', 'period'];
+      const locked = ['company_code', 'company_name', 'period'];
       body.innerHTML = `<form class="card" id="ed-form"><div class="card-head"><h3>Company details for ${mLong(cur.period)}</h3><span class="muted small">Live version v${cur.version}</span></div>
         <div class="form-grid">${def.fields.map((f) => `<div${f.key === 'notes' ? ' style="grid-column:1/-1"' : ''}><label for="f-${f.key}">${esc(f.label)}${f.required ? ' *' : ''}</label>
           ${locked.includes(f.key) ? `<input type="text" id="f-${f.key}" value="${esc(cur.form[f.key])}" disabled>` : f.key === 'notes'
             ? `<textarea id="f-${f.key}" data-k="${f.key}" placeholder="Shown to the client as the note for this month">${esc(cur.form[f.key] || '')}</textarea>`
             : input(f, cur.form[f.key], `id="f-${f.key}" data-k="${f.key}" class="field"`)}${f.help ? `<p class="muted small" style="margin:4px 0 0">${esc(f.help)}</p>` : ''}</div>`).join('')}</div>
-        <p class="muted small">The company code and month identify this data and cannot be edited. To move data to another month, upload it for that month and remove this one.</p>
+        <p class="muted small">The company code, name and month identify this data and cannot be edited here. The company name follows the client record under Clients &amp; users. To move data to another month, upload it for that month and remove this one.</p>
         <div id="ed-msg"></div><div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Save as new version</button></div></form>`;
       body.querySelector('#ed-form').addEventListener('submit', async (e) => {
         e.preventDefault();

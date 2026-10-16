@@ -23,7 +23,7 @@
     if (def.layout === 'form') {
       if (!values || typeof values !== 'object' || Array.isArray(values)) return { data, errors: ['No details received.'], warnings: [] };
       // Fields not sent keep their current value.
-      const fixed = Object.assign({}, data.company, values, { company_code: data.company && data.company.company_code, period: data.company && data.company.period });
+      const fixed = Object.assign({}, data.company, values, { company_code: data.company && data.company.company_code, company_name: data.company && data.company.company_name, period: data.company && data.company.period });
       sheet = def.fields.map((f) => [f.key, fixed[f.key] == null ? null : fixed[f.key]]);
     } else {
       if (!Array.isArray(values)) return { data, errors: ['No rows received.'], warnings: [] };
@@ -35,10 +35,8 @@
     const errors = parsed.errors.map((e) => e.replace(/ row (\d+):/, (m, n) => ` row ${Number(n) - 1}:`));
     const out = Object.assign({}, data);
     if (def.layout === 'form') {
-      // The company code and month identify the dataset and cannot be changed by an edit.
-      out.company = Object.assign({}, parsed.data.company, {
-        company_name: parsed.data.company.company_name || (data.company && data.company.company_name),
-      });
+      // The company code, name and month identify the dataset and cannot be changed by an edit.
+      out.company = Object.assign({}, parsed.data.company);
     } else out[section] = parsed.data[section];
     return { data: out, errors, warnings: parsed.warnings };
   }

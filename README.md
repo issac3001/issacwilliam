@@ -20,9 +20,12 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 | History | Every upload and edit is kept as a version. The latest version of each month drives the dashboard, so history builds month on month. |
 | Dashboard | Overview, Where is the money?, Sales & customers, Expenses, Compliance & governance, Data & uploads. |
 | Highlights | Rule-based analysis of the client's own history (`shared/analysis.js`): revenue direction and streaks, gross margin movement, purchase rate increases by item, receivables 90+ and collection days, customer concentration, regular customers who stopped buying, new customers, month-end billing loading, slow-moving stock and cash locked in it, stock build-up, expense heads out of their normal range, overheads outpacing revenue, OD/CC utilisation, net cash decline, supplier payments beyond 60 days (MSME / 43B(h) prompt), overdue, late and upcoming compliance. Each highlight is ranked (act now / watch / positive / information) and carries a point for the management review. |
+| Explanations | For each material movement in a month (revenue, gross margin, expenses, profit, receivables, stock, net cash), `shared/insights.js` traces the change to the transactions behind it and lists likely causes with their rupee effect: customers billed more or less, lost and new accounts, price and volume effects, purchase rate changes, sales mix, expense heads, collection days, and a cash bridge. The Assura team ticks the right causes, edits the wording and accepts it under **Explanations**; only accepted explanations appear on the client's overview, and a review is flagged when the month's figures change afterwards. |
+| Company check on uploads | `shared/match.js` refuses a file that does not belong to the selected client: the workbook's company code and name must match (legal suffixes and punctuation ignored), a one-section CSV needs the client code typed to confirm, and a file whose customers and suppliers are on record for another client is refused. |
 
 ### Planned
-- AI-written monthly commentary on top of the highlights (needs an LLM API key and data-handling approval).
+- Language-model drafting of the explanations' wording (needs a paid API key and data-handling approval; today the drafts come from the built-in analysis).
+- Review and sign-off steps for the team's monthly work.
 - Email / WhatsApp alerts for critical highlights.
 - Direct Tally integration (today: Excel/CSV upload).
 - Board pack PDF export; statutory registers and minutes repository.
@@ -66,6 +69,8 @@ AE_BACKUP_KEY='long-random-secret' node tools/backup.js restore backups/assura-<
 shared/schema.json      the workbook definition (single source for template, parser and UI)
 shared/parse.js         workbook -> validated monthly dataset (browser + Node)
 shared/analysis.js      metrics, ageing, trends and highlights (browser + Node)
+shared/insights.js      suggested explanations of each month's movements (browser + Node)
+shared/match.js         checks that an upload belongs to the selected client (browser + Node)
 shared/edit.js          checks edits made in the portal with the upload rules
 server/                 HTTP server, auth, storage
 public/                 dashboard front end (drill.js: click-through detail, editor.js: data editor)

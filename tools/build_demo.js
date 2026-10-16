@@ -23,7 +23,7 @@ const script = (code) => `<script>\n${safe(code)}\n</script>`;
 
 function body(extraGlobals) {
   return `<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
 <style>
 ${R('public', 'styles.css')}
 </style>
@@ -37,6 +37,8 @@ ${extraGlobals}`)}
 ${script(R('shared', 'parse.js'))}
 ${script(R('shared', 'analysis.js'))}
 ${script(R('shared', 'edit.js'))}
+${script(R('shared', 'match.js'))}
+${script(R('shared', 'insights.js'))}
 ${script(R('public', 'charts.js'))}
 ${script(R('public', 'drill.js'))}
 ${script(R('public', 'editor.js'))}
@@ -55,7 +57,7 @@ const standalone = `<!doctype html>
 <html lang="en-IN" data-theme="light">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Assura Elevate · Client Dashboard</title>
 <meta name="description" content="Assura Elevate client dashboard: monthly financial intelligence, compliance oversight and management highlights.">
 <meta name="robots" content="noindex">
