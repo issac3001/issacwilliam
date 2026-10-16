@@ -32,6 +32,22 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 - Password reset by email (today: the Assura team resets it and shares the one-time password).
 - Hosting in India with HTTPS on your own domain: ready to install (see `DEPLOY.md`); the server is chosen with you before any paid service is used.
 
+## Internal workflow (Assura team only)
+
+Open `/workflow` with a team or admin login. Client logins are refused. The same sign-in and two-step login apply.
+
+| Area | What it does |
+|---|---|
+| Structure | Managing Director; a Director heading each department (Taxation & Assurance, Corporate Governance, Legal, HR & Labour Compliance); Managers, Senior Analysts (semi-qualified) and Analysts (trainees). Each team is a manager, a senior analyst and an analyst serving up to 30 clients (capacity is editable). |
+| Allotment | Each client is allotted to one team in every department, with a target day of the month per client and department. |
+| Monthly cycle | "Start the month" creates each department's standard review tasks for every allotted client, due on that client's target day in the following month. Extra tasks can be added by managers and above. |
+| Maker-checker | Analyst prepares, Senior Analyst reviews, Manager approves, Director signs off for the department. Nobody can check work they moved forward. Any step can send work back with a note. |
+| Flags | Anyone on the task can flag an issue; the task then needs the MD's approval after department sign-off, and the MD records the decision. |
+| Timeliness | Every step has its own target ahead of the task's target date. Tasks show as on track, behind a step target, or late; completed work is on time or late. The Timeliness page gives on-time rates by department, team and person. |
+| Client sign-off | The Clients page shows, for each client and month, every department's progress and sign-off; the month is complete when all have signed off. |
+
+Engine: `shared/workflow.js` (tables prefixed `wf_`, created on start). Placeholder team for the demo: `npm run seed:demo` adds `md@assura.demo`, `ca.director@assura.demo`, `ca.manager1@assura.demo`, `ca.senior1@assura.demo`, `ca.analyst1@assura.demo` and the same for `cs`, `legal` and `hr` (password `demo-password`). `npm run build:workflow-demo` writes a self-contained preview to `dist/workflow-demo.html`.
+
 ## Run it
 
 Requires Node 22.5+ (uses the built-in `node:sqlite`; no npm dependencies) and Python 3 with `openpyxl` only to regenerate workbooks.
