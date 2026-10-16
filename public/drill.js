@@ -358,14 +358,41 @@
       document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
     }
 
+    // Each view opened in the panel is a browser history entry, so the phone's
+    // back button (or the browser's) steps back through the panel and then closes it.
+    const H = typeof history !== 'undefined' && history.pushState ? history : null;
+    const depthOf = (st) => (st && st.aeDrill) || 0;
+    function pushEntry() { if (H) H.pushState(Object.assign({}, H.state, { aeDrill: stack.length }), ''); }
+    function back() { if (H && depthOf(H.state) === stack.length) H.back(); else { stack.pop(); if (stack.length) show(); else teardown(); } }
     function close() {
+      if (!root) return;
+      if (H && depthOf(H.state) === stack.length && stack.length) H.go(-stack.length); else teardown();
+    }
+    function teardown() {
       if (!root) return;
       root.remove(); root = null; stack = [];
       document.body.style.overflow = '';
       document.removeEventListener('keydown', onKey);
-      if (lastFocus && lastFocus.isConnected) lastFocus.focus();
+      if (lastFocus && lastFocus.isConnected) lastFocus.focus({ preventScroll: true });
     }
+    if (typeof window !== 'undefined') window.addEventListener('popstate', (e) => {
+      if (!root) return;
+      const d = depthOf(e.state);
+      if (d <= 0) teardown();
+      else if (d < stack.length) { stack.length = d; show(); }
+    });
     function onKey(e) { if (e.key === 'Escape') close(); }
+    // On phones, a swipe to the right across the panel goes back one step.
+    function swipeStart(e) {
+      if (e.touches.length !== 1 || e.target.closest('.table-wrap,.edit-scroll,input,select')) return;
+      const x0 = e.touches[0].clientX; const y0 = e.touches[0].clientY; const t0 = Date.now();
+      const end = (ev) => {
+        ev.currentTarget.removeEventListener('touchend', end);
+        const t = ev.changedTouches[0]; const dx = t.clientX - x0; const dy = Math.abs(t.clientY - y0);
+        if (dx > 80 && dy < dx / 2 && Date.now() - t0 < 600) back();
+      };
+      e.currentTarget.addEventListener('touchend', end);
+    }
     let lastFocus = null;
 
     async function show() {
@@ -377,6 +404,7 @@
         document.body.appendChild(root);
         document.body.style.overflow = 'hidden';
         root.querySelector('.drawer-back').addEventListener('click', close);
+        root.querySelector('.drawer').addEventListener('touchstart', swipeStart, { passive: true });
         document.addEventListener('keydown', onKey);
       }
       const panel = root.querySelector('.drawer');
@@ -390,21 +418,23 @@
       } catch (e) { v = { eyebrow: 'Details', title: 'Not available', html: `<p class="muted">${esc(e.status === 404 ? 'No data has been uploaded for this month.' : e.message)}</p>` }; }
       if (!root) return;
       const periods = ctx.periods();
-      panel.innerHTML = `<div class="drawer-head"><div><div class="eyebrow">${esc(v.eyebrow)}</div><h2>${esc(v.title)}</h2>${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ''}</div>
+      panel.innerHTML = `<div class="drawer-head"><button class="drawer-backbtn" data-back aria-label="${stack.length > 1 ? 'Back to the previous view' : 'Back to the dashboard'}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${stack.length > 1 ? 'Back' : 'Dashboard'}</span></button><div class="drawer-title"><div class="eyebrow">${esc(v.eyebrow)}</div><h2>${esc(v.title)}</h2>${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ''}</div>
           <span class="spacer"></span><button class="btn-ghost" data-close aria-label="Close details">Close</button></div>
-        <div class="drawer-nav">${stack.length > 1 ? '<button class="btn secondary small" data-back>← Back</button>' : ''}
+        <div class="drawer-nav">${stack.length > 1 ? `<nav class="crumbs" aria-label="Where you are">${stack.map((x, i) => i < stack.length - 1 ? `<button type="button" data-crumb="${i + 1}">${esc(x._title || 'Back')}</button><span aria-hidden="true">/</span>` : `<b>${esc(v.title)}</b>`).join('')}</nav>` : ''}
           ${v.monthly && spec.period && periods.length > 1 ? `<label class="small muted" style="margin:0">Month <select class="field" data-month style="width:auto;display:inline-block;padding:5px 8px">${periods.slice().reverse().map((p) => `<option value="${p}" ${p === spec.period ? 'selected' : ''}>${mLong(p)}</option>`).join('')}</select></label>` : ''}
           <span style="flex:1"></span>${v.csv && v.csv.rows.length ? '<button class="btn secondary small" data-csv>Download as CSV</button>' : ''}</div>
         <div class="drawer-body">${v.html}</div>`;
       panel.querySelector('[data-close]').addEventListener('click', close);
-      const back = panel.querySelector('[data-back]'); if (back) back.addEventListener('click', () => { stack.pop(); show(); });
+      spec._title = /^[-−₹\d]/.test(v.title) ? v.eyebrow : v.title; // breadcrumb label: the name, not a figure
+      panel.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', back));
+      panel.querySelectorAll('[data-crumb]').forEach((b) => b.addEventListener('click', () => { const steps = stack.length - Number(b.dataset.crumb); if (H && depthOf(H.state) === stack.length) H.go(-steps); else { stack.length = Number(b.dataset.crumb); show(); } }));
       const month = panel.querySelector('[data-month]'); if (month) month.addEventListener('change', () => { stack[stack.length - 1] = Object.assign({}, spec, { period: month.value }); show(); });
       const csv = panel.querySelector('[data-csv]'); if (csv) csv.addEventListener('click', () => downloadCsv(v.csv));
       panel.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => { stack[stack.length - 1] = v.filter(b.dataset.filter); show(); }));
       panel.querySelectorAll('[data-d]').forEach((el) => el.addEventListener('click', (e) => {
         e.stopPropagation();
         const next = links[Number(el.dataset.d)];
-        if (next) { stack.push(next); show(); }
+        if (next) { stack.push(next); pushEntry(); show(); }
       }));
       panel.querySelectorAll('[data-search]').forEach((inp) => inp.addEventListener('input', () => {
         const q = inp.value.toLowerCase();
@@ -415,7 +445,14 @@
     }
 
     return {
-      open(spec) { if (!spec) return; stack = [Object.assign({ period: ctx.latestPeriod() }, spec)]; show(); },
+      open(spec) {
+        if (!spec) return;
+        const fresh = !root;
+        stack = [Object.assign({ period: ctx.latestPeriod() }, spec)];
+        if (fresh) pushEntry(); else if (H) H.replaceState(Object.assign({}, H.state, { aeDrill: 1 }), '');
+        show();
+      },
+      isOpen: () => !!root,
       close,
     };
   };

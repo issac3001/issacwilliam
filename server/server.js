@@ -14,6 +14,8 @@ const totp = require('./totp');
 const { parseWorkbook, parseMonth } = require('../shared/parse');
 const { analyse } = require('../shared/analysis');
 const { applyEdit } = require('../shared/edit');
+const match = require('../shared/match');
+const insights = require('../shared/insights');
 const workflow = require('../shared/workflow');
 const schema = require('../shared/schema.json');
 
@@ -67,6 +69,8 @@ function createApp(db) {
   }
 
   const ipOf = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim().slice(0, 64);
+  // What a client sees of an accepted explanation: no reviewer names or working.
+  const clientInsight = (r) => ({ period: r.period, key: r.key, area: r.area, headline: r.headline, body: r.body, reviewed_at: r.reviewed_at });
   const log = (req, user, action, extra = {}) => store.audit(db, Object.assign({ user, action, ip: ipOf(req) }, extra));
 
   function currentUser(req) {
@@ -315,7 +319,52 @@ function createApp(db) {
       const c = companyFor(u, url.searchParams.get('company'));
       const datasets = store.currentDatasets(db, c.id);
       log(req, u, 'dashboard.viewed', { companyId: c.id });
-      send(res, 200, { company: c, analysis: analyse(datasets), periods: datasets.map((d) => d.period) });
+      // Explanations the Assura team has accepted; clients see nothing else.
+      const accepted = store.insightsFor(db, c.id, { acceptedOnly: true }).map(clientInsight);
+      send(res, 200, { company: c, analysis: analyse(datasets), periods: datasets.map((d) => d.period), insights: accepted });
+    },
+
+    // Suggested explanations for the team to review, with what has been decided so far.
+    'GET /api/insights': async (req, res, url) => {
+      const u = requireStaff(req);
+      const c = companyFor(u, url.searchParams.get('company'));
+      const datasets = store.currentDatasets(db, c.id);
+      const periods = datasets.map((d) => d.period);
+      const period = parseMonth(url.searchParams.get('period')) || periods[periods.length - 1];
+      if (!period || !periods.includes(period)) throw new HttpError(404, 'No data for this month.');
+      const current = store.datasetVersion(db, c.id, period);
+      const drafts = insights.draft(datasets, analyse(datasets), period);
+      const saved = store.insightsFor(db, c.id, { period });
+      const byKey = new Map(saved.map((s) => [s.key, s]));
+      const items = drafts.map((d) => ({ draft: d, review: byKey.get(d.key) || null }))
+        .concat(saved.filter((s) => !drafts.some((d) => d.key === s.key)).map((s) => ({ draft: null, review: s })))
+        .map((x) => Object.assign(x, { stale: !!(x.review && x.review.data_version && current && x.review.data_version !== current.version) }));
+      send(res, 200, { company: c, period, periods, version: current && current.version, items, first: periods[0] === period });
+    },
+
+    'POST /api/insights/review': async (req, res) => {
+      const u = requireStaff(req);
+      const body = await readJson(req);
+      const c = companyFor(u, body.company);
+      const period = parseMonth(body.period);
+      const key = String(body.key || '');
+      if (!period || !/^[a-z0-9-]{2,40}$/.test(key)) throw new HttpError(400, 'Choose the explanation to review.');
+      const current = store.datasetVersion(db, c.id, period);
+      if (!current || current.data.removed) throw new HttpError(404, 'No data for this month.');
+      if (body.status === 'draft') {
+        store.deleteInsight(db, c.id, period, key);
+        log(req, u, 'insight.withdrawn', { companyId: c.id, detail: `${period} ${key}` });
+        send(res, 200, { ok: true }); return;
+      }
+      if (!store.INSIGHT_STATES.includes(body.status)) throw new HttpError(400, 'Choose accept or set aside.');
+      const headline = String(body.headline || '').trim().slice(0, 200);
+      const text = String(body.body || '').trim().slice(0, 4000);
+      const area = String(body.area || 'General').trim().slice(0, 40);
+      if (body.status === 'accepted' && (!headline || !text)) throw new HttpError(400, 'Write a headline and the explanation before accepting it.');
+      const causes = (Array.isArray(body.causes) ? body.causes : []).slice(0, 12).map((x) => String(x).slice(0, 600));
+      store.saveInsight(db, { companyId: c.id, period, key, area, status: body.status, headline: headline || '(untitled)', body: text, causes, dataVersion: current.version, userId: u.id });
+      log(req, u, body.status === 'accepted' ? 'insight.accepted' : 'insight.set_aside', { companyId: c.id, detail: `${period} ${key}: ${headline.slice(0, 120)}` });
+      send(res, 200, { ok: true });
     },
 
     // One month's figures, for drill-downs (all users) and the data editor (Assura team).
@@ -392,30 +441,37 @@ function createApp(db) {
       const c = companyFor(u, body.company);
       if (!body.sheets || typeof body.sheets !== 'object') throw new HttpError(400, 'No file content received.');
 
-      let data, period, warnings, sections;
+      let data, period, warnings, sections, rows, fileCompany = null;
+      const refuse = (errors, w) => {
+        log(req, u, 'upload.rejected', { companyId: c.id, detail: `${body.filename || ''}: ${errors.length} problem(s)` });
+        throw new HttpError(422, 'The file needs fixing before it can be accepted.', { errors, warnings: w || [] });
+      };
       if (body.section) {
         if (!schema.sheets.some((s) => s.key === body.section && s.layout === 'table')) throw new HttpError(400, 'Unknown section.');
         period = parseMonth(body.period);
         if (!period) throw new HttpError(422, 'Choose the month this file relates to.', { errors: ['Choose the month this file relates to.'] });
         const parsed = parseWorkbook(body.sheets, schema, { only: [body.section] });
-        if (parsed.errors.length) throw new HttpError(422, 'The file needs fixing before it can be accepted.', { errors: parsed.errors, warnings: parsed.warnings });
+        if (parsed.errors.length) refuse(parsed.errors, parsed.warnings);
         const prev = store.latestDataset(db, c.id, period);
         data = prev && !prev.removed ? Object.assign({}, prev) : {
           company: { company_code: c.code, company_name: c.name, period, prepared_by: u.name },
         };
         data[body.section] = parsed.data[body.section];
+        rows = { [body.section]: parsed.data[body.section] };
         warnings = parsed.warnings; sections = [body.section];
       } else {
         const parsed = parseWorkbook(body.sheets, schema);
-        const errors = parsed.errors.slice();
-        const comp = parsed.data.company || {};
-        if (comp.company_code && comp.company_code.toUpperCase() !== c.code.toUpperCase())
-          errors.unshift(`This workbook is for company code ${comp.company_code}, but you are uploading to ${c.code}. Check the "Company & Period" sheet.`);
-        if (errors.length) {
-          log(req, u, 'upload.rejected', { companyId: c.id, detail: `${body.filename || ''}: ${errors.length} problem(s)` });
-          throw new HttpError(422, 'The file needs fixing before it can be accepted.', { errors, warnings: parsed.warnings });
-        }
-        period = comp.period; data = parsed.data; warnings = parsed.warnings; sections = parsed.sections;
+        if (parsed.errors.length) refuse(parsed.errors, parsed.warnings);
+        fileCompany = parsed.data.company || {};
+        period = fileCompany.period; data = parsed.data; rows = parsed.data; warnings = parsed.warnings; sections = parsed.sections;
+      }
+      // The file must belong to the client selected for the upload.
+      const recent = (id) => match.partiesOf(store.currentDatasets(db, id).slice(-6));
+      const others = db.prepare('SELECT id, code, name FROM companies WHERE id <> ?').all(c.id).map((o) => ({ code: o.code, name: o.name, parties: recent(o.id) }));
+      const mismatch = match.check({ selected: c, fileCompany, confirmCode: body.confirm_code, data: rows, own: recent(c.id), others });
+      if (mismatch.length) {
+        log(req, u, 'upload.wrong_company', { companyId: c.id, detail: `${body.filename || ''}: ${mismatch[0].slice(0, 160)}` });
+        throw new HttpError(422, `This file does not look like ${c.name}'s data, so it was not uploaded.`, { errors: mismatch, warnings: [] });
       }
       const version = store.saveUpload(db, { companyId: c.id, period, userId: u.id, filename: String(body.filename || '').slice(0, 200), sections, warnings, data });
       log(req, u, 'upload.accepted', { companyId: c.id, detail: `${period} v${version} ${body.filename || ''}` });

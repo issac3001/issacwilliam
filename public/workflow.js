@@ -95,24 +95,50 @@
     if (me.level) return `${S.levels[me.level].name} · ${S.depts[me.department].name}`;
     return me.admin ? 'Admin' : 'Not placed in a team yet';
   }
+  const ICON = {
+    home: 'M3 9l7-6 7 6v8h-5v-5H8v5H3z',
+    tasks: 'M7 5h10M7 10h10M7 15h10M3 5h1M3 10h1M3 15h1',
+    clients: 'M3 17V5l7-2v14M10 7h7v10M6 8h1M6 11h1M6 14h1M13 10h1M13 13h1',
+    performance: 'M10 18a7 7 0 100-14 7 7 0 000 14zM10 7v4l3 2M8 2h4',
+    team: 'M7 9a3 3 0 100-6 3 3 0 000 6zM2 17c0-3 2-5 5-5s5 2 5 5M14 9a2.5 2.5 0 100-5M15 12c2 .5 3 2 3 5',
+    portal: 'M3 3h6v6H3zM11 3h6v4h-6zM11 9h6v8h-6zM3 11h6v6H3z',
+  };
+  const icon = (k) => `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="${ICON[k]}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  // Same layout as the client portal: side menu on wide screens, a menu button on phones.
   function shell(view, inner, { period = true } = {}) {
     const m = S.meta; const me = m.me;
     const periods = Array.from(new Set([S.period].concat(m.periods))).sort().reverse();
+    const nav = NAV.filter(([k]) => k !== 'team' || m.can.structure || me.level);
+    const current = (nav.find(([k]) => k === view) || [])[1] || '';
     root.innerHTML = `
-      ${demo ? `<div class="wf-demo">Preview with fictional clients. Signed in as ${esc(me.name)}. <button id="switch">Switch person</button></div>` : ''}
-      <header class="topbar wf-top"><div class="topbar-inner">
-        <a class="wordmark" href="#/home">${LOGO}</a><span class="wf-label">Workflow</span>
-        <span class="spacer"></span>
-        ${period ? `<select class="wf-period" id="period" aria-label="Month under review">${periods.map((p) => `<option value="${p}" ${p === S.period ? 'selected' : ''}>${mLong(p)}</option>`).join('')}</select>` : ''}
-        <div class="user-chip">${esc(me.name)}<br><span>${esc(seat(me))}</span></div>
-        ${demo ? '' : '<a class="btn-ghost" href="/">Client portal</a>'}
-      </div></header>
-      <nav class="tabs" aria-label="Sections"><div class="tabs-inner" role="tablist">
-        ${NAV.filter(([k]) => k !== 'team' || m.can.structure || me.level).map(([k, l]) => `<a class="tab" role="tab" href="#/${k}" aria-selected="${view === k}" style="text-decoration:none">${l}</a>`).join('')}
-      </div></nav>
-      <main id="page">${inner}</main>`;
+      <div class="shell">
+        <aside class="side" aria-label="Main menu">
+          <div class="side-top"><a class="wordmark" href="#/home" aria-label="Assura Elevate, workflow home">${LOGO}</a></div>
+          ${period ? `<div class="side-client"><label for="period">Month under review</label><select id="period">${periods.map((p) => `<option value="${p}" ${p === S.period ? 'selected' : ''}>${mLong(p)}</option>`).join('')}</select></div>` : ''}
+          <nav class="side-nav" aria-label="Sections">
+            <div class="nav-group">Workflow</div>
+            ${nav.map(([k, l]) => `<a class="nav-item" href="#/${k}" ${view === k ? 'aria-current="page"' : ''}>${icon(k)}<span>${l}</span></a>`).join('')}
+            ${demo ? '' : `<div class="nav-group">Assura workspace</div><a class="nav-item" href="/">${icon('portal')}<span>Client portal</span></a>`}
+          </nav>
+          <div class="side-foot"><div class="who"><b>${esc(me.name)}</b><span>${esc(seat(me))}</span></div></div>
+        </aside>
+        <div class="scrim" id="scrim"></div>
+        <div class="main-col">
+          <header class="mbar">
+            <button class="menu-btn" id="menu" aria-label="Open the menu" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 10h14M3 14h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+            <span class="wordmark">${LOGO}</span><span class="mbar-tab">${esc(current || 'Workflow')}</span>
+          </header>
+          ${demo ? `<div class="wf-demo">Preview with fictional clients. Signed in as ${esc(me.name)}. <button id="switch">Switch person</button></div>` : ''}
+          <main id="page">${inner}</main>
+        </div>
+      </div>`;
+    document.body.classList.remove('menu-open');
+    const menu = (open) => { document.body.classList.toggle('menu-open', open); root.querySelector('#menu').setAttribute('aria-expanded', String(open)); };
+    root.querySelector('#menu').addEventListener('click', () => menu(true));
+    root.querySelector('#scrim').addEventListener('click', () => menu(false));
+    root.querySelectorAll('.side a').forEach((a) => a.addEventListener('click', () => menu(false)));
     const sel = root.querySelector('#period');
-    if (sel) sel.addEventListener('change', () => { S.period = sel.value; route(); });
+    if (sel) sel.addEventListener('change', () => { S.period = sel.value; menu(false); route(); });
     const sw = root.querySelector('#switch');
     if (sw) sw.addEventListener('click', () => { demo.signOut(); location.hash = ''; boot(); });
     root.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => back(b.dataset.back)));

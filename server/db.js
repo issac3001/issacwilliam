@@ -59,6 +59,23 @@ function open(file = DB_PATH) {
       ip TEXT
     );
     CREATE INDEX IF NOT EXISTS audit_at ON audit (at);
+    -- Explanations of the month's movements. Drafts are worked out from the data each time;
+    -- a row exists once the Assura team has reviewed one. Only 'accepted' rows reach the client.
+    CREATE TABLE IF NOT EXISTS insights (
+      id INTEGER PRIMARY KEY,
+      company_id INTEGER NOT NULL REFERENCES companies(id),
+      period TEXT NOT NULL,
+      key TEXT NOT NULL,
+      area TEXT NOT NULL,
+      status TEXT NOT NULL,
+      headline TEXT NOT NULL,
+      body TEXT NOT NULL,
+      causes TEXT NOT NULL DEFAULT '[]',
+      data_version INTEGER,
+      reviewed_by INTEGER REFERENCES users(id),
+      reviewed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      UNIQUE (company_id, period, key)
+    );
   `);
   migrate(db);
   return db;
@@ -190,6 +207,28 @@ function datasetVersion(db, companyId, period, version) {
   return r ? { version: r.version, data: JSON.parse(r.data) } : null;
 }
 
+// Review states for explanations. 'accepted' is shown to the client; 'set-aside' is kept for the
+// team only. Later sign-off steps can add states here without a change to the table.
+const INSIGHT_STATES = ['accepted', 'set-aside'];
+function insightsFor(db, companyId, { period, acceptedOnly } = {}) {
+  return db.prepare(`SELECT i.period, i.key, i.area, i.status, i.headline, i.body, i.causes, i.data_version, i.reviewed_at, us.name AS reviewed_by
+      FROM insights i LEFT JOIN users us ON us.id = i.reviewed_by
+      WHERE i.company_id = ? ${period ? 'AND i.period = ?' : ''} ${acceptedOnly ? "AND i.status = 'accepted'" : ''}
+      ORDER BY i.period, i.id`).all(...[companyId].concat(period ? [period] : []))
+    .map((r) => Object.assign({}, r, { causes: JSON.parse(r.causes) }));
+}
+function saveInsight(db, { companyId, period, key, area, status, headline, body, causes, dataVersion, userId }) {
+  db.prepare(`INSERT INTO insights (company_id, period, key, area, status, headline, body, causes, data_version, reviewed_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (company_id, period, key) DO UPDATE SET area = excluded.area, status = excluded.status, headline = excluded.headline,
+        body = excluded.body, causes = excluded.causes, data_version = excluded.data_version, reviewed_by = excluded.reviewed_by,
+        reviewed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`)
+    .run(companyId, period, key, area, status, headline, body, JSON.stringify(causes || []), dataVersion == null ? null : dataVersion, userId);
+}
+function deleteInsight(db, companyId, period, key) {
+  return db.prepare('DELETE FROM insights WHERE company_id = ? AND period = ? AND key = ?').run(companyId, period, key).changes;
+}
+
 function uploadHistory(db, companyId) {
   return db.prepare(`
     SELECT u.period, u.version, u.filename, u.source, u.sections, u.warnings, u.created_at, us.name AS uploaded_by
@@ -198,4 +237,4 @@ function uploadHistory(db, companyId) {
     .map((r) => Object.assign({}, r, { sections: JSON.parse(r.sections), warnings: JSON.parse(r.warnings) }));
 }
 
-module.exports = { ROLES, isStaff, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
+module.exports = { ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };

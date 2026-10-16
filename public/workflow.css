@@ -1,7 +1,4 @@
 /* Assura Elevate internal workflow. Builds on the portal's colour tokens in styles.css. */
-.wf-top .wf-label { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--on-panel-2); border-left: 1px solid var(--panel-line); padding-left: 14px; font-weight: 600; }
-.wf-top a.btn-ghost { text-decoration: none; }
-.wf-period { background: var(--surface); border: 1px solid var(--panel-line); color: var(--on-panel); border-radius: 8px; padding: 6px 10px; }
 
 .wf-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 6px 0; margin-bottom: 10px; color: var(--ink-2); cursor: pointer; font-weight: 600; }
 .wf-back:hover { color: var(--ink); }
@@ -123,3 +120,4 @@
 .wf-pick button:hover { border-color: var(--accent); }
 .wf-pick small { display: block; color: var(--ink-3); }
 .wf-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,.2); max-width: calc(100% - 32px); }
+.side a.nav-item { text-decoration: none; }

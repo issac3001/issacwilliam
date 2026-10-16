@@ -20,6 +20,16 @@
   D.companies.forEach((c) => Object.keys(c.months).sort().forEach((p) => uploads.push({
     company_id: c.id, period: p, version: 1, filename: `sample ${p}.xlsx`, source: 'upload', sections: Object.keys(c.months[p]), warnings: [], data: c.months[p], created_at: '2026-10-07T04:30:00Z', uploaded_by: null,
   })));
+  const reviews = []; // reviewed explanations: { company_id, period, key, status, headline, body, ... }
+  // The demo opens with a few explanations already accepted, so the client view shows them.
+  D.companies.forEach((c) => {
+    const ds = current(c.id); if (ds.length < 2) return;
+    const last = ds[ds.length - 1];
+    window.AEInsights.draft(ds, window.AEAnalysis.analyse(ds), last.period).slice(0, 3).forEach((d) => {
+      const picked = d.causes.filter((x) => d.suggested.includes(x.id)).map((x) => x.text);
+      reviews.push({ company_id: c.id, period: last.period, key: d.key, area: d.area, status: 'accepted', headline: d.headline, body: [d.movement].concat(picked).join(' '), causes: picked, data_version: 1, reviewed_by: 'Assura Team Member', reviewed_at: '2026-10-08T06:00:00Z' });
+    });
+  });
   let session = null;
   const audit = [];
   const log = (u, action, companyId, detail) => audit.unshift({ at: new Date().toISOString(), email: u ? u.email : null, action, company_code: (D.companies.find((c) => c.id === companyId) || {}).code || null, detail: detail || null });
@@ -120,7 +130,37 @@
       const c = companyFor(me(), q.get('company'));
       const ds = current(c.id);
       log(session, 'dashboard.viewed', c.id);
-      return { company: c, analysis: window.AEAnalysis.analyse(ds), periods: ds.map((d) => d.period) };
+      return { company: c, analysis: window.AEAnalysis.analyse(ds), periods: ds.map((d) => d.period),
+        insights: reviews.filter((r) => r.company_id === c.id && r.status === 'accepted').map((r) => ({ period: r.period, key: r.key, area: r.area, headline: r.headline, body: r.body, reviewed_at: r.reviewed_at })) };
+    },
+    'GET /api/insights': (q) => {
+      const u = needStaff(); const c = companyFor(u, q.get('company'));
+      const ds = current(c.id); const periods = ds.map((d) => d.period);
+      const period = window.AEParse.parseMonth(q.get('period')) || periods[periods.length - 1];
+      if (!period || !periods.includes(period)) fail(404, 'No data for this month.');
+      const cur = versionOf(c.id, period);
+      const drafts = window.AEInsights.draft(ds, window.AEAnalysis.analyse(ds), period);
+      const saved = reviews.filter((r) => r.company_id === c.id && r.period === period);
+      const items = drafts.map((d) => ({ draft: d, review: saved.find((r) => r.key === d.key) || null }))
+        .concat(saved.filter((r) => !drafts.some((d) => d.key === r.key)).map((r) => ({ draft: null, review: r })))
+        .map((x) => Object.assign(x, { stale: !!(x.review && x.review.data_version !== cur.version) }));
+      return { company: c, period, periods, version: cur.version, items, first: periods[0] === period };
+    },
+    'POST /api/insights/review': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const period = window.AEParse.parseMonth(body.period); const cur = period && versionOf(c.id, period);
+      if (!cur || cur.data.removed) fail(404, 'No data for this month.');
+      const key = String(body.key || '');
+      if (!/^[a-z0-9-]{2,40}$/.test(key)) fail(400, 'Choose the explanation to review.');
+      const at = reviews.findIndex((r) => r.company_id === c.id && r.period === period && r.key === key);
+      if (body.status === 'draft') { if (at >= 0) reviews.splice(at, 1); log(u, 'insight.withdrawn', c.id, `${period} ${key}`); return { ok: true }; }
+      if (!['accepted', 'set-aside'].includes(body.status)) fail(400, 'Choose accept or set aside.');
+      const headline = String(body.headline || '').trim(); const text = String(body.body || '').trim();
+      if (body.status === 'accepted' && (!headline || !text)) fail(400, 'Write a headline and the explanation before accepting it.');
+      const row = { company_id: c.id, period, key, area: String(body.area || 'General'), status: body.status, headline: headline || '(untitled)', body: text, causes: body.causes || [], data_version: cur.version, reviewed_by: u.name, reviewed_at: new Date().toISOString() };
+      if (at >= 0) reviews[at] = row; else reviews.push(row);
+      log(u, body.status === 'accepted' ? 'insight.accepted' : 'insight.set_aside', c.id, `${period} ${key}: ${headline}`);
+      return { ok: true };
     },
     'GET /api/uploads': (q) => {
       const c = companyFor(me(), q.get('company'));
@@ -165,7 +205,7 @@
       const u = needStaff();
       const c = companyFor(u, body.company);
       const P = window.AEParse; const schema = window.AE_SCHEMA;
-      let data; let period; let parsed;
+      let data; let period; let parsed; let rows; let fileCompany = null;
       if (body.section) {
         period = P.parseMonth(body.period) || fail(422, 'Choose the month this file relates to.', { errors: ['Choose the month this file relates to.'] });
         parsed = P.parseWorkbook(body.sheets, schema, { only: [body.section] });
@@ -173,13 +213,17 @@
         const prev = current(c.id).find((d) => d.period === period);
         data = Object.assign({}, prev ? prev.data : { company: { company_code: c.code, company_name: c.name, period, prepared_by: u.name } });
         data[body.section] = parsed.data[body.section];
+        rows = { [body.section]: parsed.data[body.section] };
       } else {
         parsed = P.parseWorkbook(body.sheets, schema);
-        const errors = parsed.errors.slice(); const comp = parsed.data.company || {};
-        if (comp.company_code && comp.company_code.toUpperCase() !== c.code) errors.unshift(`This workbook is for company code ${comp.company_code}, but you are uploading to ${c.code}. Check the "Company & Period" sheet.`);
-        if (errors.length) fail(422, 'The file needs fixing before it can be accepted.', { errors });
-        data = parsed.data; period = comp.period;
+        if (parsed.errors.length) fail(422, 'The file needs fixing before it can be accepted.', { errors: parsed.errors });
+        data = parsed.data; rows = parsed.data; fileCompany = parsed.data.company || {}; period = fileCompany.period;
       }
+      // Same check as the server: the file must belong to the client selected for the upload.
+      const M = window.AEMatch; const recent = (id) => M.partiesOf(current(id).slice(-6));
+      const mismatch = M.check({ selected: c, fileCompany, confirmCode: body.confirm_code, data: rows, own: recent(c.id),
+        others: D.companies.filter((o) => o.id !== c.id).map((o) => ({ code: o.code, name: o.name, parties: recent(o.id) })) });
+      if (mismatch.length) { log(u, 'upload.wrong_company', c.id, body.filename); fail(422, `This file does not look like ${c.name}'s data, so it was not uploaded.`, { errors: mismatch }); }
       const version = save(u, c, period, data, body.section ? [body.section] : parsed.sections, parsed.warnings, 'upload', body.filename);
       log(u, 'upload.accepted', c.id, `${period} v${version} ${body.filename || ''}`);
       return { ok: true, period, version, sections: parsed.sections, warnings: parsed.warnings };

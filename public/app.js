@@ -104,6 +104,7 @@
     if (!state.companyId) { state.dash = null; state.history = null; render(); return; }
     state.dash = await api.get(`/api/dashboard?company=${state.companyId}`);
     state.history = await api.get(`/api/uploads?company=${state.companyId}`);
+    if (!history.state || !history.state.aeTab) history.replaceState({ aeTab: state.tab }, '');
     render();
   }
 
@@ -238,29 +239,90 @@
     ['overview', 'Overview'], ['money', 'Where is the money?'], ['sales', 'Sales & customers'],
     ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'],
   ];
-  const tabsFor = (u) => TABS.concat(isStaff(u) ? [['upload', 'Data & uploads'], ['edit', 'Edit data'], ['admin', 'Clients & users']] : [], [['account', 'Account']]);
+  const STAFF_TABS = [['insights', 'Explanations'], ['upload', 'Data & uploads'], ['edit', 'Edit data'], ['admin', 'Clients & users']];
+  const tabsFor = (u) => TABS.concat(isStaff(u) ? STAFF_TABS : [], [['account', 'Account']]);
   const ROLE_LABEL = { client: 'Client (view only)', team: 'Assura team', admin: 'Assura admin' };
+  const NAV_ICON = {
+    overview: 'M3 3h6v6H3zM11 3h6v4h-6zM11 9h6v8h-6zM3 11h6v6H3z',
+    money: 'M2 6h16v9H2zM5 9.5h2M13 9.5h2M10 12.5a2 2 0 100-4 2 2 0 000 4z',
+    sales: 'M3 16V9M8 16V5M13 16v-5M18 16V3',
+    expenses: 'M4 3h12v14l-3-2-3 2-3-2-3 2zM7 7h6M7 10h6',
+    compliance: 'M10 2l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V5zM7 10l2 2 4-4',
+    insights: 'M10 2a5 5 0 00-3 9v3h6v-3a5 5 0 00-3-9zM8 17h4',
+    upload: 'M10 13V3M6 7l4-4 4 4M3 13v4h14v-4',
+    edit: 'M4 16l1-4 8-8 3 3-8 8zM12 5l3 3',
+    admin: 'M7 9a3 3 0 100-6 3 3 0 000 6zM2 17c0-3 2-5 5-5s5 2 5 5M14 9a2.5 2.5 0 100-5M15 12c2 .5 3 2 3 5',
+    workflow: 'M3 4h5v4H3zM12 12h5v4h-5zM5.5 8v6h6.5M12 6h5M14.5 6v4',
+    account: 'M10 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM3 18c0-4 3-6 7-6s7 2 7 6',
+  };
+  const navIcon = (k) => `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="${NAV_ICON[k]}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  // Moving between sections is a browser history step, so the phone's back button returns to the previous section.
+  function goTab(tab) {
+    if (tab !== state.tab) history.pushState({ aeTab: tab }, '');
+    state.tab = tab; state.showAllHighlights = false;
+    if (tab !== 'upload' && tab !== 'edit') state.upload = null;
+    render(); window.scrollTo(0, 0);
+  }
+  window.addEventListener('popstate', (e) => {
+    const st = e.state || {};
+    if (st.aeDrill || !state.me) return;
+    if (menuOpen && !st.aeMenu) { setMenu(false); return; }
+    const tab = st.aeTab || 'overview';
+    if (tab !== state.tab && tabsFor(state.me).some(([k]) => k === tab)) { state.tab = tab; state.showAllHighlights = false; render(); window.scrollTo(0, 0); }
+  });
+  let menuOpen = false;
+  function setMenu(open) {
+    menuOpen = open;
+    document.body.classList.toggle('menu-open', open);
+    const btn = app.querySelector('#menu'); if (btn) btn.setAttribute('aria-expanded', String(open));
+  }
 
   function render() {
     C.hideTip();
     const u = state.me;
     const company = state.companies.find((c) => c.id === state.companyId);
+    const navItem = ([k, l], i) => `<button class="nav-item" data-tab="${k}" ${state.tab === k ? 'aria-current="page"' : ''}>${navIcon(k)}<span>${l}</span>${i != null ? `<i>${String(i + 1).padStart(2, '0')}</i>` : ''}</button>`;
+    menuOpen = false; document.body.classList.remove('menu-open');
     app.innerHTML = `
-      <header class="topbar"><div class="topbar-inner">
-        <a class="wordmark" href="#">${LOGO}</a>
-        <span class="spacer"></span>
-        ${isStaff(u) && state.companies.length ? `<select id="company" aria-label="Company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select>` : ''}
-        <div class="user-chip">${esc(u.name)}<br><span>${esc(ROLE_LABEL[u.role] || '')}${company && !isStaff(u) ? ' · ' + esc(company.code) : ''}</span></div>
-        <button class="btn-ghost" id="logout">Sign out</button>
-      </div></header>
-      <nav class="tabs" aria-label="Sections"><div class="tabs-inner" role="tablist">
-        ${tabsFor(u).map(([k, l]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${l}</button>`).join('')}
-      </div></nav>
-      <main id="page"></main>`;
+      <div class="shell">
+        <aside class="side" aria-label="Main menu">
+          <div class="side-top"><a class="wordmark" href="#" data-tab="overview" aria-label="Assura Elevate, overview">${LOGO}</a></div>
+          ${isStaff(u) && state.companies.length
+            ? `<div class="side-client"><label for="company">Client</label><select id="company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.name)} · ${esc(c.code)}</option>`).join('')}</select></div>`
+            : company ? `<div class="side-client"><span class="lbl">Company</span><b>${esc(company.name)}</b><span class="code">${esc(company.code)}</span></div>` : ''}
+          <nav class="side-nav" aria-label="Sections">
+            <div class="nav-group">Dashboard</div>
+            ${TABS.map(navItem).join('')}
+            ${isStaff(u) ? `<div class="nav-group">Assura workspace</div>${STAFF_TABS.map((t) => navItem(t)).join('')}${window.AE_DEMO_API ? '' : `<a class="nav-item" href="/workflow">${navIcon('workflow')}<span>Workflow</span></a>`}` : ''}
+          </nav>
+          <div class="side-foot">
+            ${navItem(['account', 'Account'])}
+            <div class="who"><b>${esc(u.name)}</b><span>${esc(ROLE_LABEL[u.role] || '')}</span></div>
+            <button class="btn-ghost" id="logout">Sign out</button>
+          </div>
+        </aside>
+        <div class="scrim" id="scrim"></div>
+        <div class="main-col">
+          <header class="mbar">
+            <button class="menu-btn" id="menu" aria-label="Open the menu" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 10h14M3 14h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+            <span class="wordmark">${LOGO}</span>
+            <span class="mbar-tab">${esc((tabsFor(u).find(([k]) => k === state.tab) || [])[1] || '')}</span>
+          </header>
+          <main id="page"></main>
+        </div>
+      </div>`;
     app.querySelector('#logout').addEventListener('click', signOut);
     const sel = app.querySelector('#company');
     if (sel) sel.addEventListener('change', async () => { state.companyId = Number(sel.value); state.upload = null; editor.reset(); await loadDashboard(); });
-    app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { state.tab = b.dataset.tab; state.showAllHighlights = false; if (b.dataset.tab !== 'upload' && b.dataset.tab !== 'edit') state.upload = null; render(); window.scrollTo(0, 0); }));
+    // From the open phone menu, the menu's own history step becomes the new section's step.
+    app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (menuOpen) { history.replaceState({ aeTab: b.dataset.tab }, ''); setMenu(false); state.tab = b.dataset.tab; state.showAllHighlights = false; render(); window.scrollTo(0, 0); return; }
+      goTab(b.dataset.tab);
+    }));
+    app.querySelector('#menu').addEventListener('click', () => { history.pushState(Object.assign({}, history.state, { aeMenu: 1 }), ''); setMenu(true); });
+    app.querySelector('#scrim').addEventListener('click', () => history.back());
 
     const page = app.querySelector('#page');
     if (!tabsFor(u).some(([k]) => k === state.tab)) state.tab = 'overview';
@@ -273,11 +335,12 @@
       page.innerHTML = isStaff(u)
         ? `<div class="card empty"><h2>No data yet</h2><p>Upload the first monthly workbook for ${esc(company.name)} and the dashboard builds itself here.</p><button class="btn" data-go="upload">Go to Data & uploads</button></div>`
         : `<div class="card empty"><h2>Your dashboard is being prepared</h2><p>Your Assura Elevate team uploads your monthly figures. The dashboard appears here as soon as the first month is in.</p></div>`;
-      const go = page.querySelector('[data-go]'); if (go) go.addEventListener('click', () => { state.tab = 'upload'; render(); });
+      const go = page.querySelector('[data-go]'); if (go) go.addEventListener('click', () => goTab('upload'));
       return;
     }
+    if (state.tab === 'insights') { insightsPage(page, a, company); return; }
     ({ overview, money, sales, expenses, compliance, upload: uploadPage })[state.tab](page, a, company);
-    if (state.tab !== 'upload') page.insertAdjacentHTML('beforeend', `<footer class="page-foot"><span>Prepared from data provided by your finance team. Figures are management estimates and unaudited. Click any figure to see the detail behind it.</span><span>Built for businesses ready for their next stage.</span></footer>`);
+    if (state.tab !== 'upload') page.insertAdjacentHTML('beforeend', `<footer class="page-foot"><span>Prepared from data provided by your finance team. Figures are management estimates and unaudited. Click any figure to see the detail behind it.</span><span>Assura Elevate · Compliance, control, intelligence</span></footer>`);
     wireDrills(page);
   }
 
@@ -346,6 +409,7 @@
     const ms = a.months; const cur = ms[ms.length - 1];
     const counts = ['critical', 'watch', 'positive', 'info'].map((s) => [s, a.highlights.filter((h) => h.severity === s).length]).filter((x) => x[1]);
     page.innerHTML = head('Management dashboard', company.name, a) + `<div id="kpis"></div>
+      ${explained(a)}
       <div class="grid g-main section">
         <div class="card">
           <div class="card-head"><h3>Highlights this month</h3><div class="hl-summary">${counts.map(([s, n]) => chip(s, `${n} ${SEV_LABEL[s]}`)).join('')}</div></div>
@@ -374,9 +438,11 @@
             <li>Assura team logins to upload, correct and manage every client's data, with an activity log</li>
             <li>Dashboard rebuilt on every upload, with full month-on-month history</li>
             <li>Click any figure, chart or highlight for the detail behind it, with CSV download</li>
-            <li>Automated highlights: trends, ageing, concentration, unusual spend, purchase rates, compliance due dates</li></ul></div>
+            <li>Automated highlights: trends, ageing, concentration, unusual spend, purchase rates, compliance due dates</li>
+            <li>Explanations of what moved each month and why, traced to the transactions and reviewed by the Assura team before they appear here</li>
+            <li>Every upload is checked against the selected company before it is accepted</li></ul></div>
           <div><b>Planned</b><ul>
-            <li>AI-written monthly commentary for the management review</li>
+            <li>Review and sign-off steps for the Assura team's monthly work</li>
             <li>Email and WhatsApp alerts for critical highlights</li>
             <li>Direct Tally integration (today: Excel/CSV upload)</li>
             <li>Board pack PDF export, statutory registers and minutes repository</li></ul></div>
@@ -400,7 +466,108 @@
       ${ms.map((m) => `<tr><td>${mShort(m.period)}</td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'revenue', period: m.period })}>${inr(m.revenue)}</button></td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'gross', period: m.period })}>${inr(m.grossProfit)}</button></td><td class="r">${pctTxt(m.gmPct)}</td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'expenses', period: m.period })}>${inr(m.opex)}</button></td><td class="r"><button type="button" class="row-link" ${dAttr({ kind: 'net', period: m.period })}>${inr(m.netProfit)}</button></td></tr>`).join('')}</tbody></table></div></details>`);
     const more = page.querySelector('#hl-more');
     if (more) more.addEventListener('click', () => { state.showAllHighlights = !state.showAllHighlights; render(); });
-    page.querySelectorAll('[data-go]').forEach((x) => x.addEventListener('click', (e) => { e.preventDefault(); state.tab = x.dataset.go; render(); }));
+    page.querySelectorAll('[data-go]').forEach((x) => x.addEventListener('click', (e) => { e.preventDefault(); goTab(x.dataset.go); }));
+  }
+
+  // ---------- What moved, and why (explanations accepted by the Assura team) ----------
+  const AREA_DRILL = { revenue: 'revenue', margin: 'gross', expenses: 'expenses', profit: 'net', receivables: 'receivables', inventory: 'inventory', cash: 'cash' };
+  function explained(a) {
+    const period = a.latest.period;
+    const list = ((state.dash && state.dash.insights) || []).filter((x) => x.period === period);
+    if (!list.length) {
+      return isStaff(state.me) ? `<div class="section ins-empty"><span>No explanations have been accepted for ${mLong(period)} yet, so the client sees none.</span><a href="#" data-go="insights">Review the suggested explanations ›</a></div>` : '';
+    }
+    return `<section class="section explained" aria-labelledby="exp-h">
+      <div class="explained-head"><div><div class="eyebrow">${mLong(period)}</div><h2 id="exp-h">What moved this month, and why</h2></div>
+        <span class="muted small">Reviewed by your Assura Elevate team${isStaff(state.me) ? ' · <a href="#" data-go="insights">Edit</a>' : ''}</span></div>
+      <div class="explained-list">${list.map((x, i) => `
+        <article class="exp${AREA_DRILL[x.key] ? ' clickable' : ''}" ${AREA_DRILL[x.key] ? dAttr({ kind: AREA_DRILL[x.key], period }) : ''}>
+          <div class="exp-n">${String(i + 1).padStart(2, '0')}</div>
+          <div><div class="exp-area">${esc(x.area)}</div><h3 class="exp-title">${esc(x.headline)}</h3><p>${esc(x.body)}</p>
+          ${AREA_DRILL[x.key] ? '<span class="more">See the figures ›</span>' : ''}</div>
+        </article>`).join('')}</div>
+    </section>`;
+  }
+
+  // ---------- Explanations review (Assura team) ----------
+  let insView = { period: null };
+  async function insightsPage(page, a, company) {
+    const periods = (state.dash && state.dash.periods) || [];
+    if (!insView.period || !periods.includes(insView.period) || insView.company !== company.id) insView = { period: periods[periods.length - 1], company: company.id };
+    page.innerHTML = head('Assura workspace', 'Explanations', null) + `
+      <div class="card ins-intro">
+        <div class="editor-bar"><div><label for="ins-month">Month</label><select id="ins-month" class="field">${periods.slice().reverse().map((p) => `<option value="${p}" ${p === insView.period ? 'selected' : ''}>${mLong(p)}</option>`).join('')}</select></div>
+          <div style="flex:1"><p class="muted small" style="margin:0">Elevate Intelligence compares ${esc(company.name)}'s month with the month before, traces each material movement to the transactions behind it and suggests the likely causes, largest effect first. Tick the causes that are right, adjust the wording, and accept. Only accepted explanations appear on the client's dashboard.</p></div></div>
+      </div>
+      ${state.upload || ''}
+      <div id="ins-body" class="section"><div class="card empty">Working through ${mLong(insView.period)}…</div></div>`;
+    state.upload = null;
+    page.querySelector('#ins-month').addEventListener('change', (e) => { insView.period = e.target.value; insightsPage(page, a, company); });
+    let r;
+    try { r = await api.get(`/api/insights?company=${company.id}&period=${insView.period}`); } catch (e) { page.querySelector('#ins-body').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+    const body = page.querySelector('#ins-body');
+    if (!body) return;
+    const STATUS = { accepted: ['positive', 'Shown to client'], 'set-aside': ['info', 'Set aside'] };
+    const cardHtml = (it, n) => {
+      const d = it.draft; const rv = it.review;
+      const key = d ? d.key : rv.key;
+      const ticked = rv ? (rv.causes || []) : d.causes.filter((c) => d.suggested.includes(c.id)).map((c) => c.text);
+      const text = rv ? rv.body : [d.movement].concat(ticked).join(' ');
+      const st = rv ? STATUS[rv.status] : ['watch', 'Draft, not shown'];
+      return `<article class="card ins" data-n="${n}">
+        <div class="ins-top"><span class="exp-area">${esc(d ? d.area : rv.area)}</span>${chip(st[0], st[1])}${it.stale ? chip('critical', 'Figures changed since review') : ''}
+          <span style="flex:1"></span>${AREA_DRILL[key] ? `<button type="button" class="link-btn" ${dAttr({ kind: AREA_DRILL[key], period: r.period })}>See the figures ›</button>` : ''}</div>
+        <label for="ins-h-${n}">Headline</label><input type="text" id="ins-h-${n}" class="ins-h" value="${esc(rv ? rv.headline : d.headline)}">
+        ${d ? `<p class="ins-move">${esc(d.movement)}</p>
+        <div class="ins-causes"><div class="lbl">Likely causes, largest effect first</div>
+          ${d.causes.map((c) => `<label class="cause"><input type="checkbox" value="${esc(c.text)}" ${ticked.includes(c.text) ? 'checked' : ''}><span>${esc(c.text)}</span>${c.impact ? `<b class="num">${c.impact > 0 ? '+' : '−'}${esc(inr(Math.abs(c.impact)))}</b>` : '<b class="muted small">note</b>'}</label>`).join('')}
+        </div>` : '<p class="muted small">Written by the team. The figures no longer show this movement, so check it still applies.</p>'}
+        <label for="ins-t-${n}">Explanation the client will read</label>
+        <textarea id="ins-t-${n}" class="ins-t" rows="4">${esc(text)}</textarea>
+        <div class="btn-row ins-actions">
+          <button class="btn" type="button" data-act="accepted">${rv && rv.status === 'accepted' ? 'Save changes' : 'Accept and show to client'}</button>
+          ${!rv || rv.status !== 'set-aside' ? '<button class="btn secondary" type="button" data-act="set-aside">Set aside</button>' : ''}
+          ${rv ? '<button class="btn secondary" type="button" data-act="draft">Back to draft</button>' : ''}
+          ${rv ? `<span class="muted small">${esc(rv.status === 'accepted' ? 'Accepted' : 'Set aside')} by ${esc(rv.reviewed_by || 'the team')}, ${esc(stamp(rv.reviewed_at))}</span>` : ''}
+          ${!d ? '' : '<button class="link-btn" type="button" data-rebuild>Rebuild the text from the ticked causes</button>'}
+        </div><div class="ins-msg"></div>
+      </article>`;
+    };
+    body.innerHTML = (r.items.length ? r.items.map(cardHtml).join('') : `<div class="card empty">${r.first ? 'This is the first month on record, so there is no earlier month to compare with.' : `No material movements in ${mLong(r.period)}: revenue, margin, expenses, profit, receivables, stock and cash all moved within normal limits.`}</div>`)
+      + `<form class="card ins own" id="ins-own"><h3>Add an explanation of your own</h3>
+        <div class="form-row" style="margin-top:8px"><div><label for="own-area">Area</label><select id="own-area" class="field">${['Revenue', 'Margin', 'Expenses', 'Profit', 'Receivables', 'Inventory', 'Cash', 'Compliance', 'General'].map((x) => `<option>${x}</option>`).join('')}</select></div>
+          <div style="grid-column:span 2"><label for="own-h">Headline</label><input type="text" id="own-h" required></div></div>
+        <label for="own-t" style="margin-top:12px">Explanation the client will read</label><textarea id="own-t" class="ins-t" rows="3" required></textarea>
+        <div class="btn-row" style="margin-top:10px"><button class="btn" type="submit">Accept and show to client</button></div><div class="ins-msg"></div></form>`;
+    wireDrills(body);
+    const save = async (el, payload) => {
+      const msg = el.querySelector('.ins-msg');
+      try {
+        await api.post('/api/insights/review', Object.assign({ company: company.id, period: r.period }, payload));
+        state.dash = await api.get(`/api/dashboard?company=${company.id}`);
+        state.upload = `<div class="msg ok">${payload.status === 'accepted' ? `Saved. The client now sees “${esc(payload.headline)}” on their dashboard.` : payload.status === 'set-aside' ? 'Set aside. The client does not see it.' : 'Back to draft. The client no longer sees it.'}</div>`;
+        insightsPage(page, a, company);
+      } catch (e) { msg.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+    };
+    body.querySelectorAll('article.ins').forEach((el) => {
+      const it = r.items[Number(el.dataset.n)]; const d = it.draft;
+      const ta = el.querySelector('.ins-t');
+      const ticks = () => [...el.querySelectorAll('.cause input:checked')].map((x) => x.value);
+      // The text follows the ticked causes until someone edits it by hand.
+      let edited = !!it.review;
+      ta.addEventListener('input', () => { edited = true; });
+      el.querySelectorAll('.cause input').forEach((cb) => cb.addEventListener('change', () => { if (!edited && d) ta.value = [d.movement].concat(ticks()).join(' '); }));
+      const rb = el.querySelector('[data-rebuild]'); if (rb) rb.addEventListener('click', () => { ta.value = [d.movement].concat(ticks()).join(' '); edited = false; });
+      el.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => save(el, {
+        key: d ? d.key : it.review.key, area: d ? d.area : it.review.area, status: b.dataset.act,
+        headline: el.querySelector('.ins-h').value, body: ta.value, causes: d ? ticks() : (it.review.causes || []),
+      })));
+    });
+    const own = body.querySelector('#ins-own');
+    own.addEventListener('submit', (e) => {
+      e.preventDefault();
+      save(own, { key: `own-${Date.now().toString(36)}`, area: own.querySelector('#own-area').value, status: 'accepted', headline: own.querySelector('#own-h').value, body: own.querySelector('#own-t').value, causes: [] });
+    });
   }
 
   // ---------- Where is the money ----------
@@ -634,7 +801,7 @@
       } catch (err) { page.querySelector('#u-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
     });
     page.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', async () => {
-      state.companyId = Number(b.dataset.open); state.tab = 'overview'; editor.reset(); await loadDashboard(); window.scrollTo(0, 0);
+      state.companyId = Number(b.dataset.open); editor.reset(); history.pushState({ aeTab: 'overview' }, ''); state.tab = 'overview'; await loadDashboard(); window.scrollTo(0, 0);
     }));
     page.querySelectorAll('[data-rename]').forEach((b) => b.addEventListener('click', () => {
       const td = b.closest('tr').children[1];
@@ -680,6 +847,8 @@
         </div>
         <div class="card"><div class="card-head"><h3>2. Upload</h3></div>
           ${canUpload ? `
+          <div class="target"><span class="lbl">Uploading to</span><b>${esc(company.name)}</b><span class="code">${esc(company.code)}</span>
+            <p class="muted small">Every file is checked before it is accepted: the workbook's company code and name must match this client, and its customers and suppliers must not belong to another client. A file that fails is refused and nothing changes.</p></div>
           <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a file to upload">
             <b>Drop the completed workbook here</b><br><span class="muted small">or click to choose. Excel (.xlsx) for the full month, or CSV for one section.</span>
             <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
@@ -687,6 +856,7 @@
           <div class="form-row hidden" id="csv-opts">
             <div><label for="csv-section">This CSV contains</label><select id="csv-section" class="field">${tableSections.map((s) => `<option value="${s.key}">${esc(s.name)}</option>`).join('')}</select></div>
             <div><label for="csv-period">For the month</label><input type="month" id="csv-period" value="${periods.length ? periods[periods.length - 1] : ''}"></div>
+            <div><label for="csv-code">Type the client code to confirm</label><input type="text" id="csv-code" placeholder="${esc(company.code)}" autocomplete="off" spellcheck="false"></div>
             <div style="align-self:end"><button class="btn" id="csv-go">Upload CSV</button></div>
           </div>
           <div id="up-msg">${state.upload || ''}</div>
@@ -721,7 +891,7 @@
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
     drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) handle(e.dataTransfer.files[0]); });
     input.addEventListener('change', () => input.files[0] && handle(input.files[0]));
-    page.querySelector('#csv-go').addEventListener('click', () => pendingCsv && send(pendingCsv.name, { [pendingCsv.name]: pendingCsv.rows }, { section: page.querySelector('#csv-section').value, period: page.querySelector('#csv-period').value }));
+    page.querySelector('#csv-go').addEventListener('click', () => pendingCsv && send(pendingCsv.name, { [pendingCsv.name]: pendingCsv.rows }, { section: page.querySelector('#csv-section').value, period: page.querySelector('#csv-period').value, confirm_code: page.querySelector('#csv-code').value }));
 
     async function handle(file) {
       const msg = page.querySelector('#up-msg');
@@ -736,7 +906,7 @@
           const guess = tableSections.find((s) => file.name.toLowerCase().includes(s.key));
           if (guess) page.querySelector('#csv-section').value = guess.key;
           page.querySelector('#csv-opts').classList.remove('hidden');
-          msg.innerHTML = `<div class="msg">${esc(file.name)} read: ${pendingCsv.rows.length} rows. Choose the section and month, then upload.</div>`;
+          msg.innerHTML = `<div class="msg">${esc(file.name)} read: ${pendingCsv.rows.length} rows. A CSV does not name its company, so choose the section and month, type ${esc(company.code)} to confirm it is ${esc(company.name)}'s file, then upload.</div>`;
           return;
         }
         await send(file.name, sheets, {});

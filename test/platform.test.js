@@ -103,8 +103,8 @@ async function enrolStaff(c) {
 
 test('a client sees only its own company and is view only; the Assura team uploads and edits', async (t) => {
   const db = store.open(':memory:');
-  const a = store.createCompany(db, 'AE-0001', 'Alpha');
-  const b = store.createCompany(db, 'AE-0002', 'Beta');
+  const a = store.createCompany(db, 'AE-0001', 'Meridian Polymers Private Limited');
+  const b = store.createCompany(db, 'AE-0002', 'Coastline Foods Pvt. Ltd.');
   const pw = 'test-password-1';
   store.createUser(db, { email: 'md@a.test', name: 'MD A', role: 'client', companyId: a.id, password: pw });
   store.createUser(db, { email: 'md@b.test', name: 'MD B', role: 'client', companyId: b.id, password: pw });
@@ -143,11 +143,27 @@ test('a client sees only its own company and is view only; the Assura team uploa
   await enrolStaff(team);
   assert.strictEqual((await team.call('GET', '/api/me')).body.companies.length, 2);
 
-  // Upload of company B's workbook into A is refused by company code.
+  // Company B's workbook uploaded with A selected is refused: code, name and B's own customers all give it away.
   const wbB = xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0002', '2026-09.xlsx'));
   const wrong = await team.call('POST', '/api/upload', { company: a.id, filename: 'b.xlsx', sheets: wbB });
   assert.strictEqual(wrong.status, 422);
-  assert.match(wrong.body.errors[0], /company code AE-0002/);
+  assert.match(wrong.body.errors.join('\n'), /company code AE-0002/);
+  assert.match(wrong.body.errors.join('\n'), /names the company as "Coastline Foods/);
+  // Even with A's code and name typed onto the Company sheet, B's customers and suppliers give it away.
+  const disguised = JSON.parse(JSON.stringify(wbB));
+  const compSheet = disguised['Company & Period'];
+  compSheet.forEach((row) => { if (/Company Code/i.test(row[0])) row[1] = 'AE-0001'; if (/Company Name/i.test(row[0])) row[1] = 'Meridian Polymers Pvt Ltd'; });
+  const sneaky = await team.call('POST', '/api/upload', { company: a.id, filename: 'b.xlsx', sheets: disguised });
+  assert.strictEqual(sneaky.status, 422, JSON.stringify(sneaky.body));
+  assert.deepStrictEqual(sneaky.body.errors.length, 1);
+  assert.match(sneaky.body.errors[0], /on record for Coastline Foods Pvt\. Ltd\. \(AE-0002\)/);
+  // A's code with another company's name is refused too.
+  const wbA9 = xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0001', '2026-09.xlsx'));
+  const renamed = JSON.parse(JSON.stringify(wbA9));
+  renamed['Company & Period'].forEach((row) => { if (/Company Name/i.test(row[0])) row[1] = 'Some Other Company Ltd'; });
+  const named = await team.call('POST', '/api/upload', { company: a.id, filename: 'a.xlsx', sheets: renamed });
+  assert.strictEqual(named.status, 422);
+  assert.match(named.body.errors[0], /names the company as "Some Other Company Ltd"/);
   // Missing CSRF header is refused.
   assert.strictEqual((await team.call('POST', '/api/upload', { company: a.id, sheets: {} }, { 'X-Requested-With': '' })).status, 403);
 
@@ -169,7 +185,10 @@ test('a client sees only its own company and is view only; the Assura team uploa
 
   // CSV-style single-section upload replaces one section of a month, as a new version.
   const csv = [['Expense Head', 'Expense Group', 'Amount'], ['Salaries and wages', 'Employee Cost', '100']];
-  const up = await team.call('POST', '/api/upload', { company: a.id, filename: 'expenses.csv', section: 'expenses', period: '2026-09', sheets: { 'expenses.csv': csv } });
+  const unconfirmed = await team.call('POST', '/api/upload', { company: a.id, filename: 'expenses.csv', section: 'expenses', period: '2026-09', sheets: { 'expenses.csv': csv } });
+  assert.strictEqual(unconfirmed.status, 422, 'a CSV names no company, so the client code must be confirmed');
+  assert.match(unconfirmed.body.errors[0], /type the selected client's code \(AE-0001\)/);
+  const up = await team.call('POST', '/api/upload', { company: a.id, filename: 'expenses.csv', section: 'expenses', period: '2026-09', confirm_code: 'ae-0001', sheets: { 'expenses.csv': csv } });
   assert.strictEqual(up.status, 200, JSON.stringify(up.body));
   assert.strictEqual(up.body.version, 2);
   dash = await mdA.call('GET', '/api/dashboard');
@@ -218,8 +237,33 @@ test('a client sees only its own company and is view only; the Assura team uploa
   assert.strictEqual((await mdB.call('GET', `/api/data?company=${a.id}&period=2026-09`)).status, 403);
   assert.deepStrictEqual((await mdB.call('GET', '/api/dashboard')).body.periods, ['2026-08', '2026-09']);
 
+  // Explanations: the team sees suggestions and decides; the client sees only what was accepted.
+  assert.strictEqual((await mdA.call('GET', '/api/insights?period=2026-09')).status, 403, 'suggestions are for the team');
+  assert.strictEqual((await mdA.call('POST', '/api/insights/review', { period: '2026-09', key: 'margin', status: 'accepted', headline: 'x', body: 'y' })).status, 403);
+  const ins = await team.call('GET', `/api/insights?company=${a.id}&period=2026-09`);
+  assert.strictEqual(ins.status, 200);
+  const margin = ins.body.items.find((x) => x.draft && x.draft.key === 'margin');
+  assert.ok(margin, 'a margin movement is explained');
+  assert.ok(margin.draft.causes.some((c) => /Purchase rates went up/.test(c.text)), 'purchase rates are among the causes');
+  assert.ok(margin.draft.suggested.length >= 1);
+  assert.deepStrictEqual((await mdA.call('GET', '/api/dashboard')).body.insights, [], 'nothing is shown before review');
+  const accept = await team.call('POST', '/api/insights/review', { company: a.id, period: '2026-09', key: 'margin', area: 'Margin', status: 'accepted', headline: 'Margin fell on resin prices', body: 'Resin rates rose.', causes: [margin.draft.causes[0].text] });
+  assert.strictEqual(accept.status, 200, JSON.stringify(accept.body));
+  await team.call('POST', '/api/insights/review', { company: a.id, period: '2026-09', key: 'expenses', area: 'Expenses', status: 'set-aside', headline: 'Not for the client', body: '' });
+  const seen = (await mdA.call('GET', '/api/dashboard')).body.insights;
+  assert.deepStrictEqual(seen.map((x) => x.headline), ['Margin fell on resin prices'], 'only accepted explanations reach the client');
+  assert.strictEqual(seen[0].reviewed_by, undefined, 'clients do not see reviewer names');
+  assert.deepStrictEqual((await mdB.call('GET', '/api/dashboard')).body.insights, [], 'another client sees none of them');
+  const reviewed = await team.call('GET', `/api/insights?company=${a.id}&period=2026-09`);
+  assert.strictEqual(reviewed.body.items.find((x) => x.draft && x.draft.key === 'margin').review.status, 'accepted');
+  // A later edit to the month marks the review as based on older figures.
+  await team.call('POST', '/api/data/edit', { company: a.id, period: '2026-09', section: 'company', values: { notes: 'Checked' } });
+  assert.strictEqual((await team.call('GET', `/api/insights?company=${a.id}&period=2026-09`)).body.items.find((x) => x.review && x.review.key === 'margin').stale, true);
+  assert.strictEqual((await team.call('POST', '/api/insights/review', { company: a.id, period: '2026-09', key: 'margin', status: 'draft' })).status, 200);
+  assert.deepStrictEqual((await mdA.call('GET', '/api/dashboard')).body.insights, [], 'withdrawn explanations disappear');
+
   const actions = db.prepare('SELECT action FROM audit').all().map((x) => x.action);
-  for (const x of ['upload.accepted', 'data.edited', 'data.restored', 'data.month_removed']) assert.ok(actions.includes(x), `audit has ${x}`);
+  for (const x of ['upload.accepted', 'upload.wrong_company', 'insight.accepted', 'insight.withdrawn', 'data.edited', 'data.restored', 'data.month_removed']) assert.ok(actions.includes(x), `audit has ${x}`);
   await mdA.call('POST', '/api/logout');
   assert.strictEqual((await mdA.call('GET', '/api/me')).status, 401);
 });
