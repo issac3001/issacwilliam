@@ -24,7 +24,7 @@ const html = `<!doctype html>
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" href="data:image/png;base64,${B64('public', 'brand', 'favicon.png')}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
 <style>
 ${R('public', 'styles.css')}
 ${R('public', 'workflow.css')}
