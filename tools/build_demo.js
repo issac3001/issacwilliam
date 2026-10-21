@@ -31,6 +31,7 @@ ${R('public', 'styles.css')}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 ${script(`window.AE_SCHEMA = ${R('shared', 'schema.json')};
 window.AE_DEMO_DATA = ${JSON.stringify({ companies })};
+window.AE_TEMPLATE_B64 = '${B64('templates', 'Assura_Elevate_Monthly_Data_Template.xlsx')}';
 window.AE_LOGO = 'data:image/png;base64,${B64('public', 'brand', 'assura-elevate-logo.png')}';
 window.AE_LOGO_ON_DARK = 'data:image/png;base64,${B64('public', 'brand', 'assura-elevate-logo-on-dark.png')}';
 ${extraGlobals}`)}
@@ -38,6 +39,7 @@ ${script(R('shared', 'parse.js'))}
 ${script(R('shared', 'analysis.js'))}
 ${script(R('shared', 'edit.js'))}
 ${script(R('shared', 'match.js'))}
+${script(R('shared', 'workbook.js'))}
 ${script(R('shared', 'insights.js'))}
 ${script(R('public', 'charts.js'))}
 ${script(R('public', 'drill.js'))}
@@ -49,8 +51,7 @@ ${script(R('public', 'app.js'))}
 
 fs.mkdirSync(path.join(ROOT, 'dist', 'standalone'), { recursive: true });
 
-const embedded = `<title>Assura Elevate Client Dashboard</title>\n` + body(
-  "window.AE_TEMPLATE_NOTE = 'Downloads are switched off in this preview. Ask your Assura Elevate partner for the blank workbook and a filled sample to try an upload.';");
+const embedded = `<title>Assura Elevate Client Dashboard</title>\n` + body('');
 fs.writeFileSync(path.join(ROOT, 'dist', 'assura-elevate-demo.html'), embedded);
 
 const standalone = `<!doctype html>
@@ -64,8 +65,7 @@ const standalone = `<!doctype html>
 <link rel="icon" type="image/png" href="data:image/png;base64,${B64('public', 'brand', 'favicon.png')}">
 </head>
 <body>
-${body(`window.AE_TEMPLATE_URL = 'data:${XLSX_MIME};base64,${B64('templates', 'Assura_Elevate_Monthly_Data_Template.xlsx')}';
-window.AE_SAMPLE_URL = 'data:${XLSX_MIME};base64,${B64('samples', 'xlsx', 'AE-0001', '2026-09.xlsx')}';`)}
+${body(`window.AE_SAMPLE_URL = 'data:${XLSX_MIME};base64,${B64('samples', 'xlsx', 'AE-0001', '2026-09.xlsx')}';`)}
 </body>
 </html>
 `;

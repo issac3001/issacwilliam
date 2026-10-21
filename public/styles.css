@@ -432,3 +432,13 @@ input[type=number], input[type=date] { padding: 10px 12px; border: 1px solid var
 }
 
 .sumrow b { font-family: var(--font-display); font-weight: 400; font-size: 24px; letter-spacing: -.01em; font-variant-numeric: lining-nums; }
+
+/* ---------- monthly workbook and upload review ---------- */
+.wb-to { padding: 9px 0; font-size: 13.5px; word-break: break-word; }
+.wb-to b { color: var(--ink); font-weight: 600; }
+.review { border: 1px solid var(--line); border-top: 2px solid var(--positive); border-radius: var(--radius); padding: 14px 16px; margin-top: 14px; background: var(--bg); }
+.review-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.review-head b { font-family: var(--font-display); font-size: 19px; font-weight: 500; }
+.review-checks { margin: 10px 0; padding-left: 18px; color: var(--ink-2); }
+.review-checks li { margin: 3px 0; }
+.review-table td { padding: 6px 4px; }

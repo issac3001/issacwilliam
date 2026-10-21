@@ -21,7 +21,8 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 | Dashboard | Overview, Where is the money?, Sales & customers, Expenses, Compliance & governance, Data & uploads. |
 | Highlights | Rule-based analysis of the client's own history (`shared/analysis.js`): revenue direction and streaks, gross margin movement, purchase rate increases by item, receivables 90+ and collection days, customer concentration, regular customers who stopped buying, new customers, month-end billing loading, slow-moving stock and cash locked in it, stock build-up, expense heads out of their normal range, overheads outpacing revenue, OD/CC utilisation, net cash decline, supplier payments beyond 60 days (MSME / 43B(h) prompt), overdue, late and upcoming compliance. Each highlight is ranked (act now / watch / positive / information) and carries a point for the management review. |
 | Explanations | For each material movement in a month (revenue, gross margin, expenses, profit, receivables, stock, net cash), `shared/insights.js` traces the change to the transactions behind it and lists likely causes with their rupee effect: customers billed more or less, lost and new accounts, price and volume effects, purchase rate changes, sales mix, expense heads, collection days, and a cash bridge. The Assura team ticks the right causes, edits the wording and accepts it under **Explanations**; only accepted explanations appear on the client's overview, and a review is flagged when the month's figures change afterwards. |
-| Company check on uploads | `shared/match.js` refuses a file that does not belong to the selected client: the workbook's company code and name must match (legal suffixes and punctuation ignored), a one-section CSV needs the client code typed to confirm, and a file whose customers and suppliers are on record for another client is refused. |
+| Monthly workbook | Sent from the client's **Data & uploads** page by the Assura team: emailed to the client's saved accounts address through the firm's own mailbox (`server/mail.js`, set up as in DEPLOY.md), or downloaded. Every copy is filled by `shared/workbook.js` with the company code, name, month and its own workbook reference on a locked first sheet, and recorded with who sent it and whether it came back. |
+| Company check on uploads | A returned workbook is accepted only if its reference was issued for the selected client and that month (`shared/match.js`), and its company code and name match (legal suffixes and punctuation ignored). A file whose customers and suppliers are on record for another client is refused, and a one-section CSV needs the client code typed to confirm. Every upload is checked first and shown for review, and changes nothing until the team accepts it. |
 
 ### Planned
 - Language-model drafting of the explanations' wording (needs a paid API key and data-handling approval; today the drafts come from the built-in analysis).
@@ -71,6 +72,8 @@ shared/parse.js         workbook -> validated monthly dataset (browser + Node)
 shared/analysis.js      metrics, ageing, trends and highlights (browser + Node)
 shared/insights.js      suggested explanations of each month's movements (browser + Node)
 shared/match.js         checks that an upload belongs to the selected client (browser + Node)
+shared/workbook.js      fills one client's copy of the monthly workbook (browser + Node)
+server/mail.js          sends email through the firm's own mailbox (SMTP)
 shared/edit.js          checks edits made in the portal with the upload rules
 server/                 HTTP server, auth, storage
 public/                 dashboard front end (drill.js: click-through detail, editor.js: data editor)

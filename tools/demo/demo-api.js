@@ -20,6 +20,11 @@
   D.companies.forEach((c) => Object.keys(c.months).sort().forEach((p) => uploads.push({
     company_id: c.id, period: p, version: 1, filename: `sample ${p}.xlsx`, source: 'upload', sections: Object.keys(c.months[p]), warnings: [], data: c.months[p], created_at: '2026-10-07T04:30:00Z', uploaded_by: null,
   })));
+  // Monthly workbooks already sent and returned, one per sample month (their references are printed in the sample files).
+  const EMAIL = { 1: 'accounts@meridian.demo', 2: 'accounts@coastline.demo' };
+  D.companies.forEach((c) => { c.data_email = EMAIL[c.id] || null; });
+  const issued = [];
+  D.companies.forEach((c) => Object.keys(c.months).sort().forEach((p) => issued.push({ company_id: c.id, period: p, ref: `${c.code}-${p}-SAMPLE`, method: 'email', sent_to: c.data_email, issued_by: 'Assura Team Member', issued_at: `${p}-28T05:30:00Z`, received_version: 1, received_at: '2026-10-07T04:30:00Z' })));
   const reviews = []; // reviewed explanations: { company_id, period, key, status, headline, body, ... }
   // The demo opens with a few explanations already accepted, so the client view shows them.
   D.companies.forEach((c) => {
@@ -82,7 +87,7 @@
       needStaff();
       const months = (cid) => current(cid).map((d) => d.period);
       return {
-        companies: D.companies.map((c) => ({ id: c.id, code: c.code, name: c.name, users: users.filter((x) => x.company_id === c.id).length, months: months(c.id).length, latest: months(c.id).slice(-1)[0] || null, last_upload: uploads.filter((x) => x.company_id === c.id).map((x) => x.created_at).sort().slice(-1)[0] || null })),
+        companies: D.companies.map((c) => ({ id: c.id, code: c.code, name: c.name, data_email: c.data_email || null, users: users.filter((x) => x.company_id === c.id).length, months: months(c.id).length, latest: months(c.id).slice(-1)[0] || null, last_upload: uploads.filter((x) => x.company_id === c.id).map((x) => x.created_at).sort().slice(-1)[0] || null })),
         users: users.slice().sort((a, b) => (a.role === 'client') - (b.role === 'client')).map((x) => ({ id: x.id, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: staff(x) && !x.must_change_password ? 1 : 0, last_login_at: x.last_login_at })),
         activity: audit.slice(0, 200),
       };
@@ -97,10 +102,36 @@
       return { company: { id: c.id, code, name } };
     },
     'POST /api/admin/company/update': (q, body) => {
-      const u = needStaff(); const c = companyFor(u, body.company_id);
-      const name = String(body.name || '').trim(); if (name.length < 2) fail(400, 'Enter the company name.');
-      D.companies.find((x) => x.id === c.id).name = name; log(u, 'admin.company_renamed', c.id, `${c.name} → ${name}`);
+      const u = needStaff(); const c = companyFor(u, body.company_id); const rec = D.companies.find((x) => x.id === c.id);
+      if (body.data_email !== undefined) {
+        const emails = String(body.data_email || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+        if (emails.length > 3 || emails.some((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))) fail(400, 'Enter up to three valid email addresses, separated by commas.');
+        rec.data_email = emails.join(', ') || null; log(u, 'admin.company_email', c.id, rec.data_email || '(removed)');
+      }
+      const name = body.name === undefined ? c.name : String(body.name || '').trim(); if (name.length < 2) fail(400, 'Enter the company name.');
+      if (name !== c.name) { rec.name = name; log(u, 'admin.company_renamed', c.id, `${c.name} → ${name}`); }
       return { company: Object.assign({}, c, { name }) };
+    },
+    'GET /api/workbooks': (q) => {
+      const c = companyFor(needStaff(), q.get('company'));
+      const rec = D.companies.find((x) => x.id === c.id);
+      return { company: c, data_email: rec.data_email || '', mail_ready: true, workbooks: issued.filter((x) => x.company_id === c.id).slice().reverse() };
+    },
+    // The demo makes the filled workbook in the browser; emails are recorded but not sent.
+    'POST /api/workbooks/send': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company); const rec = D.companies.find((x) => x.id === c.id);
+      const period = window.AEParse.parseMonth(body.period) || fail(400, 'Choose the month the workbook is for.');
+      const method = body.method === 'email' ? 'email' : 'download';
+      const to = String(rec.data_email || '').split(',').map((x) => x.trim()).filter(Boolean);
+      if (method === 'email' && !to.length) fail(400, `No accounts email is saved for ${c.name}. Add it under Clients & users first.`);
+      const W = window.AEWorkbook;
+      const ref = W.newRef(c.code, period, (n) => crypto.getRandomValues(new Uint8Array(n)));
+      const tpl = Uint8Array.from(atob(window.AE_TEMPLATE_B64), (ch) => ch.charCodeAt(0));
+      const file = W.fill(tpl, { company_code: c.code, company_name: c.name, period, template_ref: ref });
+      issued.push({ company_id: c.id, period, ref, method, sent_to: method === 'email' ? to.join(', ') : null, issued_by: u.name, issued_at: new Date().toISOString(), received_version: null, received_at: null });
+      log(u, method === 'email' ? 'workbook.emailed' : 'workbook.downloaded', c.id, `${period} ${ref}`);
+      let b64 = ''; for (let i = 0; i < file.length; i += 0x8000) b64 += String.fromCharCode.apply(null, file.subarray(i, i + 0x8000));
+      return { ok: true, ref, period, method, sent_to: to, filename: W.fileName(c, period), file: method === 'download' ? btoa(b64) : undefined, demo: method === 'email' };
     },
     'POST /api/admin/user': (q, body) => {
       const u = needStaff();
@@ -223,8 +254,18 @@
       const M = window.AEMatch; const recent = (id) => M.partiesOf(current(id).slice(-6));
       const mismatch = M.check({ selected: c, fileCompany, confirmCode: body.confirm_code, data: rows, own: recent(c.id),
         others: D.companies.filter((o) => o.id !== c.id).map((o) => ({ code: o.code, name: o.name, parties: recent(o.id) })) });
+      const ref = fileCompany && String(fileCompany.template_ref || '').trim().toUpperCase();
+      const issue = ref ? issued.find((x) => x.ref.toUpperCase() === ref) : null;
+      const issueRec = issue && Object.assign({}, issue, { company_code: D.companies.find((x) => x.id === issue.company_id).code, company_name: D.companies.find((x) => x.id === issue.company_id).name });
+      if (fileCompany) mismatch.unshift(...M.checkIssued({ selected: c, fileCompany, issue: issueRec }));
       if (mismatch.length) { log(u, 'upload.wrong_company', c.id, body.filename); fail(422, `This file does not look like ${c.name}'s data, so it was not uploaded.`, { errors: mismatch }); }
+      if (body.preview) {
+        const live = versionOf(c.id, period);
+        return { ok: true, preview: true, period, sections: body.section ? [body.section] : parsed.sections, warnings: parsed.warnings, summary: M.summary(rows, schema), replaces: live && !live.data.removed ? live.version : null,
+          workbook: issue ? { ref: issue.ref, issued_at: issue.issued_at, sent_to: issue.sent_to, received_version: issue.received_version } : null };
+      }
       const version = save(u, c, period, data, body.section ? [body.section] : parsed.sections, parsed.warnings, 'upload', body.filename);
+      if (issue) { issue.received_version = version; issue.received_at = new Date().toISOString(); }
       log(u, 'upload.accepted', c.id, `${period} v${version} ${body.filename || ''}`);
       return { ok: true, period, version, sections: parsed.sections, warnings: parsed.warnings };
     },

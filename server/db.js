@@ -76,6 +76,20 @@ function open(file = DB_PATH) {
       reviewed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       UNIQUE (company_id, period, key)
     );
+    -- Each monthly workbook the Assura team sends (or downloads) for a client. The reference
+    -- printed on its locked first sheet must come back with the data.
+    CREATE TABLE IF NOT EXISTS workbooks (
+      id INTEGER PRIMARY KEY,
+      company_id INTEGER NOT NULL REFERENCES companies(id),
+      period TEXT NOT NULL,
+      ref TEXT UNIQUE NOT NULL,
+      method TEXT NOT NULL,
+      sent_to TEXT,
+      issued_by INTEGER REFERENCES users(id),
+      issued_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      received_version INTEGER,
+      received_at TEXT
+    );
   `);
   migrate(db);
   return db;
@@ -121,6 +135,8 @@ function migrate(db) {
   add('sessions', 'last_seen', 'INTEGER NOT NULL DEFAULT 0');
   // How a version was made: a file name for uploads, or a note such as "Edited: Sales" for portal edits.
   add('uploads', 'source', "TEXT NOT NULL DEFAULT 'upload'");
+  // Where the monthly workbook is emailed: the client's accounts contact(s), comma separated.
+  add('companies', 'data_email', 'TEXT');
 }
 
 function audit(db, { user, action, companyId = null, detail = null, ip = null }) {
@@ -229,6 +245,22 @@ function deleteInsight(db, companyId, period, key) {
   return db.prepare('DELETE FROM insights WHERE company_id = ? AND period = ? AND key = ?').run(companyId, period, key).changes;
 }
 
+function issueWorkbook(db, { companyId, period, ref, method, sentTo, userId }) {
+  db.prepare('INSERT INTO workbooks (company_id, period, ref, method, sent_to, issued_by) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(companyId, period, ref, method, sentTo || null, userId == null ? null : userId);
+}
+function findWorkbook(db, ref) {
+  return db.prepare(`SELECT w.*, c.code AS company_code, c.name AS company_name FROM workbooks w JOIN companies c ON c.id = w.company_id
+    WHERE w.ref = ? COLLATE NOCASE`).get(String(ref || '').trim()) || null;
+}
+function workbooksFor(db, companyId) {
+  return db.prepare(`SELECT w.period, w.ref, w.method, w.sent_to, w.issued_at, w.received_version, w.received_at, us.name AS issued_by
+    FROM workbooks w LEFT JOIN users us ON us.id = w.issued_by WHERE w.company_id = ? ORDER BY w.id DESC LIMIT 60`).all(companyId);
+}
+function markWorkbookReceived(db, ref, version) {
+  db.prepare("UPDATE workbooks SET received_version = ?, received_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE ref = ? COLLATE NOCASE").run(version, ref);
+}
+
 function uploadHistory(db, companyId) {
   return db.prepare(`
     SELECT u.period, u.version, u.filename, u.source, u.sections, u.warnings, u.created_at, us.name AS uploaded_by
@@ -237,4 +269,4 @@ function uploadHistory(db, companyId) {
     .map((r) => Object.assign({}, r, { sections: JSON.parse(r.sections), warnings: JSON.parse(r.warnings) }));
 }
 
-module.exports = { ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
+module.exports = { issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
