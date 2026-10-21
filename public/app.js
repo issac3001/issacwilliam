@@ -252,6 +252,7 @@
     upload: 'M10 13V3M6 7l4-4 4 4M3 13v4h14v-4',
     edit: 'M4 16l1-4 8-8 3 3-8 8zM12 5l3 3',
     admin: 'M7 9a3 3 0 100-6 3 3 0 000 6zM2 17c0-3 2-5 5-5s5 2 5 5M14 9a2.5 2.5 0 100-5M15 12c2 .5 3 2 3 5',
+    workflow: 'M3 4h5v4H3zM12 12h5v4h-5zM5.5 8v6h6.5M12 6h5M14.5 6v4',
     account: 'M10 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM3 18c0-4 3-6 7-6s7 2 7 6',
   };
   const navIcon = (k) => `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="${NAV_ICON[k]}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -293,7 +294,7 @@
           <nav class="side-nav" aria-label="Sections">
             <div class="nav-group">Dashboard</div>
             ${TABS.map(navItem).join('')}
-            ${isStaff(u) ? `<div class="nav-group">Assura workspace</div>${STAFF_TABS.map((t) => navItem(t)).join('')}` : ''}
+            ${isStaff(u) ? `<div class="nav-group">Assura workspace</div>${STAFF_TABS.map((t) => navItem(t)).join('')}${window.AE_DEMO_API ? '' : `<a class="nav-item" href="/workflow">${navIcon('workflow')}<span>Workflow</span></a>`}` : ''}
           </nav>
           <div class="side-foot">
             ${navItem(['account', 'Account'])}

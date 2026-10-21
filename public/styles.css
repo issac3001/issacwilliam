@@ -103,6 +103,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .nav-item { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; background: none; border: 0; border-radius: var(--radius); padding: 9px 12px; color: var(--on-panel-2); cursor: pointer; position: relative; font-size: 14px; }
 .nav-item svg { width: 18px; height: 18px; flex: none; opacity: .8; }
 .nav-item span { flex: 1; }
+a.nav-item { text-decoration: none; }
 .nav-item i { font-family: var(--font-display); font-style: italic; font-size: 13px; color: var(--on-panel-2); opacity: .7; }
 .nav-item:hover { background: rgba(34, 29, 23, .05); color: var(--on-panel); }
 .nav-item[aria-current="page"] { background: var(--surface); color: var(--on-panel); font-weight: 600; box-shadow: inset 0 0 0 1px var(--panel-line); }
