@@ -440,7 +440,8 @@
             <li>Click any figure, chart or highlight for the detail behind it, with CSV download</li>
             <li>Automated highlights: trends, ageing, concentration, unusual spend, purchase rates, compliance due dates</li>
             <li>Explanations of what moved each month and why, traced to the transactions and reviewed by the Assura team before they appear here</li>
-            <li>Every upload is checked against the selected company before it is accepted</li></ul></div>
+            <li>Monthly workbook made for each client and month, with company, month and reference locked on its first sheet, sent from the portal</li>
+            <li>Every upload is checked against the selected company, month and workbook reference, and reviewed before it is accepted</li></ul></div>
           <div><b>Planned</b><ul>
             <li>Review and sign-off steps for the Assura team's monthly work</li>
             <li>Email and WhatsApp alerts for critical highlights</li>
@@ -727,6 +728,8 @@
     login: 'Signed in', logout: 'Signed out', 'login.failed': 'Failed sign-in', 'login.code_failed': 'Wrong two-step code', 'login.disabled': 'Sign-in by a switched-off login',
     'dashboard.viewed': 'Viewed dashboard', 'upload.accepted': 'Upload accepted', 'upload.rejected': 'Upload rejected', 'password.changed': 'Changed password', '2fa.enabled': 'Turned on two-step login',
     'admin.company_added': 'Added company', 'admin.company_renamed': 'Renamed company', 'admin.user_added': 'Added login',
+    'upload.wrong_company': 'Upload refused: wrong company', 'workbook.emailed': 'Emailed monthly workbook', 'workbook.downloaded': 'Downloaded monthly workbook', 'workbook.email_failed': 'Workbook email failed',
+    'admin.company_email': 'Changed accounts email', 'insight.accepted': 'Accepted an explanation', 'insight.set_aside': 'Set aside an explanation', 'insight.withdrawn': 'Withdrew an explanation',
     'data.edited': 'Edited data', 'data.restored': 'Restored a version', 'data.month_removed': 'Removed a month', 'admin.reset-password': 'Reset password', 'admin.reset-2fa': 'Reset two-step login', 'admin.disable': 'Switched off login', 'admin.enable': 'Switched on login',
   };
 
@@ -742,6 +745,7 @@
         <form class="card stack-form" id="f-company"><div class="card-head"><h3>Add a client company</h3></div>
           <div class="form-row" style="margin-top:0"><div><label for="c-code">Company code</label><input id="c-code" type="text" placeholder="AE-0003" required maxlength="20"></div>
           <div><label for="c-name">Company name</label><input id="c-name" type="text" required maxlength="160"></div></div>
+          <div><label for="c-email">Accounts email</label><input id="c-email" type="email" multiple placeholder="accounts@client.com"><p class="muted small" style="margin:4px 0 0">Where the monthly workbook is emailed. Up to three addresses, separated by commas.</p></div>
           <div id="c-msg"></div><div><button class="btn" type="submit">Add company</button></div></form>
         <form class="card stack-form" id="f-user"><div class="card-head"><h3>Add a login</h3></div>
           <div class="form-row" style="margin-top:0"><div><label for="u-name">Name</label><input id="u-name" type="text" required maxlength="120"></div>
@@ -753,9 +757,9 @@
           <div id="u-msg"></div><div><button class="btn" type="submit">Add login</button></div></form>
       </div>
       <div class="card section"><div class="card-head"><h3>Client companies</h3><span class="muted small">${d.companies.length}</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th class="r">Client logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last change</th><th></th></tr></thead><tbody>
-        ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td>
-          <td class="r nowrap"><button class="link-btn" data-open="${c.id}">Open dashboard</button> <button class="link-btn" data-rename="${c.id}" data-name="${esc(c.name)}">Rename</button></td></tr>`).join('') || '<tr><td colspan="7" class="muted">No companies yet.</td></tr>'}
+        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th>Accounts email</th><th class="r">Client logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last change</th><th></th></tr></thead><tbody>
+        ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td data-email-cell>${c.data_email ? esc(c.data_email) : '<span class="muted">Not set</span>'} <button class="link-btn" data-email="${c.id}" data-value="${esc(c.data_email || '')}">${c.data_email ? 'Change' : 'Add'}</button></td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td>
+          <td class="r nowrap"><button class="link-btn" data-open="${c.id}">Open dashboard</button> <button class="link-btn" data-rename="${c.id}" data-name="${esc(c.name)}">Rename</button></td></tr>`).join('') || '<tr><td colspan="8" class="muted">No companies yet.</td></tr>'}
         </tbody></table></div></div>
       <div class="card section"><div class="card-head"><h3>Logins</h3><span class="muted small">${d.users.length}</span></div>
         <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Company</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
@@ -786,6 +790,8 @@
       e.preventDefault();
       try {
         const r = await api.post('/api/admin/company', { code: page.querySelector('#c-code').value, name: page.querySelector('#c-name').value });
+        const em = page.querySelector('#c-email').value.trim();
+        if (em) await api.post('/api/admin/company/update', { company_id: r.company.id, data_email: em });
         state.adminNotice = `<div class="msg ok">${esc(r.company.code)} · ${esc(r.company.name)} added. Add the client's view-only logins next, then upload its first month under Data &amp; uploads.</div>`;
         const me = await api.get('/api/me'); state.companies = me.companies; if (!state.companyId) state.companyId = r.company.id;
         adminPage(page);
@@ -816,6 +822,18 @@
         } catch (err) { state.adminNotice = `<div class="msg err">${esc(err.message)}</div>`; adminPage(page); }
       });
     }));
+    page.querySelectorAll('[data-email]').forEach((b) => b.addEventListener('click', () => {
+      const td = b.closest('td');
+      td.innerHTML = `<form class="btn-row" data-ef><input type="text" value="${esc(b.dataset.value)}" placeholder="accounts@client.com" aria-label="Accounts email" style="max-width:260px"><button class="btn small" type="submit">Save</button></form>`;
+      const f = td.querySelector('form'); f.querySelector('input').focus();
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await api.post('/api/admin/company/update', { company_id: Number(b.dataset.email), data_email: f.querySelector('input').value });
+          state.adminNotice = '<div class="msg ok">Accounts email saved. The monthly workbook goes to this address.</div>'; adminPage(page);
+        } catch (err) { state.adminNotice = `<div class="msg err">${esc(err.message)}</div>`; adminPage(page); }
+      });
+    }));
     page.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
       // Two-tap confirm: the first tap arms the button, the second carries it out.
       if (!b.dataset.armed) { b.dataset.armed = '1'; b.dataset.label = b.textContent; b.textContent = 'Tap again to confirm'; b.classList.add('armed'); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = b.dataset.label; b.classList.remove('armed'); } }, 4000); return; }
@@ -836,33 +854,37 @@
     const periods = (state.dash && state.dash.periods) || [];
     const schema = window.AE_SCHEMA;
     const tableSections = schema ? schema.sheets.filter((s) => s.layout === 'table') : [];
+    // Default month: the last complete calendar month.
+    const now = new Date(); const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
     page.innerHTML = head('Data & uploads', company.name, null) + `
       <div class="grid g-2">
-        <div class="card"><div class="card-head"><h3>1. Monthly data workbook</h3></div>
-          <p style="margin-top:0">One workbook a month per client: sales and purchase registers, expenses, receivables, payables, stock, bank balances and compliance status. Each sheet says which Tally report to paste from. The client's accountant can fill it, or the Assura team can prepare it from their Tally exports.</p>
-          ${window.AE_TEMPLATE_NOTE ? `<p class="small">${window.AE_TEMPLATE_NOTE}</p>` : `<div class="btn-row"><a class="btn secondary" href="${window.AE_TEMPLATE_URL || '/template.xlsx'}" download="Assura_Elevate_Monthly_Data_Template.xlsx">Download the blank workbook</a>
-            ${window.AE_SAMPLE_URL ? `<a class="btn secondary" href="${window.AE_SAMPLE_URL}" download="Sample_Meridian_Polymers_Sep-2026.xlsx">Download a filled sample</a>` : ''}</div>
-            ${window.AE_SAMPLE_URL ? '<p class="muted small">The filled sample is for Meridian Polymers (AE-0001). Upload it here with Meridian selected to watch the dashboard update.</p>' : ''}`}
-          <p class="muted small">Company code for this workbook: <b>${esc(company.code)}</b></p>
+        <div class="card" id="wb-card"><div class="card-head"><h3>1. Send the monthly workbook</h3></div>
+          <p style="margin-top:0">Each copy is made for ${esc(company.name)} and one month. The company, client code, month and a workbook reference are filled in and locked on its first sheet, and only that copy is accepted back for that month.</p>
+          ${canUpload ? `<div class="form-row" style="margin-top:0"><div><label for="wb-month">Month</label><input type="month" id="wb-month" value="${lastMonth}"></div>
+            <div><label>Sent to</label><div id="wb-to" class="wb-to muted">Loading…</div></div></div>
+          <div class="btn-row" style="margin-top:12px"><button class="btn" id="wb-email" type="button">Email the workbook</button><button class="btn secondary" id="wb-download" type="button">Download a filled copy</button></div>
+          <div id="wb-msg"></div>` : ''}
         </div>
-        <div class="card"><div class="card-head"><h3>2. Upload</h3></div>
+        <div class="card"><div class="card-head"><h3>2. Upload the returned workbook</h3></div>
           ${canUpload ? `
           <div class="target"><span class="lbl">Uploading to</span><b>${esc(company.name)}</b><span class="code">${esc(company.code)}</span>
-            <p class="muted small">Every file is checked before it is accepted: the workbook's company code and name must match this client, and its customers and suppliers must not belong to another client. A file that fails is refused and nothing changes.</p></div>
-          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a file to upload">
-            <b>Drop the completed workbook here</b><br><span class="muted small">or click to choose. Excel (.xlsx) for the full month, or CSV for one section.</span>
+            <p class="muted small">The file is checked first and nothing changes until you accept it. It must be a workbook sent from this page for ${esc(company.name)}: its reference, company code, name and month must all match, and its customers and suppliers must not belong to another client.</p></div>
+          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a file to check">
+            <b>Drop the returned workbook here</b><br><span class="muted small">or click to choose. Excel (.xlsx) for the full month, or CSV for one section.</span>
             <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
           </div>
           <div class="form-row hidden" id="csv-opts">
             <div><label for="csv-section">This CSV contains</label><select id="csv-section" class="field">${tableSections.map((s) => `<option value="${s.key}">${esc(s.name)}</option>`).join('')}</select></div>
             <div><label for="csv-period">For the month</label><input type="month" id="csv-period" value="${periods.length ? periods[periods.length - 1] : ''}"></div>
             <div><label for="csv-code">Type the client code to confirm</label><input type="text" id="csv-code" placeholder="${esc(company.code)}" autocomplete="off" spellcheck="false"></div>
-            <div style="align-self:end"><button class="btn" id="csv-go">Upload CSV</button></div>
+            <div style="align-self:end"><button class="btn" id="csv-go">Check CSV</button></div>
           </div>
           <div id="up-msg">${state.upload || ''}</div>
-          <p class="muted small" style="margin-top:12px">Uploading a month that is already on record replaces it on the dashboard. To correct a few figures instead, use Edit data.</p>` : `<p>Your login can view the dashboard. Uploads are made by the Assura Elevate team.</p>`}
+          ${window.AE_SAMPLE_URL ? `<p class="small" style="margin-top:12px">To try it, <a href="${window.AE_SAMPLE_URL}" download="AE-0001_Meridian_Polymers_2026-09_completed.xlsx">download a completed sample</a> (Meridian Polymers, September 2026) and drop it here with Meridian selected, then with Coastline selected to see it refused.</p>` : ''}
+          <p class="muted small" style="margin-top:12px">Accepting a month that is already on record replaces it on the dashboard; the earlier version is kept below. To correct a few figures instead, use Edit data.</p>` : `<p>Your login can view the dashboard. Uploads are made by the Assura Elevate team.</p>`}
         </div>
       </div>
+      ${canUpload ? '<div class="card section"><div class="card-head"><h3>Workbooks sent</h3><span class="muted small">Every copy, who sent it and whether it has come back</span></div><div id="wb-list"><p class="muted">Loading…</p></div></div>' : ''}
       <div class="card section"><div class="card-head"><h3>Months on record</h3><span class="muted small">${periods.length} month${periods.length === 1 ? '' : 's'}</span></div>
         <div class="hl-summary">${periods.map((p) => `<span class="chip outline">${mShort(p)}</span>`).join('') || '<span class="muted">None yet</span>'}</div>
       </div>
@@ -892,6 +914,7 @@
     drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) handle(e.dataTransfer.files[0]); });
     input.addEventListener('change', () => input.files[0] && handle(input.files[0]));
     page.querySelector('#csv-go').addEventListener('click', () => pendingCsv && send(pendingCsv.name, { [pendingCsv.name]: pendingCsv.rows }, { section: page.querySelector('#csv-section').value, period: page.querySelector('#csv-period').value, confirm_code: page.querySelector('#csv-code').value }));
+    workbooks(page, company);
 
     async function handle(file) {
       const msg = page.querySelector('#up-msg');
@@ -906,25 +929,85 @@
           const guess = tableSections.find((s) => file.name.toLowerCase().includes(s.key));
           if (guess) page.querySelector('#csv-section').value = guess.key;
           page.querySelector('#csv-opts').classList.remove('hidden');
-          msg.innerHTML = `<div class="msg">${esc(file.name)} read: ${pendingCsv.rows.length} rows. A CSV does not name its company, so choose the section and month, type ${esc(company.code)} to confirm it is ${esc(company.name)}'s file, then upload.</div>`;
+          msg.innerHTML = `<div class="msg">${esc(file.name)} read: ${pendingCsv.rows.length} rows. A CSV does not name its company, so choose the section and month, type ${esc(company.code)} to confirm it is ${esc(company.name)}'s file, then check it.</div>`;
           return;
         }
         await send(file.name, sheets, {});
       } catch (e) { msg.innerHTML = `<div class="msg err">Could not read this file: ${esc(e.message)}</div>`; }
     }
 
+    // Two steps: the server checks the file and returns a summary; the team reviews it and accepts.
     async function send(filename, sheets, extra) {
       const msg = page.querySelector('#up-msg');
-      msg.innerHTML = `<div class="msg">Checking and uploading…</div>`;
+      const payload = Object.assign({ company: state.companyId, filename, sheets }, extra);
+      msg.innerHTML = '<div class="msg">Checking the file…</div>';
+      let p;
+      try { p = await api.post('/api/upload', Object.assign({ preview: true }, payload)); } catch (e) { msg.innerHTML = problems(e); return; }
+      msg.innerHTML = `<div class="review">
+        <div class="review-head"><span class="chip positive">${ICONS.positive}Checks passed</span><b>${esc(company.name)} · ${mLong(p.period)}</b></div>
+        <ul class="review-checks">
+          ${p.workbook ? `<li>Workbook ${esc(p.workbook.ref)}, sent ${esc(stamp(p.workbook.issued_at))}${p.workbook.sent_to ? ' to ' + esc(p.workbook.sent_to) : ''}${p.workbook.received_version ? `. <b>This copy was already accepted once</b> (version ${p.workbook.received_version}).` : ''}</li>` : `<li>${esc(p.sections.map((k) => (window.AE_SCHEMA.sheets.find((x) => x.key === k) || {}).name || k).join(', '))} for ${mLong(p.period)}, confirmed with the client code</li>`}
+          <li>Company code, name and month match ${esc(company.code)}</li>
+          <li>Customers and suppliers do not belong to another client</li>
+          ${p.replaces ? `<li><b>Replaces version ${p.replaces}</b> of ${mLong(p.period)} on the dashboard (it stays in the history)</li>` : `<li>New month for the dashboard</li>`}
+        </ul>
+        <table class="review-table"><tbody>${p.summary.sections.map((x) => `<tr><td>${esc(x.name)}</td><td class="r">${x.rows} rows</td></tr>`).join('')}
+          ${p.summary.totals.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="r">${esc(inr(v))}</td></tr>`).join('')}</tbody></table>
+        ${p.warnings.length ? `<div class="msg"><b>Notes to look at</b><ul>${p.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+        <div class="btn-row" style="margin-top:12px"><button class="btn" type="button" data-accept>Accept into the dashboard</button><button class="btn secondary" type="button" data-cancel>Cancel</button></div></div>`;
+      msg.querySelector('[data-cancel]').addEventListener('click', () => { msg.innerHTML = '<div class="msg">Cancelled. Nothing was changed.</div>'; });
+      msg.querySelector('[data-accept]').addEventListener('click', async (ev) => {
+        ev.target.disabled = true;
+        try {
+          const r = await api.post('/api/upload', payload);
+          state.upload = `<div class="msg ok"><b>${mLong(r.period)} accepted (version ${r.version}).</b> The dashboard and highlights have been updated. Review the month's explanations under Explanations before the client reads them.</div>`;
+          await loadDashboard();
+        } catch (e) { msg.innerHTML = problems(e); }
+      });
+    }
+    function problems(e) {
+      const errs = (e.data && e.data.errors) || [];
+      return `<div class="msg err"><b>${esc(e.message)}</b>${errs.length ? `<ul>${errs.slice(0, 12).map((x) => `<li>${esc(x)}</li>`).join('')}${errs.length > 12 ? `<li>and ${errs.length - 12} more</li>` : ''}</ul>` : ''}</div>`;
+    }
+  }
+
+  // Monthly workbook: who it goes to, sending it, and every copy sent so far.
+  async function workbooks(page, company) {
+    const toEl = page.querySelector('#wb-to'); const list = page.querySelector('#wb-list'); const msg = page.querySelector('#wb-msg');
+    if (!toEl) return;
+    let w;
+    try { w = await api.get(`/api/workbooks?company=${company.id}`); } catch (e) { toEl.textContent = e.message; return; }
+    if (!toEl.isConnected) return;
+    toEl.innerHTML = w.data_email ? `<b>${esc(w.data_email)}</b>` : `<span>No accounts email saved. <a href="#" data-go="admin">Add it under Clients &amp; users</a>.</span>`;
+    const emailBtn = page.querySelector('#wb-email');
+    if (!w.mail_ready) { emailBtn.disabled = true; emailBtn.title = 'Email is not set up on this server yet'; if (!msg.innerHTML) msg.innerHTML = '<p class="muted small" style="margin:10px 0 0">Email is not set up on this server yet, so download a filled copy and send it from your mailbox. Each download is recorded with its own reference.</p>'; }
+    else if (!w.data_email) emailBtn.disabled = true;
+    const go = page.querySelector('#wb-card [data-go]'); if (go) go.addEventListener('click', (e) => { e.preventDefault(); goTab('admin'); });
+    const STATUS = (x) => (x.received_version ? chip('positive', `Received, v${x.received_version}`) : chip('watch', 'Awaiting return'));
+    list.innerHTML = w.workbooks.length ? `<div class="table-wrap"><table><thead><tr><th>Month</th><th>Reference</th><th>How</th><th>By</th><th>When</th><th>Status</th></tr></thead><tbody>
+      ${w.workbooks.map((x) => `<tr><td>${mShort(x.period)}</td><td class="num nowrap">${esc(x.ref)}</td><td>${x.method === 'email' ? 'Emailed to ' + esc(x.sent_to || '') : 'Downloaded'}</td><td>${esc(x.issued_by || '–')}</td><td class="num nowrap">${esc(stamp(x.issued_at))}</td><td>${STATUS(x)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted">No workbooks sent for this client yet.</p>';
+    const issue = async (method, btn) => {
+      const period = page.querySelector('#wb-month').value;
+      if (!period) { msg.innerHTML = '<div class="msg err">Choose the month.</div>'; return; }
+      btn.disabled = true;
       try {
-        const r = await api.post('/api/upload', Object.assign({ company: state.companyId, filename, sheets }, extra));
-        state.upload = `<div class="msg ok"><b>${mLong(r.period)} uploaded (version ${r.version}).</b> The dashboard and highlights have been updated.
-          ${r.warnings.length ? `<ul>${r.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}</div>`;
-        await loadDashboard();
-      } catch (e) {
-        const errs = (e.data && e.data.errors) || [];
-        msg.innerHTML = `<div class="msg err"><b>${esc(e.message)}</b>${errs.length ? `<ul>${errs.slice(0, 12).map((x) => `<li>${esc(x)}</li>`).join('')}${errs.length > 12 ? `<li>and ${errs.length - 12} more</li>` : ''}</ul>` : ''}</div>`;
-      }
+        const r = await api.post('/api/workbooks/send', { company: company.id, period, method });
+        if (r.file) {
+          const bytes = Uint8Array.from(atob(r.file), (c) => c.charCodeAt(0));
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+          link.download = r.filename; document.body.appendChild(link); link.click(); setTimeout(() => { URL.revokeObjectURL(link.href); link.remove(); }, 500);
+        }
+        msg.innerHTML = `<div class="msg ok">${r.method === 'email' ? `${mLong(r.period)} workbook emailed to ${esc(r.sent_to.join(', '))}${r.demo ? ' (in this demo nothing is actually sent)' : ''}.` : `${mLong(r.period)} workbook downloaded as ${esc(r.filename)}.`} Reference ${esc(r.ref)}.</div>`;
+        workbooks(page, company);
+      } catch (e) { msg.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+      btn.disabled = false;
+    };
+    if (!emailBtn.dataset.wired) {
+      emailBtn.dataset.wired = '1';
+      emailBtn.addEventListener('click', () => issue('email', emailBtn));
+      const dl = page.querySelector('#wb-download'); dl.addEventListener('click', () => issue('download', dl));
     }
   }
 

@@ -36,6 +36,7 @@ test('sample workbook round-trips through the parser unchanged', () => {
   const parsed = parseWorkbook(xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0001', '2026-09.xlsx')), schema);
   assert.deepStrictEqual(parsed.errors, []);
   const src = sample('AE-0001', '2026-09');
+  src.company = Object.assign({}, src.company, { template_ref: 'AE-0001-2026-09-SAMPLE' }); // added when the sample copy is built
   for (const k of ['company', 'sales', 'purchases', 'receivables', 'inventory', 'cash']) assert.deepStrictEqual(parsed.data[k], src[k], k);
 });
 
@@ -110,6 +111,9 @@ test('a client sees only its own company and is view only; the Assura team uploa
   store.createUser(db, { email: 'md@b.test', name: 'MD B', role: 'client', companyId: b.id, password: pw });
   store.createUser(db, { email: 'team@x.test', name: 'Team', role: 'team', companyId: null, password: pw });
   for (const p of ['2026-08', '2026-09']) store.saveUpload(db, { companyId: b.id, period: p, userId: null, filename: 'seed', sections: [], warnings: [], data: sample('AE-0002', p) });
+  // The sample workbooks carry fixed references; record them as issued, as the portal does when it sends a workbook.
+  for (const p of ['2026-07', '2026-08', '2026-09']) store.issueWorkbook(db, { companyId: a.id, period: p, ref: `AE-0001-${p}-SAMPLE`, method: 'download' });
+  store.issueWorkbook(db, { companyId: b.id, period: '2026-09', ref: 'AE-0002-2026-09-SAMPLE', method: 'download' });
   assert.throws(() => store.createUser(db, { email: 'x@a.test', name: 'X', role: 'client', companyId: null, password: pw }), 'a client login must belong to a company');
 
   const server = http.createServer(createApp(db)).listen(0);
@@ -155,8 +159,16 @@ test('a client sees only its own company and is view only; the Assura team uploa
   compSheet.forEach((row) => { if (/Company Code/i.test(row[0])) row[1] = 'AE-0001'; if (/Company Name/i.test(row[0])) row[1] = 'Meridian Polymers Pvt Ltd'; });
   const sneaky = await team.call('POST', '/api/upload', { company: a.id, filename: 'b.xlsx', sheets: disguised });
   assert.strictEqual(sneaky.status, 422, JSON.stringify(sneaky.body));
-  assert.deepStrictEqual(sneaky.body.errors.length, 1);
-  assert.match(sneaky.body.errors[0], /on record for Coastline Foods Pvt\. Ltd\. \(AE-0002\)/);
+  assert.match(sneaky.body.errors.join('\n'), /Workbook AE-0002-2026-09-SAMPLE was issued to Coastline Foods Pvt\. Ltd\. \(AE-0002\), not to Meridian/);
+  assert.match(sneaky.body.errors.join('\n'), /on record for Coastline Foods Pvt\. Ltd\. \(AE-0002\)/);
+  // A workbook that was not issued by the portal is refused, and so is a copy whose locked month was changed.
+  const unissued = JSON.parse(JSON.stringify(xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0001', '2026-09.xlsx'))));
+  unissued['Company & Period'].forEach((row) => { if (/Workbook Reference/i.test(row[0])) row[1] = null; });
+  assert.match((await team.call('POST', '/api/upload', { company: a.id, sheets: unissued })).body.errors[0], /no workbook reference/);
+  unissued['Company & Period'].forEach((row) => { if (/Workbook Reference/i.test(row[0])) row[1] = 'AE-0001-2026-09-MADEUP'; });
+  assert.match((await team.call('POST', '/api/upload', { company: a.id, sheets: unissued })).body.errors[0], /was not issued by Assura Elevate/);
+  unissued['Company & Period'].forEach((row) => { if (/Workbook Reference/i.test(row[0])) row[1] = 'AE-0001-2026-08-SAMPLE'; });
+  assert.match((await team.call('POST', '/api/upload', { company: a.id, sheets: unissued })).body.errors[0], /issued for August 2026, but its month now reads September 2026/);
   // A's code with another company's name is refused too.
   const wbA9 = xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0001', '2026-09.xlsx'));
   const renamed = JSON.parse(JSON.stringify(wbA9));
@@ -167,6 +179,13 @@ test('a client sees only its own company and is view only; the Assura team uploa
   // Missing CSRF header is refused.
   assert.strictEqual((await team.call('POST', '/api/upload', { company: a.id, sheets: {} }, { 'X-Requested-With': '' })).status, 403);
 
+  // The first pass only checks and summarises, for the team to review; nothing is saved.
+  const pre = await team.call('POST', '/api/upload', { company: a.id, filename: 'x.xlsx', preview: true, sheets: xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0001', '2026-07.xlsx')) });
+  assert.strictEqual(pre.status, 200, JSON.stringify(pre.body));
+  assert.strictEqual(pre.body.preview, true);
+  assert.strictEqual(pre.body.workbook.ref, 'AE-0001-2026-07-SAMPLE');
+  assert.ok(pre.body.summary.sections.find((x) => x.key === 'sales').rows > 0);
+  assert.deepStrictEqual((await mdA.call('GET', '/api/dashboard')).body.periods, [], 'a preview saves nothing');
   for (const p of ['2026-07', '2026-08', '2026-09']) {
     const wb = xlsxRows(path.join(ROOT, 'samples', 'xlsx', 'AE-0001', `${p}.xlsx`));
     const r = await team.call('POST', '/api/upload', { company: a.id, filename: `${p}.xlsx`, sheets: wb });
@@ -402,4 +421,86 @@ test('backups are encrypted and restore to the same data', (t) => {
   fs.writeFileSync(restored, backupTool.decrypt(fs.readFileSync(file)));
   const r = store.open(restored);
   assert.strictEqual(r.prepare('SELECT name FROM companies WHERE code = ?').get('AE-0042').name, 'Backup Co');
+});
+
+test('the monthly workbook is filled for one client and month, sent from the portal, and only that copy is accepted back', async (t) => {
+  const net = require('net');
+  // A stand-in mail server that records what it receives.
+  const received = [];
+  const smtp = net.createServer((sock) => {
+    let data = false; let msg = '';
+    sock.on('error', () => {});
+    sock.write('220 test\r\n');
+    sock.on('data', (d) => {
+      for (const line of d.toString().split('\r\n')) {
+        if (data) { if (line === '.') { data = false; received.push(msg); sock.write('250 queued\r\n'); } else msg += line + '\r\n'; continue; }
+        if (/^EHLO/.test(line)) sock.write('250-test\r\n250 AUTH LOGIN\r\n');
+        else if (/^AUTH LOGIN/.test(line)) sock.write('334 VXNlcm5hbWU6\r\n');
+        else if (line === Buffer.from('mailer').toString('base64')) sock.write('334 UGFzc3dvcmQ6\r\n');
+        else if (line === Buffer.from('secret').toString('base64')) sock.write('235 ok\r\n');
+        else if (/^(MAIL|RCPT)/.test(line)) sock.write('250 ok\r\n');
+        else if (line === 'DATA') { data = true; msg = ''; sock.write('354 go\r\n'); }
+        else if (line === 'QUIT') sock.end('221 bye\r\n');
+      }
+    });
+  }).listen(0);
+  t.after(() => smtp.close());
+
+  const db = store.open(':memory:');
+  const a = store.createCompany(db, 'AE-0001', 'Meridian Polymers Pvt Ltd');
+  const b = store.createCompany(db, 'AE-0002', 'Coastline Foods Pvt Ltd');
+  const pw = 'test-password-1';
+  store.createUser(db, { email: 'md@a.test', name: 'MD A', role: 'client', companyId: a.id, password: pw });
+  store.createUser(db, { email: 'team@x.test', name: 'Farzeen', role: 'team', companyId: null, password: pw });
+  const mailCfg = { host: '127.0.0.1', port: smtp.address().port, user: 'mailer', pass: 'secret', from: 'Assura Elevate <data@elevateassura.test>', secure: 'none' };
+  const server = http.createServer(createApp(db, { mail: mailCfg })).listen(0);
+  t.after(() => server.close());
+  const port = server.address().port;
+  const team = client(port); await team.login('team@x.test'); await enrolStaff(team);
+  const mdA = client(port); await mdA.login('md@a.test');
+
+  assert.strictEqual((await mdA.call('POST', '/api/workbooks/send', { period: '2026-09', method: 'download' })).status, 403, 'clients cannot issue workbooks');
+  assert.strictEqual((await team.call('POST', '/api/workbooks/send', { company: a.id, period: '2026-09', method: 'email' })).status, 400, 'no accounts email saved yet');
+  assert.strictEqual((await team.call('POST', '/api/admin/company/update', { company_id: a.id, data_email: 'not-an-email' })).status, 400);
+  assert.strictEqual((await team.call('POST', '/api/admin/company/update', { company_id: a.id, data_email: 'Accounts@Meridian.test' })).status, 200);
+
+  // Emailed from the portal to the saved address, with the filled workbook attached.
+  const sent = await team.call('POST', '/api/workbooks/send', { company: a.id, period: '2026-09', method: 'email' });
+  assert.strictEqual(sent.status, 200, JSON.stringify(sent.body));
+  assert.match(sent.body.ref, /^AE-0001-2026-09-[A-Z2-9]{6}$/);
+  assert.deepStrictEqual(sent.body.sent_to, ['accounts@meridian.test']);
+  assert.strictEqual(received.length, 1);
+  assert.match(received[0], /To: accounts@meridian\.test/);
+  assert.match(received[0], /Reply-To: Farzeen <team@x\.test>/);
+  assert.match(received[0], /filename="AE-0001_Meridian_Polymers_Pvt_Ltd_2026-09\.xlsx"/);
+  const attachment = Buffer.from(received[0].split('filename="AE-0001_Meridian_Polymers_Pvt_Ltd_2026-09.xlsx"')[1].split('\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64');
+  const tmp = path.join(require('os').tmpdir(), `ae-wb-${process.pid}.xlsx`); t.after(() => fs.rmSync(tmp, { force: true }));
+  fs.writeFileSync(tmp, attachment);
+  const filled = xlsxRows(tmp)['Company & Period'];
+  const val = (label) => (filled.find((r) => r[0] === label) || [])[1];
+  assert.strictEqual(val('Company Code'), 'AE-0001');
+  assert.strictEqual(val('Company Name'), 'Meridian Polymers Pvt Ltd');
+  assert.strictEqual(val('Period (Month)'), '2026-09');
+  assert.strictEqual(val('Workbook Reference'), sent.body.ref);
+
+  // The accountant fills it in and sends it back: it is accepted for Meridian, September only.
+  const filledIn = xlsxRows(tmp);
+  const data = sample('AE-0001', '2026-09');
+  filledIn['Company & Period'].forEach((r) => { if (r[0] === 'Prepared By') r[1] = 'R. Menon'; });
+  filledIn.Sales = [['Invoice Date', 'Invoice No', 'Customer', 'Customer Type (B2B/B2C)', 'Product / Service', 'Taxable Value']].concat(data.sales.slice(0, 5).map((x) => [x.date, x.invoice_no, x.customer, x.customer_type, x.product, x.taxable_value]));
+  assert.match((await team.call('POST', '/api/upload', { company: b.id, sheets: filledIn })).body.errors.join('\n'), /issued to Meridian Polymers Pvt Ltd \(AE-0001\), not to Coastline/);
+  const ok = await team.call('POST', '/api/upload', { company: a.id, sheets: filledIn, filename: 'back.xlsx' });
+  assert.strictEqual(ok.status, 200, JSON.stringify(ok.body));
+  const list = await team.call('GET', `/api/workbooks?company=${a.id}`);
+  assert.strictEqual(list.body.mail_ready, true);
+  assert.strictEqual(list.body.workbooks[0].ref, sent.body.ref);
+  assert.strictEqual(list.body.workbooks[0].received_version, 1);
+
+  // A downloaded copy is a separate copy with its own reference.
+  const dl = await team.call('POST', '/api/workbooks/send', { company: a.id, period: '2026-10', method: 'download' });
+  assert.strictEqual(dl.status, 200);
+  assert.notStrictEqual(dl.body.ref, sent.body.ref);
+  assert.ok(Buffer.from(dl.body.file, 'base64').length > 10000);
+  const actions = db.prepare('SELECT action FROM audit').all().map((x) => x.action);
+  for (const x of ['workbook.emailed', 'workbook.downloaded', 'admin.company_email']) assert.ok(actions.includes(x), x);
 });

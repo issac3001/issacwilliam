@@ -7,9 +7,10 @@
       "layout": "form",
       "purpose": "One row per field. Tells the platform which company and which month this workbook covers.",
       "fields": [
-        { "key": "company_code", "label": "Company Code", "type": "text", "required": true, "help": "Code issued by Assura Elevate, e.g. AE-0001" },
-        { "key": "company_name", "label": "Company Name", "type": "text", "required": true },
-        { "key": "period", "label": "Period (Month)", "type": "month", "required": true, "help": "Month the data relates to, e.g. 2026-09 or Sep-2026" },
+        { "key": "company_code", "label": "Company Code", "type": "text", "required": true, "system": true, "help": "Client reference issued by Assura Elevate. Filled in and locked by Assura Elevate." },
+        { "key": "company_name", "label": "Company Name", "type": "text", "required": true, "system": true, "help": "Filled in and locked by Assura Elevate." },
+        { "key": "period", "label": "Period (Month)", "type": "month", "required": true, "system": true, "help": "The month this workbook is for. Filled in and locked by Assura Elevate." },
+        { "key": "template_ref", "label": "Workbook Reference", "type": "text", "required": false, "system": true, "help": "Identifies this copy of the workbook, issued for this company and month only. Filled in and locked by Assura Elevate." },
         { "key": "prepared_by", "label": "Prepared By", "type": "text", "required": true, "help": "Name of the in-house accountant" },
         { "key": "prepared_on", "label": "Prepared On", "type": "date", "required": false },
         { "key": "opening_stock", "label": "Opening Stock Value", "type": "number", "required": false, "help": "Needed for the first month only. Later months use the previous month's closing inventory." },

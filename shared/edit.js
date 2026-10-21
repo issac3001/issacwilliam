@@ -23,7 +23,7 @@
     if (def.layout === 'form') {
       if (!values || typeof values !== 'object' || Array.isArray(values)) return { data, errors: ['No details received.'], warnings: [] };
       // Fields not sent keep their current value.
-      const fixed = Object.assign({}, data.company, values, { company_code: data.company && data.company.company_code, company_name: data.company && data.company.company_name, period: data.company && data.company.period });
+      const fixed = Object.assign({}, data.company, values, { company_code: data.company && data.company.company_code, company_name: data.company && data.company.company_name, period: data.company && data.company.period, template_ref: data.company && data.company.template_ref });
       sheet = def.fields.map((f) => [f.key, fixed[f.key] == null ? null : fixed[f.key]]);
     } else {
       if (!Array.isArray(values)) return { data, errors: ['No rows received.'], warnings: [] };

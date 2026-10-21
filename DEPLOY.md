@@ -42,6 +42,27 @@ A 1 GB server comfortably handles dozens of client companies with several years 
 
 Team and admin logins must use two-step login. Every sign-in, upload, edit and administrative action is recorded in the activity log.
 
+## Sending the monthly workbook by email
+
+The portal emails each client's monthly workbook from your own mailbox, so replies with the completed workbook come back to the team member who sent it. Until this is set up, the **Email the workbook** button stays off and the team uses **Download a filled copy** instead. Each download still gets its own reference and is recorded.
+
+1. Create or choose the mailbox the workbooks go out from, for example `data@elevateassura.com`, and get its SMTP login:
+   - **Google Workspace**: host `smtp.gmail.com`, port `465`, the mailbox address, and an *app password* (Google Account → Security → 2-Step Verification → App passwords).
+   - **Microsoft 365**: host `smtp.office365.com`, port `587`, the mailbox address and its password (SMTP AUTH must be allowed for that mailbox).
+   - **Zoho Mail (India)**: host `smtp.zoho.in`, port `465`, the mailbox address and an app-specific password.
+   - **Amazon SES, Mumbai**: host `email-smtp.ap-south-1.amazonaws.com`, port `587`, and the SMTP credentials created in the SES console (verify the domain first).
+2. On the server, add these lines to `/srv/assura/assura.env`:
+
+   ```
+   AE_SMTP_HOST=smtp.zoho.in
+   AE_SMTP_PORT=465
+   AE_SMTP_USER=data@elevateassura.com
+   AE_SMTP_PASS=the-app-password
+   AE_MAIL_FROM=Assura Elevate <data@elevateassura.com>
+   ```
+3. Restart the portal: `systemctl restart assura-elevate`. The **Email the workbook** button is now available.
+4. Save each client's accounts email under **Clients & users**. The workbook is only ever sent to that saved address.
+
 ## Updates and backups
 
 - Update to the latest release: `bash /srv/assura/app/deploy/update.sh` (takes a backup first).

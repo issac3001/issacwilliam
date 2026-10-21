@@ -73,5 +73,35 @@
     return errors;
   }
 
-  return { check, parties, partiesOf, normName };
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const mLong = (p) => (/^\d{4}-\d{2}$/.test(p || '') ? `${MONTHS[+p.slice(5, 7) - 1]} ${p.slice(0, 4)}` : String(p || 'no month'));
+
+  /**
+   * A full workbook must be a copy the portal issued for this client and this month.
+   * issue: the record found for the workbook's reference (or null). Returns a list of problems.
+   */
+  function checkIssued({ selected, fileCompany, issue }) {
+    const ref = String((fileCompany && fileCompany.template_ref) || '').trim();
+    if (!ref) return [`This workbook has no workbook reference, so it is not a copy sent from the portal. Send the ${mLong(fileCompany && fileCompany.period)} workbook from ${selected.name}'s Data & uploads page and upload the copy the accountant returns.`];
+    if (!issue) return [`Workbook reference ${ref} was not issued by Assura Elevate. Upload the copy sent from the portal for ${selected.name}.`];
+    const errors = [];
+    if (issue.company_id !== selected.id) errors.push(`Workbook ${ref} was issued to ${issue.company_name} (${issue.company_code}), not to ${selected.name} (${selected.code}). Select the right client, or ask for the right copy.`);
+    if (fileCompany.period !== issue.period) errors.push(`Workbook ${ref} was issued for ${mLong(issue.period)}, but its month now reads ${mLong(fileCompany.period)}. The month is locked on the sheet, so this copy has been altered: send a fresh workbook for the month.`);
+    return errors;
+  }
+
+  // What the team sees before accepting an upload: rows per section and the main totals.
+  function summary(data, schema) {
+    const add = (rows, k) => (rows || []).reduce((a, r) => a + (Number(r[k]) || 0), 0);
+    return {
+      sections: schema.sheets.filter((d) => d.layout === 'table' && data[d.key]).map((d) => ({ key: d.key, name: d.name, rows: data[d.key].length })),
+      totals: [
+        ['Sales (taxable value)', add(data.sales, 'taxable_value')], ['Purchases (taxable value)', add(data.purchases, 'taxable_value')],
+        ['Expenses', add(data.expenses, 'amount')], ['Receivables at month end', add(data.receivables, 'outstanding')],
+        ['Payables at month end', add(data.payables, 'outstanding')], ['Closing stock', add(data.inventory, 'value')],
+      ].filter((t) => t[1]),
+    };
+  }
+
+  return { check, checkIssued, summary, parties, partiesOf, normName };
 });

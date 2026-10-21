@@ -16,6 +16,8 @@ const { analyse } = require('../shared/analysis');
 const { applyEdit } = require('../shared/edit');
 const match = require('../shared/match');
 const insights = require('../shared/insights');
+const workbook = require('../shared/workbook');
+const mail = require('./mail');
 const workflow = require('../shared/workflow');
 const schema = require('../shared/schema.json');
 
@@ -26,8 +28,9 @@ const STATIC_EXTRA = {
   '/shared/edit.js': path.join(__dirname, '..', 'shared', 'edit.js'),
   '/shared/schema.json': path.join(__dirname, '..', 'shared', 'schema.json'),
   '/workflow': path.join(__dirname, '..', 'public', 'workflow.html'),
-  '/template.xlsx': path.join(__dirname, '..', 'templates', 'Assura_Elevate_Monthly_Data_Template.xlsx'),
 };
+// The blank workbook is never handed out as it is: each copy is filled for one client and month.
+const TEMPLATE = path.join(__dirname, '..', 'templates', 'Assura_Elevate_Monthly_Data_Template.xlsx');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 const SESSION_DAYS = 7;
 const MAX_BODY = 25 * 1024 * 1024;
@@ -37,9 +40,11 @@ const IDLE_MINUTES = Number(process.env.AE_IDLE_MINUTES || 120);
 const STAFF_2FA = (process.env.AE_REQUIRE_STAFF_2FA || process.env.AE_REQUIRE_ADVISOR_2FA) !== '0';
 const { isStaff } = store;
 
+const escHtml = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 class HttpError extends Error { constructor(status, message, extra) { super(message); this.status = status; this.extra = extra; } }
 
-function createApp(db) {
+function createApp(db, opts = {}) {
+  const mailCfg = opts.mail !== undefined ? opts.mail : mail.config();
   const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
   const attempts = new Map(); // login throttling: key -> { n, until }
   workflow.install(db);
@@ -230,7 +235,7 @@ function createApp(db) {
     // ---------- Administration (Assura team) ----------
     'GET /api/admin/overview': async (req, res) => {
       requireStaff(req);
-      const companies = db.prepare(`SELECT c.id, c.code, c.name, c.created_at,
+      const companies = db.prepare(`SELECT c.id, c.code, c.name, c.data_email, c.created_at,
           (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) AS users,
           (SELECT COUNT(DISTINCT period) FROM uploads x WHERE x.company_id = c.id) AS months,
           (SELECT MAX(period) FROM uploads x WHERE x.company_id = c.id) AS latest,
@@ -255,15 +260,23 @@ function createApp(db) {
       log(req, u, 'admin.company_added', { companyId: c.id, detail: `${code} ${name}` });
       send(res, 200, { company: c });
     },
-    // Body: { company_id, name }. The company code stays fixed because workbooks carry it.
+    // Body: { company_id, name?, data_email? }. The company code stays fixed because workbooks carry it.
     'POST /api/admin/company/update': async (req, res) => {
       const u = requireStaff(req);
       const body = await readJson(req);
       const c = companyFor(u, body.company_id);
-      const name = String(body.name || '').trim();
+      if (body.data_email !== undefined) {
+        const emails = String(body.data_email || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+        if (emails.length > 3 || emails.some((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))) throw new HttpError(400, 'Enter up to three valid email addresses, separated by commas.');
+        db.prepare('UPDATE companies SET data_email = ? WHERE id = ?').run(emails.join(', ') || null, c.id);
+        log(req, u, 'admin.company_email', { companyId: c.id, detail: emails.join(', ') || '(removed)' });
+      }
+      const name = body.name === undefined ? c.name : String(body.name || '').trim();
       if (name.length < 2 || name.length > 160) throw new HttpError(400, 'Enter the company name.');
-      db.prepare('UPDATE companies SET name = ? WHERE id = ?').run(name, c.id);
-      log(req, u, 'admin.company_renamed', { companyId: c.id, detail: `${c.name} → ${name}` });
+      if (name !== c.name) {
+        db.prepare('UPDATE companies SET name = ? WHERE id = ?').run(name, c.id);
+        log(req, u, 'admin.company_renamed', { companyId: c.id, detail: `${c.name} → ${name}` });
+      }
       send(res, 200, { company: Object.assign({}, c, { name }) });
     },
     // Creates a login with a one-time password that must be changed at first sign-in.
@@ -435,6 +448,44 @@ function createApp(db) {
 
     // Body: { company?, filename, sheets: {name: rows[][]} }            full workbook
     //   or: { company?, filename, section, period, sheets: {name: rows} } one section from CSV
+    // ---------- monthly workbook, sent from the client's page ----------
+    'GET /api/workbooks': async (req, res, url) => {
+      const u = requireStaff(req);
+      const c = companyFor(u, url.searchParams.get('company'));
+      const row = db.prepare('SELECT data_email FROM companies WHERE id = ?').get(c.id);
+      send(res, 200, { company: c, data_email: row.data_email || '', mail_ready: !!mailCfg, workbooks: store.workbooksFor(db, c.id) });
+    },
+    // Body: { company, period, method: 'email' | 'download' }. Every copy gets its own reference.
+    'POST /api/workbooks/send': async (req, res) => {
+      const u = requireStaff(req);
+      const body = await readJson(req);
+      const c = companyFor(u, body.company);
+      const period = parseMonth(body.period);
+      if (!period) throw new HttpError(400, 'Choose the month the workbook is for.');
+      const method = body.method === 'email' ? 'email' : 'download';
+      const to = String(db.prepare('SELECT data_email FROM companies WHERE id = ?').get(c.id).data_email || '').split(',').map((x) => x.trim()).filter(Boolean);
+      if (method === 'email' && !to.length) throw new HttpError(400, `No accounts email is saved for ${c.name}. Add it under Clients & users first.`);
+      if (method === 'email' && !mailCfg) throw new HttpError(503, 'Email is not set up on this server yet. Download the filled workbook instead, or set up the mail account (see DEPLOY.md).');
+      const ref = workbook.newRef(c.code, period, (n) => crypto.randomBytes(n));
+      const file = Buffer.from(workbook.fill(new Uint8Array(await fs.promises.readFile(TEMPLATE)), { company_code: c.code, company_name: c.name, period, template_ref: ref }));
+      const filename = workbook.fileName(c, period);
+      if (method === 'email') {
+        const month = new Date(`${period}-01T00:00:00Z`).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+        const text = `Dear Accounts team,\n\nPlease find attached the Assura Elevate monthly data workbook for ${c.name}, ${month}.\n\nYour company details, the month and the workbook reference (${ref}) are already filled in and locked. Please paste the month's registers and balances from Tally into the sheets, add your name on the first sheet, and reply to this email with the completed workbook attached.\n\nThis copy is for ${c.name} and ${month} only. Please do not reuse it for another month.\n\nWith regards,\n${u.name}\nAssura Elevate`;
+        const html = `<p>Dear Accounts team,</p><p>Please find attached the Assura Elevate monthly data workbook for <b>${escHtml(c.name)}</b>, <b>${month}</b>.</p><p>Your company details, the month and the workbook reference (<b>${ref}</b>) are already filled in and locked. Please paste the month's registers and balances from Tally into the sheets, add your name on the first sheet, and reply to this email with the completed workbook attached.</p><p>This copy is for ${escHtml(c.name)} and ${month} only. Please do not reuse it for another month.</p><p>With regards,<br>${escHtml(u.name)}<br>Assura Elevate</p>`;
+        try {
+          await mail.sendMail(mailCfg, { to, replyTo: `${u.name} <${u.email}>`, subject: `${c.name}: monthly data workbook for ${month}`, text, html,
+            attachments: [{ filename, content: file, type: TYPES['.xlsx'] }] });
+        } catch (e) {
+          log(req, u, 'workbook.email_failed', { companyId: c.id, detail: `${period}: ${e.message}`.slice(0, 200) });
+          throw new HttpError(502, `The email could not be sent: ${e.message}`);
+        }
+      }
+      store.issueWorkbook(db, { companyId: c.id, period, ref, method, sentTo: method === 'email' ? to.join(', ') : null, userId: u.id });
+      log(req, u, method === 'email' ? 'workbook.emailed' : 'workbook.downloaded', { companyId: c.id, detail: `${period} ${ref}${method === 'email' ? ' to ' + to.join(', ') : ''}` });
+      send(res, 200, { ok: true, ref, period, method, sent_to: to, filename, file: method === 'download' ? file.toString('base64') : undefined });
+    },
+
     'POST /api/upload': async (req, res) => {
       const u = requireStaff(req);
       const body = await readJson(req);
@@ -469,12 +520,22 @@ function createApp(db) {
       const recent = (id) => match.partiesOf(store.currentDatasets(db, id).slice(-6));
       const others = db.prepare('SELECT id, code, name FROM companies WHERE id <> ?').all(c.id).map((o) => ({ code: o.code, name: o.name, parties: recent(o.id) }));
       const mismatch = match.check({ selected: c, fileCompany, confirmCode: body.confirm_code, data: rows, own: recent(c.id), others });
+      const issue = fileCompany ? store.findWorkbook(db, fileCompany.template_ref) : null;
+      if (fileCompany) mismatch.unshift(...match.checkIssued({ selected: c, fileCompany, issue }));
       if (mismatch.length) {
         log(req, u, 'upload.wrong_company', { companyId: c.id, detail: `${body.filename || ''}: ${mismatch[0].slice(0, 160)}` });
         throw new HttpError(422, `This file does not look like ${c.name}'s data, so it was not uploaded.`, { errors: mismatch, warnings: [] });
       }
+      // First pass: checks only, for the team to review. Nothing is saved until they accept.
+      if (body.preview) {
+        const live = store.datasetVersion(db, c.id, period);
+        send(res, 200, { ok: true, preview: true, period, sections, warnings, summary: match.summary(rows, schema), replaces: live && !live.data.removed ? live.version : null,
+          workbook: issue ? { ref: issue.ref, issued_at: issue.issued_at, sent_to: issue.sent_to, received_version: issue.received_version } : null });
+        return;
+      }
       const version = store.saveUpload(db, { companyId: c.id, period, userId: u.id, filename: String(body.filename || '').slice(0, 200), sections, warnings, data });
-      log(req, u, 'upload.accepted', { companyId: c.id, detail: `${period} v${version} ${body.filename || ''}` });
+      if (issue) store.markWorkbookReceived(db, issue.ref, version);
+      log(req, u, 'upload.accepted', { companyId: c.id, detail: `${period} v${version} ${body.filename || ''}${issue ? ' ' + issue.ref : ''}` });
       send(res, 200, { ok: true, period, version, sections, warnings });
     },
   };
@@ -489,7 +550,6 @@ function createApp(db) {
     let buf;
     try { buf = await fs.promises.readFile(file); } catch { throw new HttpError(404, 'Not found'); }
     const headers = { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' };
-    if (url.pathname === '/template.xlsx') headers['Content-Disposition'] = 'attachment; filename="Assura_Elevate_Monthly_Data_Template.xlsx"';
     send(res, 200, buf, headers);
   }
 

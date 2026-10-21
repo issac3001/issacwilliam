@@ -27,7 +27,10 @@ for (const c of companies) {
   for (const f of fs.readdirSync(path.join(SAMPLES, c.code)).sort()) {
     const data = JSON.parse(fs.readFileSync(path.join(SAMPLES, c.code, f), 'utf8'));
     store.saveUpload(db, { companyId: row.id, period: data.company.period, userId: null, filename: `sample ${f.replace('.json', '.xlsx')}`, sections: Object.keys(data), warnings: [], data });
+    // The sample workbooks carry this reference, so they can be uploaded again to try the checks.
+    store.issueWorkbook(db, { companyId: row.id, period: data.company.period, ref: `${c.code}-${data.company.period}-SAMPLE`, method: 'download' });
   }
+  db.prepare('UPDATE companies SET data_email = ? WHERE id = ?').run(`accounts@${c.slug}.demo`, row.id);
   console.log(`${c.code} seeded`);
 }
 for (const [email, name, role] of [['team@assura.demo', 'Assura Team Member', 'team'], ['admin@assura.demo', 'Assura Admin', 'admin']])
