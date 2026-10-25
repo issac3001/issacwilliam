@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # One-time setup of the Assura Elevate portal on a fresh Ubuntu 24.04 server.
-# Usage (as root):  bash deploy/setup.sh portal.yourdomain.in admin@yourdomain.in "Admin Name"
-# Point the domain's A record at the server's IP before running, so HTTPS can be issued.
+# Usage (as root):  bash deploy/setup.sh portal.yourdomain.in admin@yourdomain.in "Admin Name" [yourdomain.in]
+# The optional fourth argument also serves the public website (site/) on that domain and its www.
+# Point each domain's A record at the server's IP before running, so HTTPS can be issued.
 set -euo pipefail
 DOMAIN="${1:?domain, e.g. portal.assuraelevate.in}"
 ADMIN_EMAIL="${2:?first admin email}"
 ADMIN_NAME="${3:?first admin name}"
+SITE_DOMAIN="${4:-}"
 REPO="${REPO:-https://github.com/issac3001/issacwilliam.git}"
 BRANCH="${BRANCH:-main}"
 
@@ -48,6 +50,7 @@ chown -R assura:assura /srv/assura
 
 install -m 644 /srv/assura/app/deploy/assura-elevate.service /etc/systemd/system/assura-elevate.service
 sed "s/portal.example.com/$DOMAIN/" /srv/assura/app/deploy/Caddyfile > /etc/caddy/Caddyfile
+if [ -n "$SITE_DOMAIN" ]; then sed "s/example.com/$SITE_DOMAIN/g" /srv/assura/app/deploy/Caddyfile.site >> /etc/caddy/Caddyfile; fi
 systemctl daemon-reload
 systemctl enable --now assura-elevate
 systemctl reload caddy || systemctl restart caddy
@@ -61,4 +64,5 @@ CRON
 if ! sudo -u assura bash -c "set -a; . /srv/assura/assura.env; cd /srv/assura/app; node --no-warnings tools/admin.js list" | grep -q "$ADMIN_EMAIL"; then
   sudo -u assura bash -c "set -a; . /srv/assura/assura.env; cd /srv/assura/app; node --no-warnings tools/admin.js add-user '$ADMIN_EMAIL' '$ADMIN_NAME' admin"
 fi
+if [ -n "$SITE_DOMAIN" ]; then echo "Website: https://$SITE_DOMAIN"; fi
 echo "Done. Open https://$DOMAIN and sign in as $ADMIN_EMAIL with the one-time password above."

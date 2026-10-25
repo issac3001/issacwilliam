@@ -74,7 +74,7 @@
 
   function signedOut(e) {
     root.innerHTML = `<main><div class="card empty"><div class="eyebrow">Assura Elevate team</div><h2>${e.status === 401 ? 'Please sign in' : 'This area is for the Assura Elevate team'}</h2>
-      <p>${esc(e.status === 401 ? 'Sign in with your team login, then come back to Workflow.' : e.message)}</p><a class="btn" href="/">Go to sign in</a></div></main>`;
+      <p>${esc(e.status === 401 ? 'Sign in with your team login, then come back to Workflow.' : e.message)}</p><a class="btn" href="/?next=workflow">Go to sign in</a></div></main>`;
   }
   function fatal(e) {
     root.innerHTML = `<main><div class="card empty"><h2>Something went wrong</h2><p>${esc(e.message)}</p><button class="btn" id="reload">Reload</button></div></main>`;

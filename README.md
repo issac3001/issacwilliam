@@ -49,6 +49,10 @@ Open `/workflow` with a team or admin login. Client logins are refused. The same
 
 Engine: `shared/workflow.js` (tables prefixed `wf_`, created on start). Placeholder team for the demo: `npm run seed:demo` adds `md@assura.demo`, `ca.director@assura.demo`, `ca.manager1@assura.demo`, `ca.senior1@assura.demo`, `ca.analyst1@assura.demo` and the same for `cs`, `legal` and `hr` (password `demo-password`). `npm run build:workflow-demo` writes a self-contained preview to `dist/workflow-demo.html`.
 
+## Public website
+
+`site/` is the firm's public website (elevateassura.com): plain HTML and CSS with no build step, no tracking and no third-party scripts beyond Google Fonts. Its **Sign in** corner (`site/login.html`) leads to the portal: team members go to `portal.elevateassura.com/?next=workflow`, which opens Workflow straight after sign-in; clients go to the portal's sign-in and see only their own company. `deploy/setup.sh` serves the site on the same server when the website domain is given as a fourth argument (see DEPLOY.md). Open `site/index.html` in a browser to preview it.
+
 ## Run it
 
 Requires Node 22.5+ (uses the built-in `node:sqlite`; no npm dependencies) and Python 3 with `openpyxl` only to regenerate workbooks.

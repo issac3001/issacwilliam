@@ -93,6 +93,8 @@
       const me = await api.get('/api/me');
       state.me = me.user; state.companies = me.companies;
       if (me.next) { renderSetup(me.next); return; }
+      // The website's team sign-in arrives with ?next=workflow; staff go straight on to Workflow.
+      if (isStaff(me.user) && !window.AE_DEMO_API && new URLSearchParams(location.search).get('next') === 'workflow') { location.replace('/workflow'); return; }
       state.companyId = state.companyId && me.companies.some((c) => c.id === state.companyId) ? state.companyId : (me.companies[0] || {}).id;
       await loadDashboard();
     } catch (e) {
@@ -126,13 +128,14 @@
         </section>
         <section class="login-form">
           <form id="login" autocomplete="on">
-            <div><div class="eyebrow">Client and team login</div><h2>Sign in</h2></div>
+            <div><div class="eyebrow">${new URLSearchParams(location.search).get('next') === 'workflow' ? 'Team login' : 'Client and team login'}</div><h2>Sign in</h2></div>
             <div><label for="email">Email</label><input id="email" type="email" required autocomplete="username"></div>
             <div><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"></div>
             ${needCode ? `<div><label for="code">Code from your authenticator app</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></div>` : ''}
             ${error ? `<div class="msg ${needCode && /Enter the 6-digit/.test(error) ? '' : 'err'}">${esc(error)}</div>` : ''}
             <button class="btn" type="submit">Sign in</button>
             <p class="small muted">A client login sees only its own company's data. Contact your Assura Elevate partner for access.</p>
+            ${window.AE_DEMO_API ? '' : '<p class="small"><a href="https://elevateassura.com/">← elevateassura.com</a></p>'}
             ${demo}
           </form>
         </section>

@@ -19,13 +19,15 @@ A 1 GB server comfortably handles dozens of client companies with several years 
    - **Networking → Create static IP** and attach it to the instance, so the address never changes (free while attached).
    - **Networking → IPv4 firewall → Add rule → HTTPS (443)**. Lightsail opens only SSH and HTTP by default.
    - **Snapshots → Enable automatic snapshots** for a daily copy of the whole server (about $0.05 per GB a month).
-2. At your domain provider, add an `A` record for the portal sub-domain pointing to that IP.
+2. At your domain provider, add an `A` record for the portal sub-domain pointing to that IP. To serve the public website from the same server, also add `A` records for the bare domain (`@`) and `www`.
 3. Connect to the server (Lightsail: the **Connect using SSH** button), type `sudo -i` to become root, and run:
 
    ```bash
    git clone https://github.com/issac3001/issacwilliam.git /tmp/ae
    bash /tmp/ae/deploy/setup.sh portal.yourdomain.in you@yourdomain.in "Your Name"
    ```
+
+   For Assura Elevate, with the website included: `bash /tmp/ae/deploy/setup.sh portal.elevateassura.com issac@elevateassura.com "Issac William" elevateassura.com`. The fourth argument is optional; leave it out to set up the portal only.
 
    The script installs Node.js 22 and Caddy, starts the portal as a service, turns on HTTPS, schedules a daily encrypted backup and creates the first **admin** login. It prints two things once: the backup key (keep it safe, away from the server) and your one-time password.
 4. Open `https://portal.yourdomain.in`, sign in, choose your own password and set up two-step login with an authenticator app.
