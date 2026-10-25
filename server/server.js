@@ -148,16 +148,13 @@ function createApp(db, opts = {}) {
     const workbooks = store.workbooksFor(db, c.id).filter((w) => w.period === period);
     return cycle.status({ period, now: now(), workbooks, upload, review });
   }
-  const hasTable = (name) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
-  // Open workflow tasks for a client, when the workflow module is installed.
-  function openTasks(companyId, assigned, userId) {
-    if (!hasTable('wf_tasks')) return null;
-    const today = cycle.today(now());
-    const mine = assigned ? ' AND t.team_id IN (SELECT id FROM wf_teams WHERE manager_id = ? OR senior_id = ? OR analyst_id = ?)' : '';
-    const r = db.prepare(`SELECT COUNT(*) AS open, SUM(CASE WHEN t.due_date < ? THEN 1 ELSE 0 END) AS overdue
-      FROM wf_tasks t WHERE t.company_id = ? AND t.stage <> 'done'${mine}`).get(...[today, companyId].concat(assigned ? [userId, userId, userId] : []));
-    return { open: r.open || 0, overdue: r.overdue || 0 };
+  // Clients allotted to a team member in the internal workflow, when that module is installed. null means every client.
+  function assignedCompanies(user) {
+    let wfMod = null;
+    try { wfMod = require('../shared/workflow'); } catch { return null; }
+    try { return wfMod.createWorkflow(db).call(user, 'GET /api/wf/clients', {}).clients.map((c) => c.id); } catch { return null; }
   }
+  const WORKFLOW_PAGE = path.join(PUBLIC, 'workflow.html');
 
   function publicUser(u) {
     return { id: u.id, name: u.name, email: u.email, role: u.role, company_id: u.company_id, twoStep: !!u.totp_secret };
@@ -214,7 +211,8 @@ function createApp(db, opts = {}) {
       const companies = next ? [] : isStaff(u.role)
         ? db.prepare('SELECT id, code, name FROM companies ORDER BY name').all()
         : db.prepare('SELECT id, code, name FROM companies WHERE id = ?').all(u.company_id);
-      send(res, 200, { user: publicUser(u), companies, next });
+      // Team logins start in the internal workflow when it is installed.
+      send(res, 200, { user: publicUser(u), companies, next, workflow: isStaff(u.role) && fs.existsSync(WORKFLOW_PAGE) });
     },
 
     // Body: { current, next }. Signs out the user's other sessions.
@@ -367,12 +365,12 @@ function createApp(db, opts = {}) {
       if (url.searchParams.get('company')) {
         const c = companyFor(u, url.searchParams.get('company'));
         const status = cycleFor(c, period);
-        send(res, 200, { company: c, period, status, client_note: cycle.forClient(status), tasks: openTasks(c.id, false, u.id), history: store.workbooksFor(db, c.id) }); return;
+        send(res, 200, { company: c, period, status, client_note: cycle.forClient(status), history: store.workbooksFor(db, c.id) }); return;
       }
-      const assigned = store.assignedCompanies(db, u);
+      const assigned = assignedCompanies(u);
       const companies = db.prepare('SELECT id, code, name FROM companies ORDER BY name').all()
         .filter((c) => !assigned || assigned.includes(c.id));
-      const clients = companies.map((c) => ({ company: c, status: cycleFor(c, period), tasks: openTasks(c.id, !!assigned, u.id) }));
+      const clients = companies.map((c) => ({ company: c, status: cycleFor(c, period) }));
       send(res, 200, { period, today: cycle.today(now()), assigned: !!assigned, targets: cycle.TARGET_DAY, clients });
     },
 

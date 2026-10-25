@@ -91,8 +91,19 @@
     try {
       if (!window.AE_SCHEMA) window.AE_SCHEMA = await fetch('/shared/schema.json').then((r) => r.json()).catch(() => null);
       const me = await api.get('/api/me');
-      state.me = me.user; state.companies = me.companies;
+      state.me = me.user; state.companies = me.companies; state.workflow = !!me.workflow;
       if (me.next) { renderSetup(me.next); return; }
+      // Straight after signing in, the Assura team starts in Workflow when it is installed.
+      if (state.justSignedIn && state.workflow) { state.justSignedIn = false; location.assign('/workflow'); return; }
+      state.justSignedIn = false;
+      // Deep link for the team: /?company=<id>&view=<section> opens that client (view defaults to its month's work).
+      const q = new URLSearchParams(location.search);
+      const link = Number(q.get('company'));
+      if (q.has('company')) history.replaceState(null, '', location.pathname);
+      if (isStaff(state.me) && link && me.companies.some((c) => c.id === link)) {
+        const view = q.get('view');
+        await openClient(link, view && (STAFF_TABS.concat(TABS)).some(([k]) => k === view) ? view : 'client'); return;
+      }
       state.companyId = state.companyId && me.companies.some((c) => c.id === state.companyId) ? state.companyId : (me.companies[0] || {}).id;
       // The Assura team starts on its own work page and opens a client from there.
       if (isStaff(state.me) && !state.clientOpen && !(history.state && history.state.aeTab)) state.tab = 'work';
@@ -154,7 +165,7 @@
       try {
         await api.post('/api/login', body);
         loginDraft = {};
-        state.tab = 'work'; state.clientOpen = false;
+        state.tab = 'work'; state.clientOpen = false; state.justSignedIn = true;
         await boot();
       } catch (err) {
         const code = !!(err.data && err.data.needCode);
@@ -242,7 +253,7 @@
     ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'],
   ];
   // The Assura team: its own work and the firm's clients, then the chosen client's work and dashboard.
-  const FIRM_TABS = [['work', 'My work'], ['admin', 'Clients & users']];
+  const FIRM_TABS = [['work', 'Monthly data'], ['admin', 'Clients & users']];
   const STAFF_TABS = [['client', 'This month\'s work'], ['insights', 'Explanations'], ['upload', 'Data & uploads'], ['edit', 'Edit data']];
   const tabsFor = (u) => (isStaff(u)
     ? FIRM_TABS.concat(state.clientOpen ? STAFF_TABS.concat(TABS) : [], [['account', 'Account']])
@@ -306,7 +317,7 @@
     app.innerHTML = `
       <div class="shell">
         <aside class="side" aria-label="Main menu">
-          <div class="side-top"><a class="wordmark" href="#" data-tab="${homeTab(u)}" aria-label="Assura Elevate, ${isStaff(u) ? 'my work' : 'overview'}">${LOGO}</a></div>
+          <div class="side-top"><a class="wordmark" href="#" data-tab="${homeTab(u)}" aria-label="Assura Elevate, ${isStaff(u) ? 'monthly data' : 'overview'}">${LOGO}</a></div>
           ${isStaff(u) ? `<nav class="side-nav firm" aria-label="Assura workspace">${FIRM_TABS.map((t) => navItem(t)).join('')}</nav>` : ''}
           ${isStaff(u) && state.companies.length
             ? `<div class="side-client"><label for="company">Client</label><select id="company">${state.clientOpen ? '' : '<option value="" selected>Choose a client…</option>'}${state.companies.map((c) => `<option value="${c.id}" ${state.clientOpen && c.id === state.companyId ? 'selected' : ''}>${esc(c.name)} · ${esc(c.code)}</option>`).join('')}</select></div>`
@@ -314,7 +325,7 @@
           <nav class="side-nav" aria-label="Sections">
             ${isStaff(u)
               ? (state.clientOpen ? `<div class="nav-group">Client work</div>${STAFF_TABS.map((t) => navItem(t)).join('')}<div class="nav-group">Client dashboard</div>${TABS.map(navItem).join('')}`
-                : '<p class="side-hint">Choose a client, or open one from My work, to see its work and dashboard.</p>')
+                : '<p class="side-hint">Choose a client, or open one from Monthly data, to see its work and dashboard.</p>')
               : `<div class="nav-group">Dashboard</div>${TABS.map(navItem).join('')}`}
           </nav>
           <div class="side-foot">
@@ -465,7 +476,7 @@
             <li>Automated highlights: trends, ageing, concentration, unusual spend, purchase rates, compliance due dates</li>
             <li>Explanations of what moved each month and why, traced to the transactions and reviewed by the Assura team before they appear here</li>
             <li>Monthly workbook made for each client and month, with company, month and reference locked on its first sheet, sent from the portal</li>
-            <li>My work page for the team: each client's monthly data cycle with overdue reminders</li>
+            <li>Monthly data page for the team: each client's monthly data cycle with overdue reminders</li>
             <li>Every upload is checked against the selected company, month and workbook reference, and reviewed before it is accepted</li></ul></div>
           <div><b>Planned</b><ul>
             <li>Review and sign-off steps for the Assura team's monthly work</li>
@@ -885,7 +896,7 @@
 
   async function workPage(page) {
     const u = state.me;
-    page.innerHTML = head('My work', `${greeting()}, ${u.name.split(' ')[0]}`, null) + '<div id="work-body"><div class="card empty">Gathering your clients…</div></div>';
+    page.innerHTML = head('Monthly data', `${greeting()}, ${u.name.split(' ')[0]}`, null) + '<div id="work-body"><div class="card empty">Gathering your clients…</div></div>';
     let r;
     try { r = await api.get(`/api/cycle${workView.period ? `?period=${workView.period}` : ''}`); } catch (e) { page.querySelector('#work-body').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
     const body = page.querySelector('#work-body'); if (!body) return;
@@ -895,7 +906,6 @@
     reminders.sort((a, b) => (a.s.state === 'overdue' ? 0 : 1) - (b.s.state === 'overdue' ? 0 : 1) || a.s.target.localeCompare(b.s.target) || a.c.name.localeCompare(b.c.name));
     const count = (f) => rows.filter(f).length;
     const awaiting = count((x) => x.status.steps.some((s) => s.key === 'receive' && s.state !== 'done' && s.state !== 'later'));
-    const hasTasks = rows.some((x) => x.tasks);
     const COL = { send: 'Workbook sent', receive: 'Data received', upload: 'On dashboard', review: 'Explanations' };
     const stepCell = (x, key) => { const s = x.status.steps.find((t) => t.key === key); return `<td data-label="${COL[key]}">${chip(STEP_CHIP[s.state][0], STEP_CHIP[s.state][1])}</td>`; };
     const T = r.targets;
@@ -928,14 +938,13 @@
         </div>
       </div>
       <div class="card section"><div class="card-head"><h3>Clients</h3><span class="muted small">Open a client to work on it and see its dashboard</span></div>
-        <div class="table-wrap"><table class="work-table"><thead><tr><th>Client</th><th>Workbook sent</th><th>Data received</th><th>On dashboard</th><th>Explanations</th>${hasTasks ? '<th class="r">Workflow tasks</th>' : ''}<th>Next step</th><th></th></tr></thead><tbody>
+        <div class="table-wrap"><table class="work-table"><thead><tr><th>Client</th><th>Workbook sent</th><th>Data received</th><th>On dashboard</th><th>Explanations</th><th>Next step</th><th></th></tr></thead><tbody>
         ${rows.map((x) => `<tr><td><b>${esc(x.company.name)}</b><div class="muted small">${esc(x.company.code)}</div></td>
           ${stepCell(x, 'send')}${stepCell(x, 'receive')}${stepCell(x, 'upload')}${stepCell(x, 'review')}
-          ${hasTasks ? `<td class="r num" data-label="Workflow tasks">${x.tasks ? `${x.tasks.open}${x.tasks.overdue ? ` <span class="late">(${x.tasks.overdue} late)</span>` : ''}` : '–'}</td>` : ''}
           <td class="small" data-label="Next step">${x.status.next ? esc(x.status.next.label) : '<span class="muted">All done</span>'}</td>
           <td class="r"><button class="link-btn" type="button" data-open-client="${x.company.id}" data-tab-to="client">Open ›</button></td></tr>`).join('')}
         </tbody></table></div>
-        ${hasTasks && !window.AE_DEMO_API ? '<p class="muted small" style="margin:10px 0 0">Tasks, approvals and sign-offs are in <a href="/workflow">Workflow</a>.</p>' : ''}
+        ${state.workflow ? '<p class="muted small" style="margin:10px 0 0">Allotments, tasks, approvals and sign-offs are in <a href="/workflow">Workflow</a>.</p>' : ''}
       </div>`;
     body.querySelector('#work-month').addEventListener('change', (e) => { workView.period = e.target.value || null; workPage(page); });
     body.querySelectorAll('[data-open-client]').forEach((b) => b.addEventListener('click', () => openClient(Number(b.dataset.openClient), b.dataset.tabTo)));
@@ -974,7 +983,7 @@
               <p class="muted small" style="margin:10px 0 0">Shown on the client's dashboard until the month's data is in. It names no one and gives no internal detail.</p>`
               : `<p class="muted" style="margin:0">${mLong(r.period)} is on the client's dashboard${st.steps.find((s) => s.key === 'review').state === 'done' ? ' with its reviewed explanations.' : '. Explanations still to review are not shown to the client until they are accepted.'}</p>`}
           </div>
-          ${r.tasks ? `<div class="card"><div class="card-head"><h3>Workflow</h3></div><p style="margin:0">${r.tasks.open} open task${r.tasks.open === 1 ? '' : 's'}${r.tasks.overdue ? `, <span class="late">${r.tasks.overdue} late</span>` : ''}. <a href="/workflow">Open Workflow</a></p></div>` : ''}
+          ${state.workflow ? `<div class="card"><div class="card-head"><h3>Workflow</h3></div><p style="margin:0">Tasks, approvals and sign-offs for ${esc(company.name)} are in <a href="/workflow">Workflow</a>.</p></div>` : ''}
         </div>
       </div>
       <div class="card section"><div class="card-head"><h3>Workbooks sent</h3><span class="muted small">Every copy, with its reference</span></div>
