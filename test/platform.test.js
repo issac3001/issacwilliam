@@ -504,3 +504,59 @@ test('the monthly workbook is filled for one client and month, sent from the por
   const actions = db.prepare('SELECT action FROM audit').all().map((x) => x.action);
   for (const x of ['workbook.emailed', 'workbook.downloaded', 'admin.company_email']) assert.ok(actions.includes(x), x);
 });
+
+test('the team sees each client\'s month: sent, received, uploaded, reviewed, with overdue reminders; the client sees a plain note', async (t) => {
+  const db = store.open(':memory:');
+  const a = store.createCompany(db, 'AE-0001', 'Meridian Polymers Pvt Ltd');
+  const b = store.createCompany(db, 'AE-0002', 'Coastline Foods Pvt Ltd');
+  const pw = 'test-password-1';
+  store.createUser(db, { email: 'md@a.test', name: 'MD A', role: 'client', companyId: a.id, password: pw });
+  store.createUser(db, { email: 'team@x.test', name: 'Farzeen', role: 'team', companyId: null, password: pw });
+  let clock = new Date('2026-10-05T06:00:00Z');
+  const server = http.createServer(createApp(db, { mail: null, now: () => clock })).listen(0);
+  t.after(() => server.close());
+  const port = server.address().port;
+  const team = client(port); await team.login('team@x.test'); await enrolStaff(team);
+  const mdA = client(port); await mdA.login('md@a.test');
+  assert.strictEqual((await mdA.call('GET', '/api/cycle')).status, 403, 'clients do not see the team\'s work');
+
+  const states = (row) => row.status.steps.map((s) => `${s.key}:${s.state}`).join(' ');
+  let work = await team.call('GET', '/api/cycle');
+  assert.strictEqual(work.body.period, '2026-09');
+  assert.strictEqual(work.body.clients.length, 2);
+  const rowA = () => work.body.clients.find((c) => c.company.id === a.id);
+  assert.strictEqual(states(rowA()), 'send:overdue receive:later upload:later review:later', 'the workbook was due out by the 3rd');
+  assert.match((await mdA.call('GET', '/api/dashboard')).body.cycle.text, /will send this month's data workbook/);
+
+  const sent = await team.call('POST', '/api/workbooks/send', { company: a.id, period: '2026-09', method: 'download' });
+  work = await team.call('GET', '/api/cycle');
+  assert.strictEqual(states(rowA()), 'send:done receive:due upload:later review:later');
+  assert.match((await mdA.call('GET', '/api/dashboard')).body.cycle.text, /sent to your accountant/);
+
+  clock = new Date('2026-10-11T06:00:00Z');
+  work = await team.call('GET', '/api/cycle');
+  assert.strictEqual(rowA().status.next.key, 'receive');
+  assert.strictEqual(rowA().status.overdue, 1, 'not back by the 10th');
+  const note = (await mdA.call('GET', '/api/dashboard')).body.cycle;
+  assert.ok(note.overdue && /not been returned yet/.test(note.text));
+  assert.ok(!JSON.stringify(note).includes('Farzeen'), 'no team names on the client side');
+
+  assert.strictEqual((await team.call('POST', '/api/workbooks/received', { company: b.id, ref: sent.body.ref })).status, 404, 'another client\'s reference');
+  assert.strictEqual((await team.call('POST', '/api/workbooks/received', { company: a.id, ref: sent.body.ref })).status, 200);
+  work = await team.call('GET', '/api/cycle');
+  assert.strictEqual(states(rowA()), 'send:done receive:done upload:due review:later');
+
+  const up = await team.call('POST', '/api/upload', { company: a.id, sheets: (() => {
+    const tmp = path.join(require('os').tmpdir(), `ae-cy-${process.pid}.xlsx`); t.after(() => fs.rmSync(tmp, { force: true }));
+    fs.writeFileSync(tmp, Buffer.from(sent.body.file, 'base64'));
+    const s = xlsxRows(tmp); const data = sample('AE-0001', '2026-09');
+    s['Company & Period'].forEach((r) => { if (r[0] === 'Prepared By') r[1] = 'R. Menon'; });
+    s.Sales = [['Invoice Date', 'Invoice No', 'Customer', 'Customer Type (B2B/B2C)', 'Product / Service', 'Taxable Value']].concat(data.sales.map((x) => [x.date, x.invoice_no, x.customer, x.customer_type, x.product, x.taxable_value]));
+    return s;
+  })() });
+  assert.strictEqual(up.status, 200, JSON.stringify(up.body));
+  const one = await team.call('GET', `/api/cycle?company=${a.id}`);
+  assert.strictEqual(one.body.status.steps.find((s) => s.key === 'upload').state, 'done');
+  assert.strictEqual((await mdA.call('GET', '/api/dashboard')).body.cycle, null, 'once the month is on the dashboard the note goes');
+  assert.strictEqual((await mdA.call('GET', `/api/cycle?company=${a.id}`)).status, 403);
+});

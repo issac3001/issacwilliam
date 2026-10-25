@@ -124,6 +124,12 @@ test('each person sees their own work, managers their juniors, branches stay apa
   assert.deepStrictEqual(s.call(s.bh, 'GET /api/wf/clients').clients.map((c) => c.code), ['AE-0001']);
   assert.throws(() => s.call(s.head2, 'POST /api/wf/allot', { company_id: s.c1, division: 'direct_tax', assignee_id: s.asc2.id }), /Only the department head/);
   assert.throws(() => s.call(s.head, 'POST /api/wf/allot', { company_id: s.c1, division: 'labour', assignee_id: s.asc.id }), /Only the department head/);
+  // The portal's "My work" uses the same lines.
+  assert.deepStrictEqual(store.assignedCompanies(s.db, s.asc), [s.c1]);
+  assert.deepStrictEqual(store.assignedCompanies(s.db, s.sup), [s.c1]);
+  assert.deepStrictEqual(store.assignedCompanies(s.db, s.head2), [s.c2]);
+  assert.deepStrictEqual(store.assignedCompanies(s.db, s.bh), [s.c1]);
+  assert.strictEqual(store.assignedCompanies(s.db, s.mp), null);
   const client = s.user('c@client.in', 'client', s.c1);
   assert.throws(() => s.call(client, 'GET /api/wf/me'), /Assura Elevate team only/);
   assert.throws(() => s.call(s.user('new@x.in'), 'GET /api/wf/home'), /not been given a place/);

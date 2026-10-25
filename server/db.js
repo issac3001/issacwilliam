@@ -261,6 +261,43 @@ function markWorkbookReceived(db, ref, version) {
   db.prepare("UPDATE workbooks SET received_version = ?, received_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE ref = ? COLLATE NOCASE").run(version, ref);
 }
 
+// The month's live data with when it first arrived, or null when the month has no data.
+function periodUpload(db, companyId, period) {
+  const cur = datasetVersion(db, companyId, period);
+  if (!cur || cur.data.removed) return null;
+  const first = db.prepare('SELECT MIN(created_at) AS at FROM uploads WHERE company_id = ? AND period = ?').get(companyId, period);
+  return { version: cur.version, created_at: first.at };
+}
+
+// Clients a team member works on, from the workflow allotments when they exist. null means every client.
+// The clients a team login works on, from the practice workspace (shared/workflow.js): the clients
+// allotted to them or to anyone reporting to them; a department head's department in their branch;
+// a branch head's or Accounts' branch. null means every client (Managing Partner, admins, or a login
+// not yet placed in the structure).
+const LINE_SQL = 'WITH RECURSIVE line(id) AS (SELECT ? UNION SELECT s.user_id FROM wf_staff s JOIN line ON s.reports_to = line.id) SELECT id FROM line';
+function assignedCompanies(db, user) {
+  if (user.role === 'admin') return null;
+  const has = db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name IN ('wf_staff', 'wf_clients', 'wf_allotments')").get().n === 3;
+  const p = has && db.prepare('SELECT level, department, branch_id FROM wf_staff WHERE user_id = ?').get(user.id);
+  if (!p || p.level === 'mp') return null;
+  let rows;
+  if (p.level === 'branch_head' || p.department === 'accounts') {
+    rows = db.prepare('SELECT company_id FROM wf_clients WHERE ? IS NULL OR branch_id IS NULL OR branch_id = ?').all(p.branch_id, p.branch_id);
+  } else if (p.level === 'head') {
+    const divs = require('../shared/workflow').DIVISIONS.filter((d) => d.dept === p.department).map((d) => d.key);
+    rows = db.prepare(`SELECT DISTINCT a.company_id FROM wf_allotments a JOIN wf_clients c ON c.company_id = a.company_id
+      WHERE a.division IN (${divs.map(() => '?').join(', ') || "''"}) AND (? IS NULL OR c.branch_id IS NULL OR c.branch_id = ?)`).all(...divs, p.branch_id, p.branch_id);
+  } else {
+    rows = db.prepare(`SELECT DISTINCT company_id FROM wf_allotments WHERE assignee_id IN (${LINE_SQL})`).all(user.id);
+  }
+  return rows.map((r) => r.company_id);
+}
+
+// The accountant has returned the copy (by email, before it is uploaded).
+function markWorkbookArrived(db, companyId, ref) {
+  return db.prepare("UPDATE workbooks SET received_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE company_id = ? AND ref = ? COLLATE NOCASE AND received_at IS NULL").run(companyId, ref).changes;
+}
+
 function uploadHistory(db, companyId) {
   return db.prepare(`
     SELECT u.period, u.version, u.filename, u.source, u.sections, u.warnings, u.created_at, us.name AS uploaded_by
@@ -269,4 +306,4 @@ function uploadHistory(db, companyId) {
     .map((r) => Object.assign({}, r, { sections: JSON.parse(r.sections), warnings: JSON.parse(r.warnings) }));
 }
 
-module.exports = { issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
+module.exports = { LINE_SQL, markWorkbookArrived, periodUpload, assignedCompanies, issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };

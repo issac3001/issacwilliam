@@ -457,6 +457,60 @@ input[type=number], input[type=date] { padding: 10px 12px; border: 1px solid var
 .review-checks li { margin: 3px 0; }
 .review-table td { padding: 6px 4px; }
 
+/* ---------- the team's work ---------- */
+.side-nav.firm { flex: none; padding-top: 0; padding-bottom: 12px; }
+.side-hint { margin: 4px 12px; font-size: 12.5px; color: var(--on-panel-2); line-height: 1.45; }
+.late { color: var(--critical); }
+.work-bar { margin-bottom: 16px; }
+.work-bar input[type=month] { padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; }
+.work-stats .kpi .value small { font-size: 16px; color: var(--ink-3); }
+.work-stats .kpi .value.late { color: var(--critical); }
+.rem-list { display: flex; flex-direction: column; }
+.rem { display: flex; gap: 14px; align-items: center; padding: 12px 4px 12px 16px; border-top: 1px solid var(--line); position: relative; }
+.rem:first-child { border-top: 0; }
+.rem::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 2px; background: var(--watch); }
+.rem.overdue::before { background: var(--critical); }
+.rem-main { flex: 1; min-width: 0; }
+.rem-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rem-title { font-family: var(--font-display); font-size: 17.5px; line-height: 1.25; margin: 5px 0 2px; }
+.rem-act { flex: none; }
+.step-guide { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; color: var(--ink-2); }
+.step-guide b { display: block; color: var(--ink); font-weight: 600; }
+.work-table td { vertical-align: middle; }
+.steps { list-style: none; margin: 0; padding: 0; }
+.step { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-top: 1px solid var(--line); position: relative; }
+.step:first-child { border-top: 0; padding-top: 4px; }
+.step .dot { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink-3); margin-top: 4px; background: var(--surface); }
+.step.done .dot { background: var(--positive); border-color: var(--positive); }
+.step.overdue .dot { border-color: var(--critical); background: var(--critical-bg); }
+.step.due .dot { border-color: var(--watch); background: var(--watch-bg); }
+.step.later { opacity: .7; }
+.step-main { flex: 1; min-width: 0; }
+.step-title { font-family: var(--font-display); font-size: 18px; line-height: 1.3; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.step-act { flex: none; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.cycle-note { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; margin-bottom: 18px; background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 0 var(--radius) var(--radius) 0; }
+.cycle-note b { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+.cycle-note.late { background: var(--watch-bg); border-left-color: var(--watch); }
+.card .cycle-note { margin-bottom: 0; }
+@media (max-width: 640px) {
+  .rem, .step { flex-wrap: wrap; }
+  .rem-act, .step-act { width: 100%; justify-content: flex-start; }
+  .step-act { padding-left: 28px; }
+}
+.work-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.step-title .chip { font-family: var(--font-body); }
+@media (max-width: 640px) {
+  .work-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .work-table thead { display: none; }
+  .work-table, .work-table tbody { display: block; }
+  .work-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .work-table td { border: 0; padding: 0; text-align: left; }
+  .work-table td:first-child, .work-table td[data-label="Next step"] { grid-column: 1 / -1; }
+  .work-table td[data-label]::before { content: attr(data-label); display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 3px; }
+  .work-table td:last-child { grid-column: 1 / -1; }
+  .work-table td:last-child .link-btn { font-size: 14px; padding: 0; }
+}
+
 </style>
 <div id="app"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1772,6 +1826,92 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
 
 </script>
 <script>
+/*
+ * Assura Elevate: the monthly data cycle for one client.
+ * For a month M the Assura team sends the workbook, the client's accountant returns it,
+ * the team checks and uploads it (the dashboard updates), and then reviews the month's
+ * explanations before the client reads them. Each step has a target day in month M+1;
+ * a step past its target is overdue and shows as a reminder. Browser (window.AECycle) and Node.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.AECycle = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  // Target day of the following month for each step. Change here to change the firm's calendar.
+  const TARGET_DAY = { send: 3, receive: 10, upload: 12, review: 15 };
+  const DAY = 86400000;
+
+  // The month being worked on: the last complete calendar month, in Indian time.
+  function workingPeriod(now) {
+    const ist = new Date(now.getTime() + 5.5 * 3600000);
+    const d = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth() - 1, 1));
+    return d.toISOString().slice(0, 7);
+  }
+  const today = (now) => new Date(now.getTime() + 5.5 * 3600000).toISOString().slice(0, 10);
+  const next = (period) => { const [y, m] = period.split('-').map(Number); return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7); };
+  const target = (period, step) => `${next(period)}-${String(TARGET_DAY[step]).padStart(2, '0')}`;
+  const days = (fromIso, now) => Math.floor((now - Date.parse(fromIso)) / DAY);
+
+  /**
+   * period: 'YYYY-MM'. now: Date.
+   * workbooks: copies issued for this client and month [{ ref, method, sent_to, issued_at, received_at, received_version }].
+ *   received_at is set when the team marks the returned copy as received, or when it is uploaded.
+   * upload: the live version of the month, or null ({ version, created_at }).
+   * review: { drafts: number of suggested explanations, reviewed: number reviewed } or null when the month has no data.
+   * Returns { period, steps: [{ key, label, state, target, detail, since }], done, pending, overdue, next }.
+   * state: 'done' | 'overdue' | 'due' (target not passed yet) | 'later' (an earlier step is still open).
+   */
+  function status({ period, now, workbooks, upload, review }) {
+    const day = today(now);
+    const open = (key) => (day > target(period, key) ? 'overdue' : 'due');
+    const sent = (workbooks || []).slice().sort((a, b) => String(a.issued_at).localeCompare(String(b.issued_at)));
+    const firstSent = sent[0]; const returned = sent.find((w) => w.received_at || w.received_version);
+    const steps = [];
+    steps.push(firstSent
+      ? { key: 'send', label: 'Workbook sent to the accountant', state: 'done', at: firstSent.issued_at, detail: firstSent.method === 'email' ? `Emailed${firstSent.sent_to ? ' to ' + firstSent.sent_to : ''}` : 'Downloaded and shared' }
+      : { key: 'send', label: upload ? 'Data came in without a portal workbook' : 'Send the workbook to the accountant', state: upload ? 'done' : open('send'), detail: null });
+    steps.push(upload || returned
+      ? { key: 'receive', label: 'Data received from the accountant', state: 'done', at: (returned && returned.received_at) || (upload && upload.created_at) || null }
+      : { key: 'receive', label: 'Receive the completed workbook', state: firstSent ? open('receive') : 'later', since: firstSent ? days(firstSent.issued_at, now) : null,
+        detail: firstSent ? `Waiting ${Math.max(0, days(firstSent.issued_at, now))} day${days(firstSent.issued_at, now) === 1 ? '' : 's'} since it was sent` : null });
+    steps.push(upload
+      ? { key: 'upload', label: 'Checked and added to the dashboard', state: 'done', at: upload.created_at, detail: `Version ${upload.version}` }
+      : { key: 'upload', label: 'Check and add the data to the dashboard', state: returned ? open('upload') : 'later' });
+    if (!upload) steps.push({ key: 'review', label: 'Review the explanations for the client', state: 'later' });
+    else if (!review || !review.drafts || review.reviewed >= review.drafts) steps.push({ key: 'review', label: 'Explanations reviewed for the client', state: 'done', detail: review && review.drafts ? `${review.reviewed} reviewed` : 'Nothing material to explain' });
+    else steps.push({ key: 'review', label: 'Review the explanations for the client', state: open('review'), detail: `${review.drafts - review.reviewed} of ${review.drafts} still to review` });
+    steps.forEach((s) => { s.target = target(period, s.key); });
+    const pending = steps.filter((s) => s.state !== 'done');
+    return {
+      period, steps,
+      done: !pending.length,
+      pending: pending.filter((s) => s.state !== 'later').length,
+      overdue: pending.filter((s) => s.state === 'overdue').length,
+      next: pending.find((s) => s.state !== 'later') || null,
+    };
+  }
+
+  // What a client sees: where their month stands, without names or internal steps.
+  function forClient(st) {
+    const s = Object.fromEntries(st.steps.map((x) => [x.key, x]));
+    if (s.upload.state === 'done') return null; // the dashboard already shows the month
+    const on = (iso) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+    if (s.send.state === 'done') {
+      const after = s.receive.state === 'done' ? ' It has been received and is being checked.'
+        : s.receive.state === 'overdue' ? ` It has not been returned yet; it was due back by ${on(s.receive.target + 'T00:00:00+05:30')}. Your dashboard updates once it is returned and checked.`
+        : ' Your dashboard updates once it is returned and checked.';
+      return { period: st.period, text: `The data workbook for this month was sent to your accountant${s.send.at ? ' on ' + on(s.send.at) : ''}.${after}`, waiting: s.receive.state !== 'done', overdue: s.receive.state === 'overdue' };
+    }
+    return { period: st.period, text: 'Your Assura Elevate team will send this month\'s data workbook to your accountant shortly.', waiting: false, overdue: false };
+  }
+
+  return { status, forClient, workingPeriod, today, target, TARGET_DAY };
+});
+
+</script>
+<script>
 /* Assura Elevate: small dependency-free SVG chart helpers. */
 (function (root) {
   'use strict';
@@ -2599,12 +2739,20 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
   D.companies.forEach((c) => { c.data_email = EMAIL[c.id] || null; });
   const issued = [];
   D.companies.forEach((c) => Object.keys(c.months).sort().forEach((p) => issued.push({ company_id: c.id, period: p, ref: `${c.code}-${p}-SAMPLE`, method: 'email', sent_to: c.data_email, issued_by: 'Assura Team Member', issued_at: `${p}-28T05:30:00Z`, received_version: 1, received_at: '2026-10-07T04:30:00Z' })));
+  // A third client whose workbook for the working month is out with its accountant, so the team's
+  // work page shows a reminder. It has no figures yet.
+  const CY = window.AECycle;
+  const working = CY.workingPeriod(new Date());
+  const sentOn = new Date(Math.min(Date.now() - 3600000, Date.parse(`${CY.target(working, 'send').slice(0, 8)}02T05:30:00Z`)));
+  D.companies.push({ id: 3, code: 'AE-0003', name: 'Harbour Spices Pvt Ltd (Demo)', months: {}, data_email: 'accounts@harbourspices.demo' });
+  issued.push({ company_id: 3, period: working, ref: `AE-0003-${working}-DEMO01`, method: 'email', sent_to: 'accounts@harbourspices.demo', issued_by: 'Assura Team Member', issued_at: sentOn.toISOString(), received_version: null, received_at: null });
   const reviews = []; // reviewed explanations: { company_id, period, key, status, headline, body, ... }
-  // The demo opens with a few explanations already accepted, so the client view shows them.
+  // The demo opens with explanations already accepted, so the client view shows them: all of Coastline's,
+  // and three of Meridian's, which leaves the rest on the team's work page.
   D.companies.forEach((c) => {
     const ds = current(c.id); if (ds.length < 2) return;
     const last = ds[ds.length - 1];
-    window.AEInsights.draft(ds, window.AEAnalysis.analyse(ds), last.period).slice(0, 3).forEach((d) => {
+    window.AEInsights.draft(ds, window.AEAnalysis.analyse(ds), last.period).slice(0, c.id === 1 ? 3 : 99).forEach((d) => {
       const picked = d.causes.filter((x) => d.suggested.includes(x.id)).map((x) => x.text);
       reviews.push({ company_id: c.id, period: last.period, key: d.key, area: d.area, status: 'accepted', headline: d.headline, body: [d.movement].concat(picked).join(' '), causes: picked, data_version: 1, reviewed_by: 'Assura Team Member', reviewed_at: '2026-10-08T06:00:00Z' });
     });
@@ -2632,6 +2780,18 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     const list = uploads.filter((x) => x.company_id === cid && x.period === period).sort((a, b) => b.version - a.version);
     return version ? list.find((x) => x.version === Number(version)) : list[0];
   };
+  function cycleFor(c, period) {
+    const live = versionOf(c.id, period);
+    const ds = current(c.id);
+    const upload = live && !live.data.removed
+      ? { version: live.version, created_at: uploads.filter((x) => x.company_id === c.id && x.period === period).map((x) => x.created_at).sort()[0] } : null;
+    let review = null;
+    if (upload) {
+      const drafts = window.AEInsights.draft(ds, window.AEAnalysis.analyse(ds), period);
+      review = { drafts: drafts.length, reviewed: drafts.filter((d) => reviews.some((r) => r.company_id === c.id && r.period === period && r.key === d.key)).length };
+    }
+    return CY.status({ period, now: new Date(), workbooks: issued.filter((x) => x.company_id === c.id && x.period === period), upload, review });
+  }
   const save = (u, c, period, data, sections, warnings, source, filename) => {
     const version = 1 + Math.max(0, ...uploads.filter((x) => x.company_id === c.id && x.period === period).map((x) => x.version));
     uploads.push({ company_id: c.id, period, version, filename: filename || null, source, sections, warnings, data, created_at: new Date().toISOString(), uploaded_by: u.name });
@@ -2736,7 +2896,25 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       const ds = current(c.id);
       log(session, 'dashboard.viewed', c.id);
       return { company: c, analysis: window.AEAnalysis.analyse(ds), periods: ds.map((d) => d.period),
-        insights: reviews.filter((r) => r.company_id === c.id && r.status === 'accepted').map((r) => ({ period: r.period, key: r.key, area: r.area, headline: r.headline, body: r.body, reviewed_at: r.reviewed_at })) };
+        insights: reviews.filter((r) => r.company_id === c.id && r.status === 'accepted').map((r) => ({ period: r.period, key: r.key, area: r.area, headline: r.headline, body: r.body, reviewed_at: r.reviewed_at })),
+        cycle: CY.forClient(cycleFor(c, CY.workingPeriod(new Date()))) };
+    },
+    'GET /api/cycle': (q) => {
+      const u = needStaff();
+      const period = window.AEParse.parseMonth(q.get('period')) || CY.workingPeriod(new Date());
+      if (q.get('company')) {
+        const c = companyFor(u, q.get('company')); const status = cycleFor(c, period);
+        return { company: c, period, status, client_note: CY.forClient(status), tasks: null, history: issued.filter((x) => x.company_id === c.id).slice().reverse() };
+      }
+      return { period, today: CY.today(new Date()), assigned: false, targets: CY.TARGET_DAY,
+        clients: D.companies.map((x) => companyFor(u, x.id)).sort((a, b) => a.name.localeCompare(b.name)).map((c) => ({ company: c, status: cycleFor(c, period), tasks: null })) };
+    },
+    'POST /api/workbooks/received': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const w = issued.find((x) => x.company_id === c.id && x.ref.toUpperCase() === String(body.ref || '').trim().toUpperCase() && !x.received_at);
+      if (!w) fail(404, 'That workbook was not found for this client, or it is already marked as received.');
+      w.received_at = new Date().toISOString(); log(u, 'workbook.received', c.id, w.ref);
+      return { ok: true };
     },
     'GET /api/insights': (q) => {
       const u = needStaff(); const c = companyFor(u, q.get('company'));
@@ -2882,7 +3060,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     post(url, body) { return this.request('POST', url, body || {}); },
   };
 
-  const state = { me: null, companies: [], companyId: null, dash: null, tab: 'overview', showAllHighlights: false, upload: null, monthCache: {} };
+  const state = { me: null, companies: [], companyId: null, clientOpen: false, dash: null, tab: 'overview', showAllHighlights: false, upload: null, monthCache: {} };
   // Assura team and admins work across every client; client logins are view only.
   const isStaff = (u) => !!u && (u.role === 'team' || u.role === 'admin');
   const app = document.getElementById('app');
@@ -2956,6 +3134,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       state.me = me.user; state.companies = me.companies;
       if (me.next) { renderSetup(me.next); return; }
       state.companyId = state.companyId && me.companies.some((c) => c.id === state.companyId) ? state.companyId : (me.companies[0] || {}).id;
+      // The Assura team starts on its own work page and opens a client from there.
+      if (isStaff(state.me) && !state.clientOpen && !(history.state && history.state.aeTab)) state.tab = 'work';
       await loadDashboard();
     } catch (e) {
       if (e.status === 401) { state.me = null; renderLogin(); } else renderFatal(e);
@@ -3014,7 +3194,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       try {
         await api.post('/api/login', body);
         loginDraft = {};
-        state.tab = 'overview';
+        state.tab = 'work'; state.clientOpen = false;
         await boot();
       } catch (err) {
         const code = !!(err.data && err.data.needCode);
@@ -3087,7 +3267,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
   async function signOut() {
     await api.post('/api/logout').catch(() => {});
     drill.close(); editor.reset();
-    state.me = null; state.companyId = null; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null; state.monthCache = {};
+    state.me = null; state.companyId = null; state.clientOpen = false; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null; state.monthCache = {};
     renderLogin();
   }
 
@@ -3101,8 +3281,13 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     ['overview', 'Overview'], ['money', 'Where is the money?'], ['sales', 'Sales & customers'],
     ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'],
   ];
-  const STAFF_TABS = [['insights', 'Explanations'], ['upload', 'Data & uploads'], ['edit', 'Edit data'], ['admin', 'Clients & users']];
-  const tabsFor = (u) => TABS.concat(isStaff(u) ? STAFF_TABS : [], [['account', 'Account']]);
+  // The Assura team: its own work and the firm's clients, then the chosen client's work and dashboard.
+  const FIRM_TABS = [['work', 'My work'], ['admin', 'Clients & users']];
+  const STAFF_TABS = [['client', 'This month\'s work'], ['insights', 'Explanations'], ['upload', 'Data & uploads'], ['edit', 'Edit data']];
+  const tabsFor = (u) => (isStaff(u)
+    ? FIRM_TABS.concat(state.clientOpen ? STAFF_TABS.concat(TABS) : [], [['account', 'Account']])
+    : TABS.concat([['account', 'Account']]));
+  const homeTab = (u) => (isStaff(u) ? 'work' : 'overview');
   const ROLE_LABEL = { client: 'Client (view only)', team: 'Assura team', admin: 'Assura admin' };
   const NAV_ICON = {
     overview: 'M3 3h6v6H3zM11 3h6v4h-6zM11 9h6v8h-6zM3 11h6v6H3z',
@@ -3114,6 +3299,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     upload: 'M10 13V3M6 7l4-4 4 4M3 13v4h14v-4',
     edit: 'M4 16l1-4 8-8 3 3-8 8zM12 5l3 3',
     admin: 'M7 9a3 3 0 100-6 3 3 0 000 6zM2 17c0-3 2-5 5-5s5 2 5 5M14 9a2.5 2.5 0 100-5M15 12c2 .5 3 2 3 5',
+    work: 'M3 5h14v12H3zM7 5V3h6v2M3 10h14M9 10v2h2v-2',
+    client: 'M4 3h9l3 3v11H4zM7 9l2 2 4-4M7 14h6',
     account: 'M10 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM3 18c0-4 3-6 7-6s7 2 7 6',
   };
   const navIcon = (k) => `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="${NAV_ICON[k]}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -3129,9 +3316,20 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     const st = e.state || {};
     if (st.aeDrill || !state.me) return;
     if (menuOpen && !st.aeMenu) { setMenu(false); return; }
-    const tab = st.aeTab || 'overview';
+    const tab = st.aeTab || homeTab(state.me);
+    if (st.aeCompany && st.aeCompany !== state.companyId && state.companies.some((c) => c.id === st.aeCompany)) {
+      state.companyId = st.aeCompany; state.clientOpen = true; state.tab = tab; state.upload = null; editor.reset(); loadDashboard(); return;
+    }
     if (tab !== state.tab && tabsFor(state.me).some(([k]) => k === tab)) { state.tab = tab; state.showAllHighlights = false; render(); window.scrollTo(0, 0); }
   });
+  // A team member opens a client: its work page first, then its dashboard and data.
+  async function openClient(id, tab) {
+    tab = tab || 'client';
+    if (id !== state.companyId) { state.companyId = id; editor.reset(); }
+    state.clientOpen = true; state.upload = null; state.showAllHighlights = false;
+    history.pushState({ aeTab: tab, aeCompany: id }, '');
+    state.tab = tab; await loadDashboard(); window.scrollTo(0, 0);
+  }
   let menuOpen = false;
   function setMenu(open) {
     menuOpen = open;
@@ -3148,14 +3346,16 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     app.innerHTML = `
       <div class="shell">
         <aside class="side" aria-label="Main menu">
-          <div class="side-top"><a class="wordmark" href="#" data-tab="overview" aria-label="Assura Elevate, overview">${LOGO}</a></div>
+          <div class="side-top"><a class="wordmark" href="#" data-tab="${homeTab(u)}" aria-label="Assura Elevate, ${isStaff(u) ? 'my work' : 'overview'}">${LOGO}</a></div>
+          ${isStaff(u) ? `<nav class="side-nav firm" aria-label="Assura workspace">${FIRM_TABS.map((t) => navItem(t)).join('')}</nav>` : ''}
           ${isStaff(u) && state.companies.length
-            ? `<div class="side-client"><label for="company">Client</label><select id="company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.name)} · ${esc(c.code)}</option>`).join('')}</select></div>`
-            : company ? `<div class="side-client"><span class="lbl">Company</span><b>${esc(company.name)}</b><span class="code">${esc(company.code)}</span></div>` : ''}
+            ? `<div class="side-client"><label for="company">Client</label><select id="company">${state.clientOpen ? '' : '<option value="" selected>Choose a client…</option>'}${state.companies.map((c) => `<option value="${c.id}" ${state.clientOpen && c.id === state.companyId ? 'selected' : ''}>${esc(c.name)} · ${esc(c.code)}</option>`).join('')}</select></div>`
+            : company && !isStaff(u) ? `<div class="side-client"><span class="lbl">Company</span><b>${esc(company.name)}</b><span class="code">${esc(company.code)}</span></div>` : ''}
           <nav class="side-nav" aria-label="Sections">
-            <div class="nav-group">Dashboard</div>
-            ${TABS.map(navItem).join('')}
-            ${isStaff(u) ? `<div class="nav-group">Assura workspace</div>${STAFF_TABS.map((t) => navItem(t)).join('')}` : ''}
+            ${isStaff(u)
+              ? (state.clientOpen ? `<div class="nav-group">Client work</div>${STAFF_TABS.map((t) => navItem(t)).join('')}<div class="nav-group">Client dashboard</div>${TABS.map(navItem).join('')}`
+                : '<p class="side-hint">Choose a client, or open one from My work, to see its work and dashboard.</p>')
+              : `<div class="nav-group">Dashboard</div>${TABS.map(navItem).join('')}`}
           </nav>
           <div class="side-foot">
             ${navItem(['account', 'Account'])}
@@ -3175,7 +3375,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       </div>`;
     app.querySelector('#logout').addEventListener('click', signOut);
     const sel = app.querySelector('#company');
-    if (sel) sel.addEventListener('change', async () => { state.companyId = Number(sel.value); state.upload = null; editor.reset(); await loadDashboard(); });
+    if (sel) sel.addEventListener('change', () => { if (sel.value) openClient(Number(sel.value), state.clientOpen && state.tab !== 'work' && state.tab !== 'admin' ? state.tab : 'client'); });
     // From the open phone menu, the menu's own history step becomes the new section's step.
     app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', (e) => {
       e.preventDefault();
@@ -3186,16 +3386,18 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     app.querySelector('#scrim').addEventListener('click', () => history.back());
 
     const page = app.querySelector('#page');
-    if (!tabsFor(u).some(([k]) => k === state.tab)) state.tab = 'overview';
+    if (!tabsFor(u).some(([k]) => k === state.tab)) state.tab = homeTab(u);
+    if (state.tab === 'work') { workPage(page); return; }
     if (state.tab === 'admin') { adminPage(page); return; }
     if (state.tab === 'account') { accountPage(page); return; }
     if (!company) { page.innerHTML = `<div class="card empty">${isStaff(u) ? 'No client companies yet. Add one under Clients &amp; users.' : 'No company is linked to this login yet.'}</div>`; return; }
+    if (state.tab === 'client') { clientWorkPage(page, company); return; }
     if (state.tab === 'edit') { editor.render(page, company); if (state.upload) { page.querySelector('.page-head').insertAdjacentHTML('afterend', state.upload); state.upload = null; } return; }
     const a = state.dash && state.dash.analysis;
     if (state.tab !== 'upload' && (!a || !a.months.length)) {
       page.innerHTML = isStaff(u)
         ? `<div class="card empty"><h2>No data yet</h2><p>Upload the first monthly workbook for ${esc(company.name)} and the dashboard builds itself here.</p><button class="btn" data-go="upload">Go to Data & uploads</button></div>`
-        : `<div class="card empty"><h2>Your dashboard is being prepared</h2><p>Your Assura Elevate team uploads your monthly figures. The dashboard appears here as soon as the first month is in.</p></div>`;
+        : `<div class="card empty"><h2>Your dashboard is being prepared</h2><p>Your Assura Elevate team uploads your monthly figures. The dashboard appears here as soon as the first month is in.</p>${state.dash && state.dash.cycle ? `<p class="muted">${esc(state.dash.cycle.text)}</p>` : ''}</div>`;
       const go = page.querySelector('[data-go]'); if (go) go.addEventListener('click', () => goTab('upload'));
       return;
     }
@@ -3269,7 +3471,8 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
   function overview(page, a, company) {
     const ms = a.months; const cur = ms[ms.length - 1];
     const counts = ['critical', 'watch', 'positive', 'info'].map((s) => [s, a.highlights.filter((h) => h.severity === s).length]).filter((x) => x[1]);
-    page.innerHTML = head('Management dashboard', company.name, a) + `<div id="kpis"></div>
+    const note = state.dash && state.dash.cycle;
+    page.innerHTML = head('Management dashboard', company.name, a) + (note ? `<div class="cycle-note${note.overdue ? ' late' : ''}" role="status"><b>${mLong(note.period)} figures</b><span>${esc(note.text)}</span></div>` : '') + `<div id="kpis"></div>
       ${explained(a)}
       <div class="grid g-main section">
         <div class="card">
@@ -3302,6 +3505,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
             <li>Automated highlights: trends, ageing, concentration, unusual spend, purchase rates, compliance due dates</li>
             <li>Explanations of what moved each month and why, traced to the transactions and reviewed by the Assura team before they appear here</li>
             <li>Monthly workbook made for each client and month, with company, month and reference locked on its first sheet, sent from the portal</li>
+            <li>My work page for the team: each client's monthly data cycle with overdue reminders</li>
             <li>Every upload is checked against the selected company, month and workbook reference, and reviewed before it is accepted</li></ul></div>
           <div><b>Planned</b><ul>
             <li>Review and sign-off steps for the Assura team's monthly work</li>
@@ -3668,7 +3872,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
       } catch (err) { page.querySelector('#u-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
     });
     page.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', async () => {
-      state.companyId = Number(b.dataset.open); editor.reset(); history.pushState({ aeTab: 'overview' }, ''); state.tab = 'overview'; await loadDashboard(); window.scrollTo(0, 0);
+      openClient(Number(b.dataset.open), 'client');
     }));
     page.querySelectorAll('[data-rename]').forEach((b) => b.addEventListener('click', () => {
       const td = b.closest('tr').children[1];
@@ -3707,6 +3911,126 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
   }
 
   // ---------- Data & uploads ----------
+  // ---------- the team's work ----------
+  const STEP_CHIP = { done: ['positive', 'Done'], overdue: ['critical', 'Overdue'], due: ['watch', 'To do'], later: ['info', 'Not yet'] };
+  // Where each step is done in the portal.
+  const STEP_TAB = { send: ['upload', 'Send the workbook'], receive: ['upload', 'Upload the returned copy'], upload: ['upload', 'Check and upload'], review: ['insights', 'Review explanations'] };
+  const dayMonth = (iso) => `${+iso.slice(8, 10)} ${MONTHS[+iso.slice(5, 7) - 1]}`;
+  const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+  const whenText = (s, today) => (s.state === 'done' ? (s.at ? `Done ${dayMonth(String(s.at).slice(0, 10))}` : 'Done')
+    : s.state === 'overdue' ? `Was due ${dayMonth(s.target)} · ${daysBetween(s.target, today)} day${daysBetween(s.target, today) === 1 ? '' : 's'} late`
+    : `Due ${dayMonth(s.target)}`);
+  const greeting = () => { const h = +new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
+  let workView = { period: null };
+
+  async function workPage(page) {
+    const u = state.me;
+    page.innerHTML = head('My work', `${greeting()}, ${u.name.split(' ')[0]}`, null) + '<div id="work-body"><div class="card empty">Gathering your clients…</div></div>';
+    let r;
+    try { r = await api.get(`/api/cycle${workView.period ? `?period=${workView.period}` : ''}`); } catch (e) { page.querySelector('#work-body').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+    const body = page.querySelector('#work-body'); if (!body) return;
+    const rows = r.clients;
+    const reminders = [];
+    rows.forEach((x) => x.status.steps.forEach((s) => { if (s.state === 'overdue' || s.state === 'due') reminders.push({ c: x.company, s }); }));
+    reminders.sort((a, b) => (a.s.state === 'overdue' ? 0 : 1) - (b.s.state === 'overdue' ? 0 : 1) || a.s.target.localeCompare(b.s.target) || a.c.name.localeCompare(b.c.name));
+    const count = (f) => rows.filter(f).length;
+    const awaiting = count((x) => x.status.steps.some((s) => s.key === 'receive' && s.state !== 'done' && s.state !== 'later'));
+    const hasTasks = rows.some((x) => x.tasks);
+    const COL = { send: 'Workbook sent', receive: 'Data received', upload: 'On dashboard', review: 'Explanations' };
+    const stepCell = (x, key) => { const s = x.status.steps.find((t) => t.key === key); return `<td data-label="${COL[key]}">${chip(STEP_CHIP[s.state][0], STEP_CHIP[s.state][1])}</td>`; };
+    const T = r.targets;
+    body.innerHTML = `
+      <div class="editor-bar work-bar"><div><label for="work-month">Month being worked on</label><input type="month" id="work-month" value="${r.period}"></div>
+        <p class="muted small" style="margin:0;flex:1">${rows.length} client${rows.length === 1 ? '' : 's'}${r.assigned ? ' allotted to you' : ''}. Each month's data is due in the month after: workbook sent by the ${T.send}${T.send === 3 ? 'rd' : 'th'}, back from the accountant by the ${T.receive}th, on the dashboard by the ${T.upload}th and explanations reviewed by the ${T.review}th.</p></div>
+      <div class="kpis work-stats">
+        <div class="kpi"><div class="label">Overdue</div><div class="value${reminders.some((x) => x.s.state === 'overdue') ? ' late' : ''}">${reminders.filter((x) => x.s.state === 'overdue').length}</div><div class="delta">reminders past their date</div></div>
+        <div class="kpi"><div class="label">To do</div><div class="value">${reminders.filter((x) => x.s.state === 'due').length}</div><div class="delta">due this month</div></div>
+        <div class="kpi"><div class="label">Awaiting data</div><div class="value">${awaiting}</div><div class="delta">workbook with the accountant</div></div>
+        <div class="kpi"><div class="label">Complete</div><div class="value">${count((x) => x.status.done)}<small> / ${rows.length}</small></div><div class="delta">${mLong(r.period)} done</div></div>
+      </div>
+      <div class="grid g-main section">
+        <div class="card"><div class="card-head"><h3>Reminders</h3><span class="muted small">${mLong(r.period)}</span></div>
+          ${reminders.length ? `<div class="rem-list">${reminders.map((x) => `
+            <div class="rem ${x.s.state}">
+              <div class="rem-main"><div class="rem-top">${chip(STEP_CHIP[x.s.state][0], STEP_CHIP[x.s.state][1])}<span class="hl-area">${esc(x.c.name)}</span></div>
+                <div class="rem-title">${esc(x.s.label)}</div>
+                <div class="muted small">${esc(whenText(x.s, r.today))}${x.s.detail ? ' · ' + esc(x.s.detail) : ''}</div></div>
+              <div class="rem-act"><button class="btn secondary" type="button" data-open-client="${x.c.id}" data-tab-to="${STEP_TAB[x.s.key][0]}">${esc(STEP_TAB[x.s.key][1])}</button></div>
+            </div>`).join('')}</div>` : `<p class="muted">Nothing pending for ${mLong(r.period)}. Every client's data is in and reviewed.</p>`}
+        </div>
+        <div class="card"><div class="card-head"><h3>What each step means</h3></div>
+          <ol class="step-guide">
+            <li><b>Workbook sent</b> From the client's Data &amp; uploads page, by email or as a download. Each copy is locked to the client and month.</li>
+            <li><b>Data received</b> The accountant returns the workbook. Mark it received when it arrives, or upload it straight away.</li>
+            <li><b>On the dashboard</b> The returned copy is checked against the client and month and accepted.</li>
+            <li><b>Explanations reviewed</b> The month's suggested explanations are accepted or set aside, so the client reads only what the team has approved.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="card section"><div class="card-head"><h3>Clients</h3><span class="muted small">Open a client to work on it and see its dashboard</span></div>
+        <div class="table-wrap"><table class="work-table"><thead><tr><th>Client</th><th>Workbook sent</th><th>Data received</th><th>On dashboard</th><th>Explanations</th>${hasTasks ? '<th class="r">Workflow tasks</th>' : ''}<th>Next step</th><th></th></tr></thead><tbody>
+        ${rows.map((x) => `<tr><td><b>${esc(x.company.name)}</b><div class="muted small">${esc(x.company.code)}</div></td>
+          ${stepCell(x, 'send')}${stepCell(x, 'receive')}${stepCell(x, 'upload')}${stepCell(x, 'review')}
+          ${hasTasks ? `<td class="r num" data-label="Workflow tasks">${x.tasks ? `${x.tasks.open}${x.tasks.overdue ? ` <span class="late">(${x.tasks.overdue} late)</span>` : ''}` : '–'}</td>` : ''}
+          <td class="small" data-label="Next step">${x.status.next ? esc(x.status.next.label) : '<span class="muted">All done</span>'}</td>
+          <td class="r"><button class="link-btn" type="button" data-open-client="${x.company.id}" data-tab-to="client">Open ›</button></td></tr>`).join('')}
+        </tbody></table></div>
+        ${hasTasks && !window.AE_DEMO_API ? '<p class="muted small" style="margin:10px 0 0">Tasks, approvals and sign-offs are in <a href="/workflow">Workflow</a>.</p>' : ''}
+      </div>`;
+    body.querySelector('#work-month').addEventListener('change', (e) => { workView.period = e.target.value || null; workPage(page); });
+    body.querySelectorAll('[data-open-client]').forEach((b) => b.addEventListener('click', () => openClient(Number(b.dataset.openClient), b.dataset.tabTo)));
+  }
+
+  // One client's month: what is done, what is pending and who it is waiting on, before its dashboard.
+  async function clientWorkPage(page, company) {
+    const period = workView.period;
+    page.innerHTML = head('This month\'s work', company.name, null, `<button class="btn secondary" type="button" data-to="overview">Open the dashboard ›</button>`) + '<div id="cw-body"><div class="card empty">Loading…</div></div>';
+    page.querySelector('[data-to]').addEventListener('click', () => goTab('overview'));
+    let r;
+    try { r = await api.get(`/api/cycle?company=${company.id}${period ? `&period=${period}` : ''}`); } catch (e) { page.querySelector('#cw-body').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+    const body = page.querySelector('#cw-body'); if (!body) return;
+    const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+    const st = r.status;
+    const open = r.history.filter((w) => w.period === r.period && !w.received_at && !w.received_version);
+    const action = (s) => {
+      if (s.state === 'done' || s.state === 'later') return '';
+      const go = `<button class="btn${s.state === 'overdue' ? '' : ' secondary'}" type="button" data-go-tab="${STEP_TAB[s.key][0]}">${esc(STEP_TAB[s.key][1])}</button>`;
+      return s.key === 'receive' && open.length ? `<button class="btn secondary" type="button" data-received="${esc(open[0].ref)}">Mark as received</button>${go}` : go;
+    };
+    body.innerHTML = `
+      <div class="grid g-main">
+        <div class="card"><div class="card-head"><h3>${mLong(r.period)} data</h3>${st.done ? chip('positive', 'Complete') : st.overdue ? chip('critical', `${st.overdue} overdue`) : chip('watch', `${st.pending} to do`)}</div>
+          <ol class="steps">${st.steps.map((s) => `
+            <li class="step ${s.state}"><span class="dot" aria-hidden="true"></span>
+              <div class="step-main"><div class="step-title">${esc(s.label)} ${s.state === 'done' ? '' : chip(STEP_CHIP[s.state][0], STEP_CHIP[s.state][1])}</div>
+                <div class="muted small">${esc(whenText(s, today))}${s.detail ? ' · ' + esc(s.detail) : ''}</div></div>
+              <div class="step-act">${action(s)}</div></li>`).join('')}
+          </ol>
+          <div id="cw-msg"></div>
+        </div>
+        <div class="grid" style="align-content:start">
+          <div class="card"><div class="card-head"><h3>What the client sees</h3></div>
+            ${r.client_note ? `<div class="cycle-note${r.client_note.overdue ? ' late' : ''}"><b>${mLong(r.client_note.period)} figures</b><span>${esc(r.client_note.text)}</span></div>
+              <p class="muted small" style="margin:10px 0 0">Shown on the client's dashboard until the month's data is in. It names no one and gives no internal detail.</p>`
+              : `<p class="muted" style="margin:0">${mLong(r.period)} is on the client's dashboard${st.steps.find((s) => s.key === 'review').state === 'done' ? ' with its reviewed explanations.' : '. Explanations still to review are not shown to the client until they are accepted.'}</p>`}
+          </div>
+          ${r.tasks ? `<div class="card"><div class="card-head"><h3>Workflow</h3></div><p style="margin:0">${r.tasks.open} open task${r.tasks.open === 1 ? '' : 's'}${r.tasks.overdue ? `, <span class="late">${r.tasks.overdue} late</span>` : ''}. <a href="/workflow">Open Workflow</a></p></div>` : ''}
+        </div>
+      </div>
+      <div class="card section"><div class="card-head"><h3>Workbooks sent</h3><span class="muted small">Every copy, with its reference</span></div>
+        ${r.history.length ? `<div class="table-wrap"><table><thead><tr><th>Month</th><th>Reference</th><th>How</th><th>Sent</th><th>Status</th></tr></thead><tbody>
+          ${r.history.map((x) => `<tr><td>${mShort(x.period)}</td><td class="num nowrap">${esc(x.ref)}</td><td>${x.method === 'email' ? 'Emailed to ' + esc(x.sent_to || '') : 'Downloaded'}</td><td class="num nowrap">${esc(stamp(x.issued_at))}</td>
+            <td>${x.received_version ? chip('positive', `Uploaded, v${x.received_version}`) : x.received_at ? chip('watch', 'Received, to upload') : chip('info', 'With the accountant')}</td></tr>`).join('')}</tbody></table></div>`
+          : '<p class="muted">No workbooks sent yet. Send the first from Data &amp; uploads.</p>'}
+      </div>`;
+    body.querySelectorAll('[data-go-tab]').forEach((b) => b.addEventListener('click', () => goTab(b.dataset.goTab)));
+    body.querySelectorAll('[data-received]').forEach((b) => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try { await api.post('/api/workbooks/received', { company: company.id, ref: b.dataset.received }); clientWorkPage(page, company); }
+      catch (e) { body.querySelector('#cw-msg').innerHTML = `<div class="msg err">${esc(e.message)}</div>`; b.disabled = false; }
+    }));
+  }
+
   function uploadPage(page, a, company) {
     const canUpload = isStaff(state.me);
     const hist = (state.history && state.history.uploads) || [];
@@ -3844,7 +4168,7 @@ window.AE_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.sprea
     if (!w.mail_ready) { emailBtn.disabled = true; emailBtn.title = 'Email is not set up on this server yet'; if (!msg.innerHTML) msg.innerHTML = '<p class="muted small" style="margin:10px 0 0">Email is not set up on this server yet, so download a filled copy and send it from your mailbox. Each download is recorded with its own reference.</p>'; }
     else if (!w.data_email) emailBtn.disabled = true;
     const go = page.querySelector('#wb-card [data-go]'); if (go) go.addEventListener('click', (e) => { e.preventDefault(); goTab('admin'); });
-    const STATUS = (x) => (x.received_version ? chip('positive', `Received, v${x.received_version}`) : chip('watch', 'Awaiting return'));
+    const STATUS = (x) => (x.received_version ? chip('positive', `Uploaded, v${x.received_version}`) : x.received_at ? chip('watch', 'Received, to upload') : chip('watch', 'Awaiting return'));
     list.innerHTML = w.workbooks.length ? `<div class="table-wrap"><table><thead><tr><th>Month</th><th>Reference</th><th>How</th><th>By</th><th>When</th><th>Status</th></tr></thead><tbody>
       ${w.workbooks.map((x) => `<tr><td>${mShort(x.period)}</td><td class="num nowrap">${esc(x.ref)}</td><td>${x.method === 'email' ? 'Emailed to ' + esc(x.sent_to || '') : 'Downloaded'}</td><td>${esc(x.issued_by || '–')}</td><td class="num nowrap">${esc(stamp(x.issued_at))}</td><td>${STATUS(x)}</td></tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">No workbooks sent for this client yet.</p>';
