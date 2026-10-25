@@ -27,6 +27,7 @@ const STATIC_EXTRA = {
   '/shared/analysis.js': path.join(__dirname, '..', 'shared', 'analysis.js'),
   '/shared/edit.js': path.join(__dirname, '..', 'shared', 'edit.js'),
   '/shared/schema.json': path.join(__dirname, '..', 'shared', 'schema.json'),
+  '/shared/workflow.js': path.join(__dirname, '..', 'shared', 'workflow.js'),
   '/workflow': path.join(__dirname, '..', 'public', 'workflow.html'),
 };
 // The blank workbook is never handed out as it is: each copy is filled for one client and month.
@@ -567,7 +568,23 @@ function createApp(db, opts = {}) {
         const u = requireStaff(req);
         const body = req.method === 'POST' ? await readJson(req) : {};
         let out;
-        try { out = wf.call(u, `${req.method} ${url.pathname}`, Object.fromEntries(url.searchParams), body); }
+        try {
+          // Invoices go to the client's billing email and partners on record, from the firm's mail account.
+          if (req.method === 'POST' && url.pathname === '/api/wf/billing/sent' && !body.manual) {
+            const inv = wf.call(u, 'GET /api/wf/billing/invoice', { id: String(body.id) });
+            if (inv.invoice.status !== 'invoiced') throw new HttpError(400, 'This invoice has already been sent.');
+            const to = (Array.isArray(body.to) ? body.to : []).filter((a) => inv.to.includes(a));
+            if (!to.length) throw new HttpError(400, 'Choose at least one of the client\'s addresses on record.');
+            if (!mailCfg) throw new HttpError(503, 'Email is not set up on this server yet. Print the invoice and send it yourself, then record it as sent.');
+            const s = inv.settings; const b = inv.invoice;
+            await mail.sendMail(mailCfg, {
+              to, replyTo: `${u.name} <${u.email}>`, subject: `${s.firm_name}: invoice ${b.invoice_no} for ${b.name}`,
+              text: `Dear Sir or Madam,\n\nPlease find our invoice ${b.invoice_no} dated ${b.invoice_date} for professional fees for ${b.bill_month}, billed in advance: Rs ${b.total.toLocaleString('en-IN')} including GST.\n\n${s.bank_details ? 'Payment details:\n' + s.bank_details + '\n\n' : ''}Regards,\n${u.name}\n${s.firm_name}`,
+              html: workflow.renderInvoice(inv),
+            });
+            body.to = to;
+          }
+          out = wf.call(u, `${req.method} ${url.pathname}`, Object.fromEntries(url.searchParams), body); }
         catch (e) { if (e instanceof workflow.WfError) throw new HttpError(e.status, e.message); throw e; }
         if (req.method === 'POST') log(req, u, `workflow.${url.pathname.slice(8).replace(/\//g, '.')}`, { detail: JSON.stringify(body).slice(0, 300) });
         send(res, 200, out);

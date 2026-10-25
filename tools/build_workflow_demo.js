@@ -20,7 +20,7 @@ const html = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Assura Elevate · Workflow</title>
+<title>Assura Elevate · Practice workspace</title>
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" href="data:image/png;base64,${B64('public', 'brand', 'favicon.png')}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
