@@ -211,12 +211,24 @@
     const ds = S.meta.divisions.filter((x) => x.dept === d.key && (!allowed || allowed.includes(x.key)));
     return ds.length ? `<optgroup label="${esc(d.name)}">${ds.map((x) => `<option value="${x.key}" ${sel === x.key ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</optgroup>` : '';
   }).join('');
+  // The monthly data cycle (workbook sent, returned by the client's accountant, on the dashboard, explained)
+  // comes from the portal. The preview has no portal, so these parts are left out there.
+  const cycleGet = (url) => (demo ? Promise.resolve(null) : get(url).catch(() => null));
+  const STEP_STATE = { done: 'Done', overdue: 'Overdue', due: 'Due', later: 'Later' };
+  const portalLink = (id, view, label) => (demo ? '' : `<a href="/?company=${id}${view ? '&view=' + view : ''}">${esc(label)}</a>`);
+  function dataRow(c) {
+    const n = c.status.next;
+    return `<a class="wf-row ${n.state === 'overdue' ? 't-delayed' : n.state === 'due' ? 't-behind' : ''}" href="/?company=${c.company.id}"><div><div class="co">${esc(c.company.name)}</div>
+      <div class="ti">${esc(n.label)}${n.detail ? ` · ${esc(n.detail)}` : ''}</div></div>
+      <div class="due"><b>${esc(STEP_STATE[n.state] || n.state)}</b>${n.since ? `${plural(n.since, 'day')} waiting` : n.target ? `Target ${dShort(n.target)}` : ''}</div></a>`;
+  }
   const branchFilter = (rows) => (S.branch ? rows.filter((x) => String(x.branch_id) === String(S.branch)) : rows);
 
   // ---------- Home ----------
   async function home() {
-    const h = await get(`/api/wf/home?period=${S.period}`);
+    const [h, data] = await Promise.all([get(`/api/wf/home?period=${S.period}`), cycleGet('/api/cycle')]);
     const p = me();
+    const dataDue = data ? data.clients.filter((c) => c.status.next && c.status.next.state !== 'later').sort((a, b) => (b.status.next.state === 'overdue') - (a.status.next.state === 'overdue')) : [];
     const hour = +new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false });
     const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     const m = h.month;
@@ -247,6 +259,8 @@
         <div>
           ${h.reportsDue.length || h.myActions.length ? `<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Reports and corrective actions</h3></div>
             ${h.reportsDue.slice(0, 4).map(reportRow).join('')}${h.myActions.map(actionRow).join('')}</div>` : ''}
+          ${data ? `<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Monthly data from clients</h3><span class="muted small">${mLong(data.period)}</span></div>
+            ${dataDue.length ? `<div class="wf-list">${dataDue.slice(0, 8).map(dataRow).join('')}</div>${dataDue.length > 8 ? `<a class="small" href="/">All ${dataDue.length} clients ›</a>` : ''}` : '<p class="muted">Every client\'s data is in for the month.</p>'}</div>` : ''}
           <div class="card"><div class="card-head"><h3>${p.level === 'mp' ? 'Flags for your decision' : 'Open flags'}</h3></div>
             ${h.flags.length ? h.flags.map((f) => `<a class="wf-row" href="#/task/${f.task_id}"><div><div class="co">${esc(f.company_name)}</div><div class="ti">${esc(f.reason)}</div>
               <div class="meta"><span class="wf-pill dept">${esc(divShort(f.division))}</span><span class="muted small">Raised by ${esc(f.raised_by_name)} · ${stamp(f.raised_at)}</span></div></div></a>`).join('') : '<p class="muted">No open flags.</p>'}</div>
@@ -467,7 +481,7 @@
 
   async function client(r) {
     if (r.id === 'new') return newClient();
-    const d = await get(`/api/wf/client?id=${encodeURIComponent(r.id)}&period=${S.period}`);
+    const [d, data] = await Promise.all([get(`/api/wf/client?id=${encodeURIComponent(r.id)}&period=${S.period}`), cycleGet(`/api/cycle?company=${encodeURIComponent(r.id)}&period=${S.period}`)]);
     const c = d.client; const pr = Object.assign({ name: c.name }, d.profile);
     const can = d.can;
     const allotRow = (a) => {
@@ -493,11 +507,15 @@
     const page = shell('client', `
       ${backBtn('#/clients', 'Clients')}
       <div class="page-head"><div><div class="eyebrow">${esc(c.code)}${c.entity_type ? ' · ' + esc(S.entities[c.entity_type].name) : ''}${c.branch_name ? ' · ' + esc(c.branch_name) : ''}</div><h1>${esc(c.name)}</h1>
-        <div class="muted" style="margin-top:6px">${c.onboarded ? `Fee ${inr(c.monthly_fee)} a month · target day ${c.target_day}${pr.onboarded_on ? ` · onboarded ${dLong(pr.onboarded_on)}` : ''}` : 'Complete the client record below to allot work.'}</div></div></div>
+        <div class="muted" style="margin-top:6px">${c.onboarded ? `Fee ${inr(c.monthly_fee)} a month · target day ${c.target_day}${pr.onboarded_on ? ` · onboarded ${dLong(pr.onboarded_on)}` : ''}` : 'Complete the client record below to allot work.'}</div></div>
+        ${demo ? '' : `<div class="btn-row"><a class="btn secondary small" href="/?company=${c.id}">This month's data</a><a class="btn small" href="/?company=${c.id}&view=overview">Open client dashboard</a></div>`}</div>
       <div id="cmsg"></div>
       <div class="grid g-main">
         <div>
           <div class="card"><div class="card-head"><h3>Allotment</h3><span class="muted small">One person per division until replaced; open work moves with the client</span></div>${byDept || '<p class="muted">Complete the record first.</p>'}</div>
+          ${data ? `<div class="card section"><div class="card-head"><h3>Monthly data for ${mLong(data.period)}</h3>${portalLink(c.id, '', 'Open ›')}</div>
+            <div class="wf-list">${data.status.steps.map((st) => `<div class="wf-row t-${st.state === 'overdue' ? 'delayed' : st.state === 'due' ? 'behind' : st.state === 'done' ? 'on_time' : ''}"><div><div class="co">${esc(st.label)}</div>${st.detail ? `<div class="ti">${esc(st.detail)}</div>` : ''}</div>
+              <div class="due"><b>${esc(STEP_STATE[st.state] || st.state)}</b>${st.state === 'done' ? (st.at ? stamp(st.at) : '') : st.since ? `${plural(st.since, 'day')} waiting` : `Target ${dShort(st.target)}`}</div></div>`).join('')}</div></div>` : ''}
           <div class="card section"><div class="card-head"><h3>Work for ${mLong(d.period)}</h3></div>${list(d.tasks, 'No work for this month yet.', { showCompany: false })}</div>
           <div class="card section"><div class="card-head"><h3>Documents received</h3><span class="muted small">Only from the contacts listed here</span></div>
             ${docRows(d.documents, can.set_aside) || '<p class="muted small" style="margin:0">No documents logged yet.</p>'}${docForm('cdocf')}</div>

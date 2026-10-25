@@ -519,6 +519,8 @@ test('the team sees each client\'s month: sent, received, uploaded, reviewed, wi
   const team = client(port); await team.login('team@x.test'); await enrolStaff(team);
   const mdA = client(port); await mdA.login('md@a.test');
   assert.strictEqual((await mdA.call('GET', '/api/cycle')).status, 403, 'clients do not see the team\'s work');
+  assert.strictEqual((await team.call('GET', '/api/me')).body.workflow, fs.existsSync(path.join(ROOT, 'public', 'workflow.html')), 'team logins start in Workflow only where it is installed');
+  assert.strictEqual((await mdA.call('GET', '/api/me')).body.workflow, false);
 
   const states = (row) => row.status.steps.map((s) => `${s.key}:${s.state}`).join(' ');
   let work = await team.call('GET', '/api/cycle');

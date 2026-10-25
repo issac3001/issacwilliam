@@ -190,10 +190,10 @@
       const period = window.AEParse.parseMonth(q.get('period')) || CY.workingPeriod(new Date());
       if (q.get('company')) {
         const c = companyFor(u, q.get('company')); const status = cycleFor(c, period);
-        return { company: c, period, status, client_note: CY.forClient(status), tasks: null, history: issued.filter((x) => x.company_id === c.id).slice().reverse() };
+        return { company: c, period, status, client_note: CY.forClient(status), history: issued.filter((x) => x.company_id === c.id).slice().reverse() };
       }
       return { period, today: CY.today(new Date()), assigned: false, targets: CY.TARGET_DAY,
-        clients: D.companies.map((x) => companyFor(u, x.id)).sort((a, b) => a.name.localeCompare(b.name)).map((c) => ({ company: c, status: cycleFor(c, period), tasks: null })) };
+        clients: D.companies.map((x) => companyFor(u, x.id)).sort((a, b) => a.name.localeCompare(b.name)).map((c) => ({ company: c, status: cycleFor(c, period) })) };
     },
     'POST /api/workbooks/received': (q, body) => {
       const u = needStaff(); const c = companyFor(u, body.company);
