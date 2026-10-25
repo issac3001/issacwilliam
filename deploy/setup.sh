@@ -52,8 +52,8 @@ systemctl daemon-reload
 systemctl enable --now assura-elevate
 systemctl reload caddy || systemctl restart caddy
 
-# Daily encrypted backup at 02:15 server time.
-cat > /etc/cron.d/assura-elevate-backup <<CRON
+# Hourly encrypted backup, checked each time (see tools/backup.js).
+install -m 644 /srv/assura/app/deploy/assura-backup.cron /etc/cron.d/assura-elevate-backup
 15 2 * * * assura cd /srv/assura/app && set -a && . /srv/assura/assura.env && set +a && /usr/bin/node --no-warnings tools/backup.js >> /srv/assura/backups/backup.log 2>&1
 CRON
 

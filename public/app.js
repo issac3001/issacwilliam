@@ -769,6 +769,24 @@
     'data.edited': 'Edited data', 'data.restored': 'Restored a version', 'data.month_removed': 'Removed a month', 'admin.reset-password': 'Reset password', 'admin.reset-2fa': 'Reset two-step login', 'admin.disable': 'Switched off login', 'admin.enable': 'Switched on login',
   };
 
+  // Backups: the last one, whether it opened cleanly, what is kept, and the copy away from the server.
+  function backupCard(b) {
+    const mb = (n) => (n == null ? '–' : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${(n / 1e6).toFixed(1)} MB`);
+    const hoursAgo = b.last_backup_at ? (Date.now() - Date.parse(b.last_backup_at)) / 3600e3 : null;
+    const state = b.last_error ? chip('critical', 'Last backup failed')
+      : hoursAgo == null ? chip('critical', 'No backup yet')
+      : hoursAgo > 3 ? chip('critical', 'No backup for over 3 hours') : chip('positive', 'Running hourly');
+    const off = b.offsite;
+    return `<div class="card section"><div class="card-head"><h3>Backups</h3>${state}</div>
+      <div class="sumrow-grid">
+        <div><span class="lbl">Last backup</span><b>${b.last_backup_at ? esc(stamp(b.last_backup_at)) : '–'}</b><span class="muted small">${b.last_check && b.last_check.ok ? `Opened and checked: ${b.last_check.companies} clients, ${b.last_check.uploads} data versions` : ''}</span></div>
+        <div><span class="lbl">Kept on the server</span><b>${b.kept} backups · ${mb(b.kept_bytes)}</b><span class="muted small">${b.oldest_at ? `Going back to ${esc(stamp(b.oldest_at))}` : ''}</span></div>
+        <div><span class="lbl">Copy away from the server</span>${off && off.where ? `<b>${off.error ? chip('critical', 'Failing') : esc(stamp(off.last_at))}</b><span class="muted small">${esc(off.error || off.where)}</span>` : '<b>Not set up yet</b><span class="muted small">See DEPLOY.md, “Backups”</span>'}</div>
+      </div>
+      ${b.last_error ? `<div class="msg err">${esc(b.last_error)}</div>` : ''}
+      <p class="muted small" style="margin:12px 0 0">A backup is taken every hour and kept for a day, one a day is kept for 30 days and one a month for a year. Each is encrypted and opened again to check it before it counts.</p></div>`;
+  }
+
   async function adminPage(page) {
     page.innerHTML = head('Clients & users', 'Manage client companies and logins', null) + '<div class="card empty">Loading…</div>';
     let d;
@@ -792,6 +810,7 @@
           <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in; Assura team logins also set up two-step login.${admin ? '' : ' Only an Assura admin can add team logins.'}</p>
           <div id="u-msg"></div><div><button class="btn" type="submit">Add login</button></div></form>
       </div>
+      ${d.backups ? backupCard(d.backups) : ''}
       <div class="card section"><div class="card-head"><h3>Client companies</h3><span class="muted small">${d.companies.length}</span></div>
         <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th>Accounts email</th><th class="r">Client logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last change</th><th></th></tr></thead><tbody>
         ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td data-email-cell>${c.data_email ? esc(c.data_email) : '<span class="muted">Not set</span>'} <button class="link-btn" data-email="${c.id}" data-value="${esc(c.data_email || '')}">${c.data_email ? 'Change' : 'Add'}</button></td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td>

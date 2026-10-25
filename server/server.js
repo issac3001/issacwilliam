@@ -136,12 +136,37 @@ function createApp(db, opts = {}) {
     return c;
   }
 
+  // Figures worked out from a client's data are kept until that client's data next changes (any upload,
+  // edit, restore or removed month adds an uploads row), so many people opening the same dashboard,
+  // or the team's list of every client, do not repeat the work. Reviews are read fresh each time.
+  const derived = new Map(); const DERIVED_MAX = 2000;
+  const revOf = db.prepare('SELECT COALESCE(MAX(id), 0) AS r FROM uploads WHERE company_id = ?');
+  function cached(companyId, key, make) {
+    const k = `${companyId}|${key}`; const rev = revOf.get(companyId).r;
+    const hit = derived.get(k);
+    if (hit && hit.rev === rev) return hit.value;
+    const value = make();
+    derived.delete(k);
+    if (derived.size >= DERIVED_MAX) derived.delete(derived.keys().next().value);
+    derived.set(k, { rev, value });
+    return value;
+  }
+  const figures = (companyId) => cached(companyId, 'figures', () => {
+    const datasets = store.currentDatasets(db, companyId);
+    return { periods: datasets.map((d) => d.period), analysis: analyse(datasets) };
+  });
+  const draftsFor = (companyId, period) => cached(companyId, `drafts|${period}`, () => {
+    const datasets = store.currentDatasets(db, companyId);
+    return insights.draft(datasets, figures(companyId).analysis, period);
+  });
+  const recentParties = (companyId) => cached(companyId, 'parties', () => match.partiesOf(store.currentDatasets(db, companyId).slice(-6)));
+
   // Where one client's month stands: workbook sent, data received, uploaded, explanations reviewed.
-  function cycleFor(c, period, datasets = store.currentDatasets(db, c.id)) {
+  function cycleFor(c, period) {
     const upload = store.periodUpload(db, c.id, period);
     let review = null;
     if (upload) {
-      const drafts = insights.draft(datasets, analyse(datasets), period);
+      const drafts = draftsFor(c.id, period);
       const done = new Set(store.insightsFor(db, c.id, { period }).map((r) => r.key));
       review = { drafts: drafts.length, reviewed: drafts.filter((d) => done.has(d.key)).length };
     }
@@ -174,7 +199,7 @@ function createApp(db, opts = {}) {
         throw new HttpError(401, message, extra);
       };
       const u = db.prepare('SELECT * FROM users WHERE email = ?').get(key);
-      if (!u || !store.verifyPassword(String(password || ''), u.password_hash)) failed('Email or password is incorrect.', 'login.failed');
+      if (!u || !(await store.verifyPasswordAsync(String(password || ''), u.password_hash))) failed('Email or password is incorrect.', 'login.failed');
       if (u.disabled) failed('This login has been switched off. Contact your Assura Elevate partner.', 'login.disabled');
       if (u.totp_secret) {
         if (!code) throw new HttpError(401, 'Enter the 6-digit code from your authenticator app.', { needCode: true });
@@ -220,11 +245,11 @@ function createApp(db, opts = {}) {
       const u = requireUser(req, { allowSetup: true });
       const body = await readJson(req);
       const full = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
-      if (!store.verifyPassword(String(body.current || ''), full.password_hash)) throw new HttpError(400, 'Your current password is not correct.');
+      if (!(await store.verifyPasswordAsync(String(body.current || ''), full.password_hash))) throw new HttpError(400, 'Your current password is not correct.');
       const pw = String(body.next || '');
       const problem = store.passwordProblem(pw, u.email);
       if (problem) throw new HttpError(400, problem);
-      if (store.verifyPassword(pw, full.password_hash)) throw new HttpError(400, 'Choose a password different from the current one.');
+      if (await store.verifyPasswordAsync(pw, full.password_hash)) throw new HttpError(400, 'Choose a password different from the current one.');
       store.setPassword(db, u.id, pw, false);
       db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?').run(u.id, u.tokenHash);
       log(req, u, 'password.changed', { companyId: u.company_id });
@@ -253,7 +278,7 @@ function createApp(db, opts = {}) {
 
     // ---------- Administration (Assura team) ----------
     'GET /api/admin/overview': async (req, res) => {
-      requireStaff(req);
+      const me = requireStaff(req);
       const companies = db.prepare(`SELECT c.id, c.code, c.name, c.data_email, c.created_at,
           (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) AS users,
           (SELECT COUNT(DISTINCT period) FROM uploads x WHERE x.company_id = c.id) AS months,
@@ -265,7 +290,10 @@ function createApp(db, opts = {}) {
         FROM users u LEFT JOIN companies c ON c.id = u.company_id ORDER BY u.role = 'client', c.code, u.email`).all();
       const activity = db.prepare(`SELECT a.at, a.email, a.action, c.code AS company_code, a.detail, a.ip
         FROM audit a LEFT JOIN companies c ON c.id = a.company_id ORDER BY a.id DESC LIMIT 200`).all();
-      send(res, 200, { companies, users, activity });
+      // Admins see whether backups are running and checking out.
+      let backups = null;
+      if (me.role === 'admin') { try { backups = require('../tools/backup').summary(); } catch (e) { backups = { last_error: e.message }; } }
+      send(res, 200, { companies, users, activity, backups });
     },
     'POST /api/admin/company': async (req, res) => {
       const u = requireStaff(req);
@@ -349,13 +377,13 @@ function createApp(db, opts = {}) {
     'GET /api/dashboard': async (req, res, url) => {
       const u = requireUser(req);
       const c = companyFor(u, url.searchParams.get('company'));
-      const datasets = store.currentDatasets(db, c.id);
+      const f = figures(c.id);
       log(req, u, 'dashboard.viewed', { companyId: c.id });
       // Explanations the Assura team has accepted; clients see nothing else.
       const accepted = store.insightsFor(db, c.id, { acceptedOnly: true }).map(clientInsight);
       // Clients also see where this month's data stands until it reaches the dashboard.
-      const st = cycleFor(c, cycle.workingPeriod(now()), datasets);
-      send(res, 200, { company: c, analysis: analyse(datasets), periods: datasets.map((d) => d.period), insights: accepted, cycle: cycle.forClient(st) });
+      const st = cycleFor(c, cycle.workingPeriod(now()));
+      send(res, 200, { company: c, analysis: f.analysis, periods: f.periods, insights: accepted, cycle: cycle.forClient(st) });
     },
 
     // The team's work: every client's monthly data cycle (or one client's), with what is pending and overdue.
@@ -378,12 +406,11 @@ function createApp(db, opts = {}) {
     'GET /api/insights': async (req, res, url) => {
       const u = requireStaff(req);
       const c = companyFor(u, url.searchParams.get('company'));
-      const datasets = store.currentDatasets(db, c.id);
-      const periods = datasets.map((d) => d.period);
+      const periods = figures(c.id).periods;
       const period = parseMonth(url.searchParams.get('period')) || periods[periods.length - 1];
       if (!period || !periods.includes(period)) throw new HttpError(404, 'No data for this month.');
       const current = store.datasetVersion(db, c.id, period);
-      const drafts = insights.draft(datasets, analyse(datasets), period);
+      const drafts = draftsFor(c.id, period);
       const saved = store.insightsFor(db, c.id, { period });
       const byKey = new Map(saved.map((s) => [s.key, s]));
       const items = drafts.map((d) => ({ draft: d, review: byKey.get(d.key) || null }))
@@ -564,9 +591,8 @@ function createApp(db, opts = {}) {
         period = fileCompany.period; data = parsed.data; rows = parsed.data; warnings = parsed.warnings; sections = parsed.sections;
       }
       // The file must belong to the client selected for the upload.
-      const recent = (id) => match.partiesOf(store.currentDatasets(db, id).slice(-6));
-      const others = db.prepare('SELECT id, code, name FROM companies WHERE id <> ?').all(c.id).map((o) => ({ code: o.code, name: o.name, parties: recent(o.id) }));
-      const mismatch = match.check({ selected: c, fileCompany, confirmCode: body.confirm_code, data: rows, own: recent(c.id), others });
+      const others = db.prepare('SELECT id, code, name FROM companies WHERE id <> ?').all(c.id).map((o) => ({ code: o.code, name: o.name, parties: recentParties(o.id) }));
+      const mismatch = match.check({ selected: c, fileCompany, confirmCode: body.confirm_code, data: rows, own: recentParties(c.id), others });
       const issue = fileCompany ? store.findWorkbook(db, fileCompany.template_ref) : null;
       if (fileCompany) mismatch.unshift(...match.checkIssued({ selected: c, fileCompany, issue }));
       if (mismatch.length) {
@@ -600,7 +626,23 @@ function createApp(db, opts = {}) {
     send(res, 200, buf, headers);
   }
 
-  return async function handler(req, res) {
+  // After a restart, works out every client's figures in the background, one client at a time between
+  // requests, so the first people to sign in do not wait for it.
+  function warm(done) {
+    const ids = db.prepare('SELECT id FROM companies').all().map((r) => r.id);
+    const period = cycle.workingPeriod(now());
+    const step = () => {
+      const id = ids.shift();
+      if (id == null) { if (done) done(); return; }
+      try { figures(id); if (store.periodUpload(db, id, period)) draftsFor(id, period); recentParties(id); } catch (e) { console.error('warm', id, e.message); }
+      setImmediate(step);
+    };
+    setImmediate(step);
+  }
+  handler.warm = warm;
+  return handler;
+
+  async function handler(req, res) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'same-origin');
@@ -619,7 +661,7 @@ function createApp(db, opts = {}) {
       const status = e instanceof HttpError ? e.status : 500;
       if (!res.headersSent) send(res, status, Object.assign({ error: status === 500 ? 'Something went wrong.' : e.message }, e.extra || {}));
     }
-  };
+  }
 }
 
 if (require.main === module) {
@@ -627,7 +669,12 @@ if (require.main === module) {
   const port = Number(process.env.PORT || 3000);
   // In production the server sits behind Caddy (HTTPS), so it listens on 127.0.0.1 only (HOST).
   const host = process.env.HOST || '0.0.0.0';
-  http.createServer(createApp(db)).listen(port, host, () => console.log(`Assura Elevate running on http://${host}:${port}`));
+  const app = createApp(db);
+  const server = http.createServer(app);
+  // Keep connections from the web server (Caddy) open longer than it does, so none is cut mid-request.
+  server.keepAliveTimeout = 65000; server.headersTimeout = 66000;
+  server.listen(port, host, () => console.log(`Assura Elevate running on http://${host}:${port}`));
+  const t0 = Date.now(); app.warm(() => console.log(`Client figures ready in ${Date.now() - t0} ms`));
 }
 
 module.exports = { createApp };

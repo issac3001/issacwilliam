@@ -16,7 +16,7 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 | Account security | New logins get a one-time password and must choose their own at first sign-in (10+ characters). Team and admin logins must set up two-step login (authenticator app, RFC 6238) before they see any client. Sessions end after 2 hours idle (`AE_IDLE_MINUTES`) and on password change; logins can be switched off. Repeated failed sign-ins are slowed down. |
 | Administration | **Clients & users** screen for the team: add and rename companies, add logins, reset passwords and two-step login, switch logins off. Only admins manage team logins. |
 | Audit log | Every sign-in (and failed attempt), dashboard view, upload, edit, restore, password change and admin action is recorded with time, user, company and IP, and shown to the team. |
-| Backups | `tools/backup.js`: daily encrypted snapshots (AES-256-GCM, key from `AE_BACKUP_KEY`), newest 30 kept, with a restore command. |
+| Backups | `tools/backup.js`: an encrypted backup every hour, decrypted and checked before it counts; every backup of the last day, one a day for 30 days and one a month for a year are kept; optional copy to S3 or a Lightsail bucket (`tools/offsite.js`); status shown to admins. A backup is taken before every update. See DEPLOY.md. |
 | History | Every upload and edit is kept as a version. The latest version of each month drives the dashboard, so history builds month on month. |
 | Dashboard | Overview, Where is the money?, Sales & customers, Expenses, Compliance & governance, Data & uploads. |
 | Highlights | Rule-based analysis of the client's own history (`shared/analysis.js`): revenue direction and streaks, gross margin movement, purchase rate increases by item, receivables 90+ and collection days, customer concentration, regular customers who stopped buying, new customers, month-end billing loading, slow-moving stock and cash locked in it, stock build-up, expense heads out of their normal range, overheads outpacing revenue, OD/CC utilisation, net cash decline, supplier payments beyond 60 days (MSME / 43B(h) prompt), overdue, late and upcoming compliance. Each highlight is ranked (act now / watch / positive / information) and carries a point for the management review. |
@@ -62,6 +62,7 @@ Backups (run daily from cron; keep the key somewhere other than the server):
 
 ```bash
 AE_BACKUP_KEY='long-random-secret' node tools/backup.js
+AE_BACKUP_KEY='long-random-secret' node tools/backup.js verify
 AE_BACKUP_KEY='long-random-secret' node tools/backup.js restore backups/assura-<time>.db.gz.enc restored.db
 ```
 

@@ -1,0 +1,3 @@
+# Assura Elevate: encrypted backup every hour at five past, checked and copied off the server when that is
+# set up (AE_OFFSITE_* in assura.env). Installed by deploy/setup.sh and deploy/update.sh.
+5 * * * * assura cd /srv/assura/app && set -a && . /srv/assura/assura.env && set +a && /usr/bin/node --no-warnings tools/backup.js >> /srv/assura/backups/backup.log 2>&1

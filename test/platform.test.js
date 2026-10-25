@@ -402,7 +402,7 @@ test('first sign-in, two-step login, admin, disable, idle timeout and audit', as
     assert.ok(actions.includes(a), `audit has ${a}`);
 });
 
-test('backups are encrypted and restore to the same data', (t) => {
+test('backups are encrypted, checked, kept by age, copied off the server and restore to the same data', async (t) => {
   const os = require('os');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ae-backup-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -410,17 +410,67 @@ test('backups are encrypted and restore to the same data', (t) => {
   const blob = backupTool.encrypt(Buffer.from('hello'));
   assert.ok(!blob.includes(Buffer.from('hello')));
   assert.strictEqual(backupTool.decrypt(blob).toString(), 'hello');
-  const tampered = Buffer.from(blob); tampered[tampered.length - 1] ^= 1;
+  const tampered = Buffer.from(blob); tampered[tampered.length - 20] ^= 1;
   assert.throws(() => backupTool.decrypt(tampered));
 
+  // A stand-in for S3: checks each request's signature and keeps the objects in memory.
+  const offsite = require('../tools/offsite');
+  const objects = new Map(); let badSignatures = 0;
+  const env = { AE_OFFSITE_BUCKET: 'ae-test', AE_OFFSITE_REGION: 'ap-south-1', AE_OFFSITE_ACCESS_KEY: 'AKTEST', AE_OFFSITE_SECRET_KEY: 'secret-test' };
+  const s3 = http.createServer((req, res) => {
+    const chunks = []; req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      const u = new URL(req.url, 'http://x'); const body = Buffer.concat(chunks);
+      const cfg = offsite.config(Object.assign({ AE_OFFSITE_ENDPOINT: `http://${req.headers.host}` }, env));
+      const signed = Object.fromEntries(req.headers.authorization.match(/SignedHeaders=([^,]+)/)[1].split(';').filter((h) => h !== 'host' && !h.startsWith('x-amz')).map((h) => [h, req.headers[h]]));
+      const again = offsite.sign(cfg, { method: req.method, host: req.headers.host, path: u.pathname, query: Object.fromEntries(u.searchParams), headers: signed, payloadHash: req.headers['x-amz-content-sha256'] },
+        new Date(req.headers['x-amz-date'].replace(/(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)Z/, '$1-$2-$3T$4:$5:$6Z')));
+      if (again.authorization !== req.headers.authorization) { badSignatures++; res.writeHead(403); res.end('<Error><Code>SignatureDoesNotMatch</Code></Error>'); return; }
+      const key = decodeURIComponent(u.pathname.slice(1));
+      if (req.method === 'PUT') { objects.set(key, body); res.end(); }
+      else if (req.method === 'DELETE') { objects.delete(key); res.writeHead(204); res.end(); }
+      else res.end(`<ListBucketResult><IsTruncated>false</IsTruncated>${[...objects.keys()].filter((k) => k.startsWith(u.searchParams.get('prefix'))).map((k) => `<Contents><Key>${k}</Key></Contents>`).join('')}</ListBucketResult>`);
+    });
+  }).listen(0);
+  t.after(() => s3.close());
+  Object.assign(process.env, env, { AE_OFFSITE_ENDPOINT: `http://127.0.0.1:${s3.address().port}` });
+  t.after(() => Object.keys(env).concat('AE_OFFSITE_ENDPOINT').forEach((k) => delete process.env[k]));
+
   const live = path.join(dir, 'live.db');
-  const db = store.open(live); store.createCompany(db, 'AE-0042', 'Backup Co'); db.close();
+  const db = store.open(live); store.createCompany(db, 'AE-0042', 'Backup Co');
   process.env.AE_BACKUP_DIR = path.join(dir, 'b');
-  const file = backupTool.backup(live);
+  // An old backup that the keeping rule should drop, and one a year old that it keeps as its month's copy.
+  fs.mkdirSync(process.env.AE_BACKUP_DIR, { recursive: true });
+  const old = new Date(Date.now() - 40 * 86400e3).toISOString().slice(0, 10);
+  fs.writeFileSync(path.join(process.env.AE_BACKUP_DIR, `assura-${old}T10-00-00Z.db.gz.enc`), 'x');
+  fs.writeFileSync(path.join(process.env.AE_BACKUP_DIR, `assura-${old}T09-00-00Z.db.gz.enc`), 'x');
+  [1, 2].forEach((h) => fs.writeFileSync(path.join(process.env.AE_BACKUP_DIR, `assura-${new Date(Date.now() - h * 3600e3).toISOString().replace(/[:.]/g, '-').slice(0, 19)}Z.db.gz.enc`), 'x'));
+  const file = await backupTool.backup(live); // taken while the portal's connection is still open
+  db.close();
+  assert.strictEqual(badSignatures, 0);
+  assert.deepStrictEqual([...objects.keys()], [`portal-backups/${path.basename(file)}`]);
+  assert.ok(objects.get(`portal-backups/${path.basename(file)}`).equals(fs.readFileSync(file)), 'the off-server copy is the same file');
+  const names = fs.readdirSync(process.env.AE_BACKUP_DIR).filter((f) => f.endsWith('.enc'));
+  assert.ok(names.includes(`assura-${old}T10-00-00Z.db.gz.enc`) && !names.includes(`assura-${old}T09-00-00Z.db.gz.enc`), 'one backup per month is kept beyond 30 days');
+  const sum = backupTool.summary();
+  assert.strictEqual(sum.last_check.ok, true); assert.strictEqual(sum.last_check.companies, 1);
+  assert.match(sum.offsite.where, /ae-test/);
+
   const restored = path.join(dir, 'restored.db');
-  fs.writeFileSync(restored, backupTool.decrypt(fs.readFileSync(file)));
+  await backupTool.decryptFile(file, restored);
   const r = store.open(restored);
   assert.strictEqual(r.prepare('SELECT name FROM companies WHERE code = ?').get('AE-0042').name, 'Backup Co');
+  r.close();
+  // A damaged backup fails its check.
+  const broken = path.join(dir, 'b', 'assura-2026-01-01T00-00-00Z.db.gz.enc');
+  const bytes = fs.readFileSync(file); bytes[bytes.length - 30] ^= 1; fs.writeFileSync(broken, bytes);
+  await assert.rejects(backupTool.verify(broken));
+
+  // The keeping rule: everything from the last day, one a day for 30 days, one a month for a year.
+  const now = Date.parse('2026-10-25T12:00:00Z');
+  const files = []; for (let h = 0; h < 24 * 400; h++) { const at = now - h * 3600e3; files.push({ file: String(at), at }); }
+  const kept = backupTool.keep(files, now);
+  assert.ok(kept.size >= 24 + 29 + 11 && kept.size <= 24 + 30 + 13, `kept ${kept.size}`);
 });
 
 test('the monthly workbook is filled for one client and month, sent from the portal, and only that copy is accepted back', async (t) => {

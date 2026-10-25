@@ -104,12 +104,15 @@
       u.password = body.next; log(u, 'password.changed', u.company_id); return { ok: true, next: null };
     },
     'GET /api/admin/overview': () => {
-      needStaff();
+      const u = needStaff();
       const months = (cid) => current(cid).map((d) => d.period);
       return {
         companies: D.companies.map((c) => ({ id: c.id, code: c.code, name: c.name, data_email: c.data_email || null, users: users.filter((x) => x.company_id === c.id).length, months: months(c.id).length, latest: months(c.id).slice(-1)[0] || null, last_upload: uploads.filter((x) => x.company_id === c.id).map((x) => x.created_at).sort().slice(-1)[0] || null })),
         users: users.slice().sort((a, b) => (a.role === 'client') - (b.role === 'client')).map((x) => ({ id: x.id, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: staff(x) && !x.must_change_password ? 1 : 0, last_login_at: x.last_login_at })),
         activity: audit.slice(0, 200),
+        // The demo shows what an admin sees once hourly backups are running on the server.
+        backups: u.role === 'admin' ? (() => { const at = new Date(Math.floor(Date.now() / 3600e3) * 3600e3 + 5 * 60e3); if (at > Date.now()) at.setTime(at - 3600e3);
+          return { last_backup_at: at.toISOString(), last_size: 1840000, last_check: { ok: true, companies: D.companies.length, users: users.length, uploads: uploads.length }, last_error: null, kept: 66, kept_bytes: 66 * 1840000, oldest_at: new Date(Date.now() - 365 * 86400e3).toISOString(), offsite: null }; })() : null,
       };
     },
     'POST /api/admin/company': (q, body) => {

@@ -496,3 +496,7 @@ input[type=number], input[type=date] { padding: 10px 12px; border: 1px solid var
   .work-table td:last-child { grid-column: 1 / -1; }
   .work-table td:last-child .link-btn { font-size: 14px; padding: 0; }
 }
+.sumrow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+.sumrow-grid > div { display: flex; flex-direction: column; gap: 3px; }
+.sumrow-grid .lbl { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.sumrow-grid b { font-family: var(--font-display); font-weight: 500; font-size: 18px; }
