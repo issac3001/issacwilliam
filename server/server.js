@@ -17,6 +17,7 @@ const { applyEdit } = require('../shared/edit');
 const match = require('../shared/match');
 const insights = require('../shared/insights');
 const workbook = require('../shared/workbook');
+const cycle = require('../shared/cycle');
 const mail = require('./mail');
 const schema = require('../shared/schema.json');
 
@@ -43,6 +44,7 @@ class HttpError extends Error { constructor(status, message, extra) { super(mess
 
 function createApp(db, opts = {}) {
   const mailCfg = opts.mail !== undefined ? opts.mail : mail.config();
+  const now = opts.now || (() => new Date());
   const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
   const attempts = new Map(); // login throttling: key -> { n, until }
 
@@ -132,6 +134,29 @@ function createApp(db, opts = {}) {
     const c = db.prepare('SELECT id, code, name FROM companies WHERE id = ?').get(id);
     if (!c) throw new HttpError(404, 'Company not found.');
     return c;
+  }
+
+  // Where one client's month stands: workbook sent, data received, uploaded, explanations reviewed.
+  function cycleFor(c, period, datasets = store.currentDatasets(db, c.id)) {
+    const upload = store.periodUpload(db, c.id, period);
+    let review = null;
+    if (upload) {
+      const drafts = insights.draft(datasets, analyse(datasets), period);
+      const done = new Set(store.insightsFor(db, c.id, { period }).map((r) => r.key));
+      review = { drafts: drafts.length, reviewed: drafts.filter((d) => done.has(d.key)).length };
+    }
+    const workbooks = store.workbooksFor(db, c.id).filter((w) => w.period === period);
+    return cycle.status({ period, now: now(), workbooks, upload, review });
+  }
+  const hasTable = (name) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+  // Open workflow tasks for a client, when the workflow module is installed.
+  function openTasks(companyId, assigned, userId) {
+    if (!hasTable('wf_tasks')) return null;
+    const today = cycle.today(now());
+    const mine = assigned ? ' AND t.team_id IN (SELECT id FROM wf_teams WHERE manager_id = ? OR senior_id = ? OR analyst_id = ?)' : '';
+    const r = db.prepare(`SELECT COUNT(*) AS open, SUM(CASE WHEN t.due_date < ? THEN 1 ELSE 0 END) AS overdue
+      FROM wf_tasks t WHERE t.company_id = ? AND t.stage <> 'done'${mine}`).get(...[today, companyId].concat(assigned ? [userId, userId, userId] : []));
+    return { open: r.open || 0, overdue: r.overdue || 0 };
   }
 
   function publicUser(u) {
@@ -330,7 +355,25 @@ function createApp(db, opts = {}) {
       log(req, u, 'dashboard.viewed', { companyId: c.id });
       // Explanations the Assura team has accepted; clients see nothing else.
       const accepted = store.insightsFor(db, c.id, { acceptedOnly: true }).map(clientInsight);
-      send(res, 200, { company: c, analysis: analyse(datasets), periods: datasets.map((d) => d.period), insights: accepted });
+      // Clients also see where this month's data stands until it reaches the dashboard.
+      const st = cycleFor(c, cycle.workingPeriod(now()), datasets);
+      send(res, 200, { company: c, analysis: analyse(datasets), periods: datasets.map((d) => d.period), insights: accepted, cycle: cycle.forClient(st) });
+    },
+
+    // The team's work: every client's monthly data cycle (or one client's), with what is pending and overdue.
+    'GET /api/cycle': async (req, res, url) => {
+      const u = requireStaff(req);
+      const period = parseMonth(url.searchParams.get('period')) || cycle.workingPeriod(now());
+      if (url.searchParams.get('company')) {
+        const c = companyFor(u, url.searchParams.get('company'));
+        const status = cycleFor(c, period);
+        send(res, 200, { company: c, period, status, client_note: cycle.forClient(status), tasks: openTasks(c.id, false, u.id), history: store.workbooksFor(db, c.id) }); return;
+      }
+      const assigned = store.assignedCompanies(db, u);
+      const companies = db.prepare('SELECT id, code, name FROM companies ORDER BY name').all()
+        .filter((c) => !assigned || assigned.includes(c.id));
+      const clients = companies.map((c) => ({ company: c, status: cycleFor(c, period), tasks: openTasks(c.id, !!assigned, u.id) }));
+      send(res, 200, { period, today: cycle.today(now()), assigned: !!assigned, targets: cycle.TARGET_DAY, clients });
     },
 
     // Suggested explanations for the team to review, with what has been decided so far.
@@ -450,6 +493,16 @@ function createApp(db, opts = {}) {
       const c = companyFor(u, url.searchParams.get('company'));
       const row = db.prepare('SELECT data_email FROM companies WHERE id = ?').get(c.id);
       send(res, 200, { company: c, data_email: row.data_email || '', mail_ready: !!mailCfg, workbooks: store.workbooksFor(db, c.id) });
+    },
+    // Body: { company, ref }. The accountant has sent the copy back; it still has to be checked and uploaded.
+    'POST /api/workbooks/received': async (req, res) => {
+      const u = requireStaff(req);
+      const body = await readJson(req);
+      const c = companyFor(u, body.company);
+      const ref = String(body.ref || '').trim();
+      if (!store.markWorkbookArrived(db, c.id, ref)) throw new HttpError(404, 'That workbook was not found for this client, or it is already marked as received.');
+      log(req, u, 'workbook.received', { companyId: c.id, detail: ref });
+      send(res, 200, { ok: true });
     },
     // Body: { company, period, method: 'email' | 'download' }. Every copy gets its own reference.
     'POST /api/workbooks/send': async (req, res) => {

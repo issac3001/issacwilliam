@@ -261,6 +261,32 @@ function markWorkbookReceived(db, ref, version) {
   db.prepare("UPDATE workbooks SET received_version = ?, received_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE ref = ? COLLATE NOCASE").run(version, ref);
 }
 
+// The month's live data with when it first arrived, or null when the month has no data.
+function periodUpload(db, companyId, period) {
+  const cur = datasetVersion(db, companyId, period);
+  if (!cur || cur.data.removed) return null;
+  const first = db.prepare('SELECT MIN(created_at) AS at FROM uploads WHERE company_id = ? AND period = ?').get(companyId, period);
+  return { version: cur.version, created_at: first.at };
+}
+
+// Clients a team member works on, from the workflow allotments when they exist. null means every client.
+function assignedCompanies(db, user) {
+  if (user.role === 'admin') return null;
+  const has = db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name IN ('wf_staff', 'wf_teams', 'wf_allotments')").get().n === 3;
+  const p = has && db.prepare('SELECT level, department FROM wf_staff WHERE user_id = ?').get(user.id);
+  if (!p || p.level === 'md') return null;
+  const rows = p.level === 'director'
+    ? db.prepare('SELECT DISTINCT company_id FROM wf_allotments WHERE department = ?').all(p.department)
+    : db.prepare(`SELECT DISTINCT a.company_id FROM wf_allotments a JOIN wf_teams t ON t.id = a.team_id
+        WHERE t.manager_id = ? OR t.senior_id = ? OR t.analyst_id = ?`).all(user.id, user.id, user.id);
+  return rows.map((r) => r.company_id);
+}
+
+// The accountant has returned the copy (by email, before it is uploaded).
+function markWorkbookArrived(db, companyId, ref) {
+  return db.prepare("UPDATE workbooks SET received_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE company_id = ? AND ref = ? COLLATE NOCASE AND received_at IS NULL").run(companyId, ref).changes;
+}
+
 function uploadHistory(db, companyId) {
   return db.prepare(`
     SELECT u.period, u.version, u.filename, u.source, u.sections, u.warnings, u.created_at, us.name AS uploaded_by
@@ -269,4 +295,4 @@ function uploadHistory(db, companyId) {
     .map((r) => Object.assign({}, r, { sections: JSON.parse(r.sections), warnings: JSON.parse(r.warnings) }));
 }
 
-module.exports = { issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
+module.exports = { markWorkbookArrived, periodUpload, assignedCompanies, issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
