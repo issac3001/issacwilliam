@@ -124,7 +124,7 @@
             <h1>Your business, <em>on one screen.</em></h1>
             <p>Monthly financial intelligence, compliance oversight and management highlights, prepared from data your finance team provides.</p>
           </div>
-          <p class="small">We don't replace your accountant. We elevate your finance function.</p>
+          <p class="small">Built for businesses ready for their next stage.</p>
         </section>
         <section class="login-form">
           <form id="login" autocomplete="on">

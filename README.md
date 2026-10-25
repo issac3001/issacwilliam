@@ -2,7 +2,7 @@
 
 The technology layer of Assura Elevate. The Assura team uploads one workbook a month for each client; the platform validates it, keeps every month on record, and rebuilds that client's dashboard with automated highlights for the management review. Clients sign in to a view-only dashboard of their own company, where every figure opens the records behind it.
 
-*We don't replace your accountant. We elevate your finance function.*
+*Built for businesses ready for their next stage.*
 
 ## What it does today
 
