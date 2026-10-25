@@ -292,3 +292,19 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .offices div { display: grid; gap: 2px; padding-top: 12px; border-top: 2px solid var(--gold-hi); min-width: 140px; }
 .offices b { font-family: var(--font-display); font-size: 24px; font-weight: 500; color: var(--on-dark); }
 .offices span { font-size: 14px; color: var(--on-dark-2); }
+
+/* ---------- retainer scope ---------- */
+.scope { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr); border: 1px solid var(--ink); background: var(--cream); }
+.scope-col { padding: clamp(22px, 3vw, 32px); display: grid; gap: 14px; align-content: start; min-width: 0; }
+.scope-col h3 { font-size: 21px; }
+.scope-col ul { margin: 0; padding: 0; list-style: none; border-top: 2px solid var(--ink); }
+.scope-col li { padding: 11px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 12px; font-size: 15px; }
+.scope-col li b { font-weight: 600; }
+.scope-col li span { color: var(--ink-2); }
+.scope-col.extra { background: var(--ink); color: var(--on-dark); }
+.scope-col.extra ul { border-top-color: var(--gold-hi); }
+.scope-col.extra li { grid-template-columns: 1fr; border-bottom-color: rgba(245, 240, 227, .18); color: var(--on-dark); }
+.scope-col.extra .muted { color: var(--on-dark-2); }
+.engage { grid-template-columns: 1fr; gap: clamp(32px, 4vw, 48px); }
+.engage > div:first-child { max-width: 760px; }
+@media (max-width: 640px) { .scope { grid-template-columns: 1fr; } .scope-col li { grid-template-columns: 1fr; gap: 2px; } }
