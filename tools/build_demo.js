@@ -41,6 +41,7 @@ ${script(R('shared', 'edit.js'))}
 ${script(R('shared', 'match.js'))}
 ${script(R('shared', 'workbook.js'))}
 ${script(R('shared', 'insights.js'))}
+${script(R('shared', 'cycle.js'))}
 ${script(R('public', 'charts.js'))}
 ${script(R('public', 'drill.js'))}
 ${script(R('public', 'editor.js'))}

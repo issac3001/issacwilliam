@@ -20,7 +20,7 @@
     post(url, body) { return this.request('POST', url, body || {}); },
   };
 
-  const state = { me: null, companies: [], companyId: null, dash: null, tab: 'overview', showAllHighlights: false, upload: null, monthCache: {} };
+  const state = { me: null, companies: [], companyId: null, clientOpen: false, dash: null, tab: 'overview', showAllHighlights: false, upload: null, monthCache: {} };
   // Assura team and admins work across every client; client logins are view only.
   const isStaff = (u) => !!u && (u.role === 'team' || u.role === 'admin');
   const app = document.getElementById('app');
@@ -91,11 +91,22 @@
     try {
       if (!window.AE_SCHEMA) window.AE_SCHEMA = await fetch('/shared/schema.json').then((r) => r.json()).catch(() => null);
       const me = await api.get('/api/me');
-      state.me = me.user; state.companies = me.companies;
+      state.me = me.user; state.companies = me.companies; state.workflow = !!me.workflow;
       if (me.next) { renderSetup(me.next); return; }
-      // The website's team sign-in arrives with ?next=workflow; staff go straight on to Workflow.
-      if (isStaff(me.user) && !window.AE_DEMO_API && new URLSearchParams(location.search).get('next') === 'workflow') { location.replace('/workflow'); return; }
+      // Straight after signing in, the Assura team starts in Workflow when it is installed.
+      if (state.justSignedIn && state.workflow) { state.justSignedIn = false; location.assign('/workflow'); return; }
+      state.justSignedIn = false;
+      // Deep link for the team: /?company=<id>&view=<section> opens that client (view defaults to its month's work).
+      const q = new URLSearchParams(location.search);
+      const link = Number(q.get('company'));
+      if (q.has('company')) history.replaceState(null, '', location.pathname);
+      if (isStaff(state.me) && link && me.companies.some((c) => c.id === link)) {
+        const view = q.get('view');
+        await openClient(link, view && (STAFF_TABS.concat(TABS)).some(([k]) => k === view) ? view : 'client'); return;
+      }
       state.companyId = state.companyId && me.companies.some((c) => c.id === state.companyId) ? state.companyId : (me.companies[0] || {}).id;
+      // The Assura team starts on its own work page and opens a client from there.
+      if (isStaff(state.me) && !state.clientOpen && !(history.state && history.state.aeTab)) state.tab = 'work';
       await loadDashboard();
     } catch (e) {
       if (e.status === 401) { state.me = null; renderLogin(); } else renderFatal(e);
@@ -155,7 +166,7 @@
       try {
         await api.post('/api/login', body);
         loginDraft = {};
-        state.tab = 'overview';
+        state.tab = 'work'; state.clientOpen = false; state.justSignedIn = true;
         await boot();
       } catch (err) {
         const code = !!(err.data && err.data.needCode);
@@ -228,7 +239,7 @@
   async function signOut() {
     await api.post('/api/logout').catch(() => {});
     drill.close(); editor.reset();
-    state.me = null; state.companyId = null; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null; state.monthCache = {};
+    state.me = null; state.companyId = null; state.clientOpen = false; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null; state.monthCache = {};
     renderLogin();
   }
 
@@ -242,8 +253,13 @@
     ['overview', 'Overview'], ['money', 'Where is the money?'], ['sales', 'Sales & customers'],
     ['expenses', 'Expenses'], ['compliance', 'Compliance & governance'],
   ];
-  const STAFF_TABS = [['insights', 'Explanations'], ['upload', 'Data & uploads'], ['edit', 'Edit data'], ['admin', 'Clients & users']];
-  const tabsFor = (u) => TABS.concat(isStaff(u) ? STAFF_TABS : [], [['account', 'Account']]);
+  // The Assura team: its own work and the firm's clients, then the chosen client's work and dashboard.
+  const FIRM_TABS = [['work', 'Monthly data'], ['admin', 'Clients & users']];
+  const STAFF_TABS = [['client', 'This month\'s work'], ['insights', 'Explanations'], ['upload', 'Data & uploads'], ['edit', 'Edit data']];
+  const tabsFor = (u) => (isStaff(u)
+    ? FIRM_TABS.concat(state.clientOpen ? STAFF_TABS.concat(TABS) : [], [['account', 'Account']])
+    : TABS.concat([['account', 'Account']]));
+  const homeTab = (u) => (isStaff(u) ? 'work' : 'overview');
   const ROLE_LABEL = { client: 'Client (view only)', team: 'Assura team', admin: 'Assura admin' };
   const NAV_ICON = {
     overview: 'M3 3h6v6H3zM11 3h6v4h-6zM11 9h6v8h-6zM3 11h6v6H3z',
@@ -256,6 +272,8 @@
     edit: 'M4 16l1-4 8-8 3 3-8 8zM12 5l3 3',
     admin: 'M7 9a3 3 0 100-6 3 3 0 000 6zM2 17c0-3 2-5 5-5s5 2 5 5M14 9a2.5 2.5 0 100-5M15 12c2 .5 3 2 3 5',
     workflow: 'M3 4h5v4H3zM12 12h5v4h-5zM5.5 8v6h6.5M12 6h5M14.5 6v4',
+    work: 'M3 5h14v12H3zM7 5V3h6v2M3 10h14M9 10v2h2v-2',
+    client: 'M4 3h9l3 3v11H4zM7 9l2 2 4-4M7 14h6',
     account: 'M10 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM3 18c0-4 3-6 7-6s7 2 7 6',
   };
   const navIcon = (k) => `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="${NAV_ICON[k]}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -271,9 +289,20 @@
     const st = e.state || {};
     if (st.aeDrill || !state.me) return;
     if (menuOpen && !st.aeMenu) { setMenu(false); return; }
-    const tab = st.aeTab || 'overview';
+    const tab = st.aeTab || homeTab(state.me);
+    if (st.aeCompany && st.aeCompany !== state.companyId && state.companies.some((c) => c.id === st.aeCompany)) {
+      state.companyId = st.aeCompany; state.clientOpen = true; state.tab = tab; state.upload = null; editor.reset(); loadDashboard(); return;
+    }
     if (tab !== state.tab && tabsFor(state.me).some(([k]) => k === tab)) { state.tab = tab; state.showAllHighlights = false; render(); window.scrollTo(0, 0); }
   });
+  // A team member opens a client: its work page first, then its dashboard and data.
+  async function openClient(id, tab) {
+    tab = tab || 'client';
+    if (id !== state.companyId) { state.companyId = id; editor.reset(); }
+    state.clientOpen = true; state.upload = null; state.showAllHighlights = false;
+    history.pushState({ aeTab: tab, aeCompany: id }, '');
+    state.tab = tab; await loadDashboard(); window.scrollTo(0, 0);
+  }
   let menuOpen = false;
   function setMenu(open) {
     menuOpen = open;
@@ -290,14 +319,17 @@
     app.innerHTML = `
       <div class="shell">
         <aside class="side" aria-label="Main menu">
-          <div class="side-top"><a class="wordmark" href="#" data-tab="overview" aria-label="Assura Elevate, overview">${LOGO}</a></div>
+          <div class="side-top"><a class="wordmark" href="#" data-tab="${homeTab(u)}" aria-label="Assura Elevate, ${isStaff(u) ? 'monthly data' : 'overview'}">${LOGO}</a></div>
+          ${isStaff(u) ? `<nav class="side-nav firm" aria-label="Assura workspace">${FIRM_TABS.map((t) => navItem(t)).join('')}</nav>` : ''}
           ${isStaff(u) && state.companies.length
-            ? `<div class="side-client"><label for="company">Client</label><select id="company">${state.companies.map((c) => `<option value="${c.id}" ${c.id === state.companyId ? 'selected' : ''}>${esc(c.name)} · ${esc(c.code)}</option>`).join('')}</select></div>`
-            : company ? `<div class="side-client"><span class="lbl">Company</span><b>${esc(company.name)}</b><span class="code">${esc(company.code)}</span></div>` : ''}
+            ? `<div class="side-client"><label for="company">Client</label><select id="company">${state.clientOpen ? '' : '<option value="" selected>Choose a client…</option>'}${state.companies.map((c) => `<option value="${c.id}" ${state.clientOpen && c.id === state.companyId ? 'selected' : ''}>${esc(c.name)} · ${esc(c.code)}</option>`).join('')}</select></div>`
+            : company && !isStaff(u) ? `<div class="side-client"><span class="lbl">Company</span><b>${esc(company.name)}</b><span class="code">${esc(company.code)}</span></div>` : ''}
           <nav class="side-nav" aria-label="Sections">
-            <div class="nav-group">Dashboard</div>
-            ${TABS.map(navItem).join('')}
-            ${isStaff(u) ? `<div class="nav-group">Assura workspace</div>${STAFF_TABS.map((t) => navItem(t)).join('')}${window.AE_DEMO_API ? '' : `<a class="nav-item" href="/workflow">${navIcon('workflow')}<span>Workflow</span></a>`}` : ''}
+            ${isStaff(u)
+              ? (state.clientOpen ? `<div class="nav-group">Client work</div>${STAFF_TABS.map((t) => navItem(t)).join('')}<div class="nav-group">Client dashboard</div>${TABS.map(navItem).join('')}`
+                : '<p class="side-hint">Choose a client, or open one from Monthly data, to see its work and dashboard.</p>')
+                + (window.AE_DEMO_API ? '' : `<div class="nav-group">Assura workspace</div><a class="nav-item" href="/workflow">${navIcon('workflow')}<span>Practice workspace</span></a>`)
+              : `<div class="nav-group">Dashboard</div>${TABS.map(navItem).join('')}`}
           </nav>
           <div class="side-foot">
             ${navItem(['account', 'Account'])}
@@ -317,7 +349,7 @@
       </div>`;
     app.querySelector('#logout').addEventListener('click', signOut);
     const sel = app.querySelector('#company');
-    if (sel) sel.addEventListener('change', async () => { state.companyId = Number(sel.value); state.upload = null; editor.reset(); await loadDashboard(); });
+    if (sel) sel.addEventListener('change', () => { if (sel.value) openClient(Number(sel.value), state.clientOpen && state.tab !== 'work' && state.tab !== 'admin' ? state.tab : 'client'); });
     // From the open phone menu, the menu's own history step becomes the new section's step.
     app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', (e) => {
       e.preventDefault();
@@ -328,16 +360,18 @@
     app.querySelector('#scrim').addEventListener('click', () => history.back());
 
     const page = app.querySelector('#page');
-    if (!tabsFor(u).some(([k]) => k === state.tab)) state.tab = 'overview';
+    if (!tabsFor(u).some(([k]) => k === state.tab)) state.tab = homeTab(u);
+    if (state.tab === 'work') { workPage(page); return; }
     if (state.tab === 'admin') { adminPage(page); return; }
     if (state.tab === 'account') { accountPage(page); return; }
     if (!company) { page.innerHTML = `<div class="card empty">${isStaff(u) ? 'No client companies yet. Add one under Clients &amp; users.' : 'No company is linked to this login yet.'}</div>`; return; }
+    if (state.tab === 'client') { clientWorkPage(page, company); return; }
     if (state.tab === 'edit') { editor.render(page, company); if (state.upload) { page.querySelector('.page-head').insertAdjacentHTML('afterend', state.upload); state.upload = null; } return; }
     const a = state.dash && state.dash.analysis;
     if (state.tab !== 'upload' && (!a || !a.months.length)) {
       page.innerHTML = isStaff(u)
         ? `<div class="card empty"><h2>No data yet</h2><p>Upload the first monthly workbook for ${esc(company.name)} and the dashboard builds itself here.</p><button class="btn" data-go="upload">Go to Data & uploads</button></div>`
-        : `<div class="card empty"><h2>Your dashboard is being prepared</h2><p>Your Assura Elevate team uploads your monthly figures. The dashboard appears here as soon as the first month is in.</p></div>`;
+        : `<div class="card empty"><h2>Your dashboard is being prepared</h2><p>Your Assura Elevate team uploads your monthly figures. The dashboard appears here as soon as the first month is in.</p>${state.dash && state.dash.cycle ? `<p class="muted">${esc(state.dash.cycle.text)}</p>` : ''}</div>`;
       const go = page.querySelector('[data-go]'); if (go) go.addEventListener('click', () => goTab('upload'));
       return;
     }
@@ -411,7 +445,8 @@
   function overview(page, a, company) {
     const ms = a.months; const cur = ms[ms.length - 1];
     const counts = ['critical', 'watch', 'positive', 'info'].map((s) => [s, a.highlights.filter((h) => h.severity === s).length]).filter((x) => x[1]);
-    page.innerHTML = head('Management dashboard', company.name, a) + `<div id="kpis"></div>
+    const note = state.dash && state.dash.cycle;
+    page.innerHTML = head('Management dashboard', company.name, a) + (note ? `<div class="cycle-note${note.overdue ? ' late' : ''}" role="status"><b>${mLong(note.period)} figures</b><span>${esc(note.text)}</span></div>` : '') + `<div id="kpis"></div>
       ${explained(a)}
       <div class="grid g-main section">
         <div class="card">
@@ -444,6 +479,7 @@
             <li>Automated highlights: trends, ageing, concentration, unusual spend, purchase rates, compliance due dates</li>
             <li>Explanations of what moved each month and why, traced to the transactions and reviewed by the Assura team before they appear here</li>
             <li>Monthly workbook made for each client and month, with company, month and reference locked on its first sheet, sent from the portal</li>
+            <li>Monthly data page for the team: each client's monthly data cycle with overdue reminders</li>
             <li>Every upload is checked against the selected company, month and workbook reference, and reviewed before it is accepted</li></ul></div>
           <div><b>Planned</b><ul>
             <li>Review and sign-off steps for the Assura team's monthly work</li>
@@ -736,6 +772,24 @@
     'data.edited': 'Edited data', 'data.restored': 'Restored a version', 'data.month_removed': 'Removed a month', 'admin.reset-password': 'Reset password', 'admin.reset-2fa': 'Reset two-step login', 'admin.disable': 'Switched off login', 'admin.enable': 'Switched on login',
   };
 
+  // Backups: the last one, whether it opened cleanly, what is kept, and the copy away from the server.
+  function backupCard(b) {
+    const mb = (n) => (n == null ? '–' : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${(n / 1e6).toFixed(1)} MB`);
+    const hoursAgo = b.last_backup_at ? (Date.now() - Date.parse(b.last_backup_at)) / 3600e3 : null;
+    const state = b.last_error ? chip('critical', 'Last backup failed')
+      : hoursAgo == null ? chip('critical', 'No backup yet')
+      : hoursAgo > 3 ? chip('critical', 'No backup for over 3 hours') : chip('positive', 'Running hourly');
+    const off = b.offsite;
+    return `<div class="card section"><div class="card-head"><h3>Backups</h3>${state}</div>
+      <div class="sumrow-grid">
+        <div><span class="lbl">Last backup</span><b>${b.last_backup_at ? esc(stamp(b.last_backup_at)) : '–'}</b><span class="muted small">${b.last_check && b.last_check.ok ? `Opened and checked: ${b.last_check.companies} clients, ${b.last_check.uploads} data versions` : ''}</span></div>
+        <div><span class="lbl">Kept on the server</span><b>${b.kept} backups · ${mb(b.kept_bytes)}</b><span class="muted small">${b.oldest_at ? `Going back to ${esc(stamp(b.oldest_at))}` : ''}</span></div>
+        <div><span class="lbl">Copy away from the server</span>${off && off.where ? `<b>${off.error ? chip('critical', 'Failing') : esc(stamp(off.last_at))}</b><span class="muted small">${esc(off.error || off.where)}</span>` : '<b>Not set up yet</b><span class="muted small">See DEPLOY.md, “Backups”</span>'}</div>
+      </div>
+      ${b.last_error ? `<div class="msg err">${esc(b.last_error)}</div>` : ''}
+      <p class="muted small" style="margin:12px 0 0">A backup is taken every hour and kept for a day, one a day is kept for 30 days and one a month for a year. Each is encrypted and opened again to check it before it counts.</p></div>`;
+  }
+
   async function adminPage(page) {
     page.innerHTML = head('Clients & users', 'Manage client companies and logins', null) + '<div class="card empty">Loading…</div>';
     let d;
@@ -759,6 +813,7 @@
           <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in; Assura team logins also set up two-step login.${admin ? '' : ' Only an Assura admin can add team logins.'}</p>
           <div id="u-msg"></div><div><button class="btn" type="submit">Add login</button></div></form>
       </div>
+      ${d.backups ? backupCard(d.backups) : ''}
       <div class="card section"><div class="card-head"><h3>Client companies</h3><span class="muted small">${d.companies.length}</span></div>
         <div class="table-wrap"><table><thead><tr><th>Code</th><th>Company</th><th>Accounts email</th><th class="r">Client logins</th><th class="r">Months on record</th><th>Latest month</th><th>Last change</th><th></th></tr></thead><tbody>
         ${d.companies.map((c) => `<tr><td>${esc(c.code)}</td><td>${esc(c.name)}</td><td data-email-cell>${c.data_email ? esc(c.data_email) : '<span class="muted">Not set</span>'} <button class="link-btn" data-email="${c.id}" data-value="${esc(c.data_email || '')}">${c.data_email ? 'Change' : 'Add'}</button></td><td class="r">${c.users}</td><td class="r">${c.months}</td><td>${c.latest ? mShort(c.latest) : '–'}</td><td>${c.last_upload ? esc(stamp(c.last_upload)) : '–'}</td>
@@ -810,7 +865,7 @@
       } catch (err) { page.querySelector('#u-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
     });
     page.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', async () => {
-      state.companyId = Number(b.dataset.open); editor.reset(); history.pushState({ aeTab: 'overview' }, ''); state.tab = 'overview'; await loadDashboard(); window.scrollTo(0, 0);
+      openClient(Number(b.dataset.open), 'client');
     }));
     page.querySelectorAll('[data-rename]').forEach((b) => b.addEventListener('click', () => {
       const td = b.closest('tr').children[1];
@@ -849,6 +904,124 @@
   }
 
   // ---------- Data & uploads ----------
+  // ---------- the team's work ----------
+  const STEP_CHIP = { done: ['positive', 'Done'], overdue: ['critical', 'Overdue'], due: ['watch', 'To do'], later: ['info', 'Not yet'] };
+  // Where each step is done in the portal.
+  const STEP_TAB = { send: ['upload', 'Send the workbook'], receive: ['upload', 'Upload the returned copy'], upload: ['upload', 'Check and upload'], review: ['insights', 'Review explanations'] };
+  const dayMonth = (iso) => `${+iso.slice(8, 10)} ${MONTHS[+iso.slice(5, 7) - 1]}`;
+  const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+  const whenText = (s, today) => (s.state === 'done' ? (s.at ? `Done ${dayMonth(String(s.at).slice(0, 10))}` : 'Done')
+    : s.state === 'overdue' ? `Was due ${dayMonth(s.target)} · ${daysBetween(s.target, today)} day${daysBetween(s.target, today) === 1 ? '' : 's'} late`
+    : `Due ${dayMonth(s.target)}`);
+  const greeting = () => { const h = +new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
+  let workView = { period: null };
+
+  async function workPage(page) {
+    const u = state.me;
+    page.innerHTML = head('Monthly data', `${greeting()}, ${u.name.split(' ')[0]}`, null) + '<div id="work-body"><div class="card empty">Gathering your clients…</div></div>';
+    let r;
+    try { r = await api.get(`/api/cycle${workView.period ? `?period=${workView.period}` : ''}`); } catch (e) { page.querySelector('#work-body').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+    const body = page.querySelector('#work-body'); if (!body) return;
+    const rows = r.clients;
+    const reminders = [];
+    rows.forEach((x) => x.status.steps.forEach((s) => { if (s.state === 'overdue' || s.state === 'due') reminders.push({ c: x.company, s }); }));
+    reminders.sort((a, b) => (a.s.state === 'overdue' ? 0 : 1) - (b.s.state === 'overdue' ? 0 : 1) || a.s.target.localeCompare(b.s.target) || a.c.name.localeCompare(b.c.name));
+    const count = (f) => rows.filter(f).length;
+    const awaiting = count((x) => x.status.steps.some((s) => s.key === 'receive' && s.state !== 'done' && s.state !== 'later'));
+    const COL = { send: 'Workbook sent', receive: 'Data received', upload: 'On dashboard', review: 'Explanations' };
+    const stepCell = (x, key) => { const s = x.status.steps.find((t) => t.key === key); return `<td data-label="${COL[key]}">${chip(STEP_CHIP[s.state][0], STEP_CHIP[s.state][1])}</td>`; };
+    const T = r.targets;
+    body.innerHTML = `
+      <div class="editor-bar work-bar"><div><label for="work-month">Month being worked on</label><input type="month" id="work-month" value="${r.period}"></div>
+        <p class="muted small" style="margin:0;flex:1">${rows.length} client${rows.length === 1 ? '' : 's'}${r.assigned ? ' allotted to you' : ''}. Each month's data is due in the month after: workbook sent by the ${T.send}${T.send === 3 ? 'rd' : 'th'}, back from the accountant by the ${T.receive}th, on the dashboard by the ${T.upload}th and explanations reviewed by the ${T.review}th.</p></div>
+      <div class="kpis work-stats">
+        <div class="kpi"><div class="label">Overdue</div><div class="value${reminders.some((x) => x.s.state === 'overdue') ? ' late' : ''}">${reminders.filter((x) => x.s.state === 'overdue').length}</div><div class="delta">reminders past their date</div></div>
+        <div class="kpi"><div class="label">To do</div><div class="value">${reminders.filter((x) => x.s.state === 'due').length}</div><div class="delta">due this month</div></div>
+        <div class="kpi"><div class="label">Awaiting data</div><div class="value">${awaiting}</div><div class="delta">workbook with the accountant</div></div>
+        <div class="kpi"><div class="label">Complete</div><div class="value">${count((x) => x.status.done)}<small> / ${rows.length}</small></div><div class="delta">${mLong(r.period)} done</div></div>
+      </div>
+      <div class="grid g-main section">
+        <div class="card"><div class="card-head"><h3>Reminders</h3><span class="muted small">${mLong(r.period)}</span></div>
+          ${reminders.length ? `<div class="rem-list">${reminders.map((x) => `
+            <div class="rem ${x.s.state}">
+              <div class="rem-main"><div class="rem-top">${chip(STEP_CHIP[x.s.state][0], STEP_CHIP[x.s.state][1])}<span class="hl-area">${esc(x.c.name)}</span></div>
+                <div class="rem-title">${esc(x.s.label)}</div>
+                <div class="muted small">${esc(whenText(x.s, r.today))}${x.s.detail ? ' · ' + esc(x.s.detail) : ''}</div></div>
+              <div class="rem-act"><button class="btn secondary" type="button" data-open-client="${x.c.id}" data-tab-to="${STEP_TAB[x.s.key][0]}">${esc(STEP_TAB[x.s.key][1])}</button></div>
+            </div>`).join('')}</div>` : `<p class="muted">Nothing pending for ${mLong(r.period)}. Every client's data is in and reviewed.</p>`}
+        </div>
+        <div class="card"><div class="card-head"><h3>What each step means</h3></div>
+          <ol class="step-guide">
+            <li><b>Workbook sent</b> From the client's Data &amp; uploads page, by email or as a download. Each copy is locked to the client and month.</li>
+            <li><b>Data received</b> The accountant returns the workbook. Mark it received when it arrives, or upload it straight away.</li>
+            <li><b>On the dashboard</b> The returned copy is checked against the client and month and accepted.</li>
+            <li><b>Explanations reviewed</b> The month's suggested explanations are accepted or set aside, so the client reads only what the team has approved.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="card section"><div class="card-head"><h3>Clients</h3><span class="muted small">Open a client to work on it and see its dashboard</span></div>
+        <div class="table-wrap"><table class="work-table"><thead><tr><th>Client</th><th>Workbook sent</th><th>Data received</th><th>On dashboard</th><th>Explanations</th><th>Next step</th><th></th></tr></thead><tbody>
+        ${rows.map((x) => `<tr><td><b>${esc(x.company.name)}</b><div class="muted small">${esc(x.company.code)}</div></td>
+          ${stepCell(x, 'send')}${stepCell(x, 'receive')}${stepCell(x, 'upload')}${stepCell(x, 'review')}
+          <td class="small" data-label="Next step">${x.status.next ? esc(x.status.next.label) : '<span class="muted">All done</span>'}</td>
+          <td class="r"><button class="link-btn" type="button" data-open-client="${x.company.id}" data-tab-to="client">Open ›</button></td></tr>`).join('')}
+        </tbody></table></div>
+        ${state.workflow ? '<p class="muted small" style="margin:10px 0 0">Allotments, tasks, approvals and sign-offs are in <a href="/workflow">Workflow</a>.</p>' : ''}
+      </div>`;
+    body.querySelector('#work-month').addEventListener('change', (e) => { workView.period = e.target.value || null; workPage(page); });
+    body.querySelectorAll('[data-open-client]').forEach((b) => b.addEventListener('click', () => openClient(Number(b.dataset.openClient), b.dataset.tabTo)));
+  }
+
+  // One client's month: what is done, what is pending and who it is waiting on, before its dashboard.
+  async function clientWorkPage(page, company) {
+    const period = workView.period;
+    page.innerHTML = head('This month\'s work', company.name, null, `<button class="btn secondary" type="button" data-to="overview">Open the dashboard ›</button>`) + '<div id="cw-body"><div class="card empty">Loading…</div></div>';
+    page.querySelector('[data-to]').addEventListener('click', () => goTab('overview'));
+    let r;
+    try { r = await api.get(`/api/cycle?company=${company.id}${period ? `&period=${period}` : ''}`); } catch (e) { page.querySelector('#cw-body').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+    const body = page.querySelector('#cw-body'); if (!body) return;
+    const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+    const st = r.status;
+    const open = r.history.filter((w) => w.period === r.period && !w.received_at && !w.received_version);
+    const action = (s) => {
+      if (s.state === 'done' || s.state === 'later') return '';
+      const go = `<button class="btn${s.state === 'overdue' ? '' : ' secondary'}" type="button" data-go-tab="${STEP_TAB[s.key][0]}">${esc(STEP_TAB[s.key][1])}</button>`;
+      return s.key === 'receive' && open.length ? `<button class="btn secondary" type="button" data-received="${esc(open[0].ref)}">Mark as received</button>${go}` : go;
+    };
+    body.innerHTML = `
+      <div class="grid g-main">
+        <div class="card"><div class="card-head"><h3>${mLong(r.period)} data</h3>${st.done ? chip('positive', 'Complete') : st.overdue ? chip('critical', `${st.overdue} overdue`) : chip('watch', `${st.pending} to do`)}</div>
+          <ol class="steps">${st.steps.map((s) => `
+            <li class="step ${s.state}"><span class="dot" aria-hidden="true"></span>
+              <div class="step-main"><div class="step-title">${esc(s.label)} ${s.state === 'done' ? '' : chip(STEP_CHIP[s.state][0], STEP_CHIP[s.state][1])}</div>
+                <div class="muted small">${esc(whenText(s, today))}${s.detail ? ' · ' + esc(s.detail) : ''}</div></div>
+              <div class="step-act">${action(s)}</div></li>`).join('')}
+          </ol>
+          <div id="cw-msg"></div>
+        </div>
+        <div class="grid" style="align-content:start">
+          <div class="card"><div class="card-head"><h3>What the client sees</h3></div>
+            ${r.client_note ? `<div class="cycle-note${r.client_note.overdue ? ' late' : ''}"><b>${mLong(r.client_note.period)} figures</b><span>${esc(r.client_note.text)}</span></div>
+              <p class="muted small" style="margin:10px 0 0">Shown on the client's dashboard until the month's data is in. It names no one and gives no internal detail.</p>`
+              : `<p class="muted" style="margin:0">${mLong(r.period)} is on the client's dashboard${st.steps.find((s) => s.key === 'review').state === 'done' ? ' with its reviewed explanations.' : '. Explanations still to review are not shown to the client until they are accepted.'}</p>`}
+          </div>
+          ${state.workflow ? `<div class="card"><div class="card-head"><h3>Workflow</h3></div><p style="margin:0">Tasks, approvals and sign-offs for ${esc(company.name)} are in <a href="/workflow">Workflow</a>.</p></div>` : ''}
+        </div>
+      </div>
+      <div class="card section"><div class="card-head"><h3>Workbooks sent</h3><span class="muted small">Every copy, with its reference</span></div>
+        ${r.history.length ? `<div class="table-wrap"><table><thead><tr><th>Month</th><th>Reference</th><th>How</th><th>Sent</th><th>Status</th></tr></thead><tbody>
+          ${r.history.map((x) => `<tr><td>${mShort(x.period)}</td><td class="num nowrap">${esc(x.ref)}</td><td>${x.method === 'email' ? 'Emailed to ' + esc(x.sent_to || '') : 'Downloaded'}</td><td class="num nowrap">${esc(stamp(x.issued_at))}</td>
+            <td>${x.received_version ? chip('positive', `Uploaded, v${x.received_version}`) : x.received_at ? chip('watch', 'Received, to upload') : chip('info', 'With the accountant')}</td></tr>`).join('')}</tbody></table></div>`
+          : '<p class="muted">No workbooks sent yet. Send the first from Data &amp; uploads.</p>'}
+      </div>`;
+    body.querySelectorAll('[data-go-tab]').forEach((b) => b.addEventListener('click', () => goTab(b.dataset.goTab)));
+    body.querySelectorAll('[data-received]').forEach((b) => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try { await api.post('/api/workbooks/received', { company: company.id, ref: b.dataset.received }); clientWorkPage(page, company); }
+      catch (e) { body.querySelector('#cw-msg').innerHTML = `<div class="msg err">${esc(e.message)}</div>`; b.disabled = false; }
+    }));
+  }
+
   function uploadPage(page, a, company) {
     const canUpload = isStaff(state.me);
     const hist = (state.history && state.history.uploads) || [];
@@ -986,7 +1159,7 @@
     if (!w.mail_ready) { emailBtn.disabled = true; emailBtn.title = 'Email is not set up on this server yet'; if (!msg.innerHTML) msg.innerHTML = '<p class="muted small" style="margin:10px 0 0">Email is not set up on this server yet, so download a filled copy and send it from your mailbox. Each download is recorded with its own reference.</p>'; }
     else if (!w.data_email) emailBtn.disabled = true;
     const go = page.querySelector('#wb-card [data-go]'); if (go) go.addEventListener('click', (e) => { e.preventDefault(); goTab('admin'); });
-    const STATUS = (x) => (x.received_version ? chip('positive', `Received, v${x.received_version}`) : chip('watch', 'Awaiting return'));
+    const STATUS = (x) => (x.received_version ? chip('positive', `Uploaded, v${x.received_version}`) : x.received_at ? chip('watch', 'Received, to upload') : chip('watch', 'Awaiting return'));
     list.innerHTML = w.workbooks.length ? `<div class="table-wrap"><table><thead><tr><th>Month</th><th>Reference</th><th>How</th><th>By</th><th>When</th><th>Status</th></tr></thead><tbody>
       ${w.workbooks.map((x) => `<tr><td>${mShort(x.period)}</td><td class="num nowrap">${esc(x.ref)}</td><td>${x.method === 'email' ? 'Emailed to ' + esc(x.sent_to || '') : 'Downloaded'}</td><td>${esc(x.issued_by || '–')}</td><td class="num nowrap">${esc(stamp(x.issued_at))}</td><td>${STATUS(x)}</td></tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">No workbooks sent for this client yet.</p>';

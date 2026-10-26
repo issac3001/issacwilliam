@@ -25,12 +25,20 @@
   D.companies.forEach((c) => { c.data_email = EMAIL[c.id] || null; });
   const issued = [];
   D.companies.forEach((c) => Object.keys(c.months).sort().forEach((p) => issued.push({ company_id: c.id, period: p, ref: `${c.code}-${p}-SAMPLE`, method: 'email', sent_to: c.data_email, issued_by: 'Assura Team Member', issued_at: `${p}-28T05:30:00Z`, received_version: 1, received_at: '2026-10-07T04:30:00Z' })));
+  // A third client whose workbook for the working month is out with its accountant, so the team's
+  // work page shows a reminder. It has no figures yet.
+  const CY = window.AECycle;
+  const working = CY.workingPeriod(new Date());
+  const sentOn = new Date(Math.min(Date.now() - 3600000, Date.parse(`${CY.target(working, 'send').slice(0, 8)}02T05:30:00Z`)));
+  D.companies.push({ id: 3, code: 'AE-0003', name: 'Harbour Spices Pvt Ltd (Demo)', months: {}, data_email: 'accounts@harbourspices.demo' });
+  issued.push({ company_id: 3, period: working, ref: `AE-0003-${working}-DEMO01`, method: 'email', sent_to: 'accounts@harbourspices.demo', issued_by: 'Assura Team Member', issued_at: sentOn.toISOString(), received_version: null, received_at: null });
   const reviews = []; // reviewed explanations: { company_id, period, key, status, headline, body, ... }
-  // The demo opens with a few explanations already accepted, so the client view shows them.
+  // The demo opens with explanations already accepted, so the client view shows them: all of Coastline's,
+  // and three of Meridian's, which leaves the rest on the team's work page.
   D.companies.forEach((c) => {
     const ds = current(c.id); if (ds.length < 2) return;
     const last = ds[ds.length - 1];
-    window.AEInsights.draft(ds, window.AEAnalysis.analyse(ds), last.period).slice(0, 3).forEach((d) => {
+    window.AEInsights.draft(ds, window.AEAnalysis.analyse(ds), last.period).slice(0, c.id === 1 ? 3 : 99).forEach((d) => {
       const picked = d.causes.filter((x) => d.suggested.includes(x.id)).map((x) => x.text);
       reviews.push({ company_id: c.id, period: last.period, key: d.key, area: d.area, status: 'accepted', headline: d.headline, body: [d.movement].concat(picked).join(' '), causes: picked, data_version: 1, reviewed_by: 'Assura Team Member', reviewed_at: '2026-10-08T06:00:00Z' });
     });
@@ -58,6 +66,18 @@
     const list = uploads.filter((x) => x.company_id === cid && x.period === period).sort((a, b) => b.version - a.version);
     return version ? list.find((x) => x.version === Number(version)) : list[0];
   };
+  function cycleFor(c, period) {
+    const live = versionOf(c.id, period);
+    const ds = current(c.id);
+    const upload = live && !live.data.removed
+      ? { version: live.version, created_at: uploads.filter((x) => x.company_id === c.id && x.period === period).map((x) => x.created_at).sort()[0] } : null;
+    let review = null;
+    if (upload) {
+      const drafts = window.AEInsights.draft(ds, window.AEAnalysis.analyse(ds), period);
+      review = { drafts: drafts.length, reviewed: drafts.filter((d) => reviews.some((r) => r.company_id === c.id && r.period === period && r.key === d.key)).length };
+    }
+    return CY.status({ period, now: new Date(), workbooks: issued.filter((x) => x.company_id === c.id && x.period === period), upload, review });
+  }
   const save = (u, c, period, data, sections, warnings, source, filename) => {
     const version = 1 + Math.max(0, ...uploads.filter((x) => x.company_id === c.id && x.period === period).map((x) => x.version));
     uploads.push({ company_id: c.id, period, version, filename: filename || null, source, sections, warnings, data, created_at: new Date().toISOString(), uploaded_by: u.name });
@@ -84,12 +104,15 @@
       u.password = body.next; log(u, 'password.changed', u.company_id); return { ok: true, next: null };
     },
     'GET /api/admin/overview': () => {
-      needStaff();
+      const u = needStaff();
       const months = (cid) => current(cid).map((d) => d.period);
       return {
         companies: D.companies.map((c) => ({ id: c.id, code: c.code, name: c.name, data_email: c.data_email || null, users: users.filter((x) => x.company_id === c.id).length, months: months(c.id).length, latest: months(c.id).slice(-1)[0] || null, last_upload: uploads.filter((x) => x.company_id === c.id).map((x) => x.created_at).sort().slice(-1)[0] || null })),
         users: users.slice().sort((a, b) => (a.role === 'client') - (b.role === 'client')).map((x) => ({ id: x.id, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: staff(x) && !x.must_change_password ? 1 : 0, last_login_at: x.last_login_at })),
         activity: audit.slice(0, 200),
+        // The demo shows what an admin sees once hourly backups are running on the server.
+        backups: u.role === 'admin' ? (() => { const at = new Date(Math.floor(Date.now() / 3600e3) * 3600e3 + 5 * 60e3); if (at > Date.now()) at.setTime(at - 3600e3);
+          return { last_backup_at: at.toISOString(), last_size: 1840000, last_check: { ok: true, companies: D.companies.length, users: users.length, uploads: uploads.length }, last_error: null, kept: 66, kept_bytes: 66 * 1840000, oldest_at: new Date(Date.now() - 365 * 86400e3).toISOString(), offsite: null }; })() : null,
       };
     },
     'POST /api/admin/company': (q, body) => {
@@ -162,7 +185,25 @@
       const ds = current(c.id);
       log(session, 'dashboard.viewed', c.id);
       return { company: c, analysis: window.AEAnalysis.analyse(ds), periods: ds.map((d) => d.period),
-        insights: reviews.filter((r) => r.company_id === c.id && r.status === 'accepted').map((r) => ({ period: r.period, key: r.key, area: r.area, headline: r.headline, body: r.body, reviewed_at: r.reviewed_at })) };
+        insights: reviews.filter((r) => r.company_id === c.id && r.status === 'accepted').map((r) => ({ period: r.period, key: r.key, area: r.area, headline: r.headline, body: r.body, reviewed_at: r.reviewed_at })),
+        cycle: CY.forClient(cycleFor(c, CY.workingPeriod(new Date()))) };
+    },
+    'GET /api/cycle': (q) => {
+      const u = needStaff();
+      const period = window.AEParse.parseMonth(q.get('period')) || CY.workingPeriod(new Date());
+      if (q.get('company')) {
+        const c = companyFor(u, q.get('company')); const status = cycleFor(c, period);
+        return { company: c, period, status, client_note: CY.forClient(status), history: issued.filter((x) => x.company_id === c.id).slice().reverse() };
+      }
+      return { period, today: CY.today(new Date()), assigned: false, targets: CY.TARGET_DAY,
+        clients: D.companies.map((x) => companyFor(u, x.id)).sort((a, b) => a.name.localeCompare(b.name)).map((c) => ({ company: c, status: cycleFor(c, period) })) };
+    },
+    'POST /api/workbooks/received': (q, body) => {
+      const u = needStaff(); const c = companyFor(u, body.company);
+      const w = issued.find((x) => x.company_id === c.id && x.ref.toUpperCase() === String(body.ref || '').trim().toUpperCase() && !x.received_at);
+      if (!w) fail(404, 'That workbook was not found for this client, or it is already marked as received.');
+      w.received_at = new Date().toISOString(); log(u, 'workbook.received', c.id, w.ref);
+      return { ok: true };
     },
     'GET /api/insights': (q) => {
       const u = needStaff(); const c = companyFor(u, q.get('company'));

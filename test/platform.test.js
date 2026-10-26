@@ -402,7 +402,7 @@ test('first sign-in, two-step login, admin, disable, idle timeout and audit', as
     assert.ok(actions.includes(a), `audit has ${a}`);
 });
 
-test('backups are encrypted and restore to the same data', (t) => {
+test('backups are encrypted, checked, kept by age, copied off the server and restore to the same data', async (t) => {
   const os = require('os');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ae-backup-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -410,17 +410,67 @@ test('backups are encrypted and restore to the same data', (t) => {
   const blob = backupTool.encrypt(Buffer.from('hello'));
   assert.ok(!blob.includes(Buffer.from('hello')));
   assert.strictEqual(backupTool.decrypt(blob).toString(), 'hello');
-  const tampered = Buffer.from(blob); tampered[tampered.length - 1] ^= 1;
+  const tampered = Buffer.from(blob); tampered[tampered.length - 20] ^= 1;
   assert.throws(() => backupTool.decrypt(tampered));
 
+  // A stand-in for S3: checks each request's signature and keeps the objects in memory.
+  const offsite = require('../tools/offsite');
+  const objects = new Map(); let badSignatures = 0;
+  const env = { AE_OFFSITE_BUCKET: 'ae-test', AE_OFFSITE_REGION: 'ap-south-1', AE_OFFSITE_ACCESS_KEY: 'AKTEST', AE_OFFSITE_SECRET_KEY: 'secret-test' };
+  const s3 = http.createServer((req, res) => {
+    const chunks = []; req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      const u = new URL(req.url, 'http://x'); const body = Buffer.concat(chunks);
+      const cfg = offsite.config(Object.assign({ AE_OFFSITE_ENDPOINT: `http://${req.headers.host}` }, env));
+      const signed = Object.fromEntries(req.headers.authorization.match(/SignedHeaders=([^,]+)/)[1].split(';').filter((h) => h !== 'host' && !h.startsWith('x-amz')).map((h) => [h, req.headers[h]]));
+      const again = offsite.sign(cfg, { method: req.method, host: req.headers.host, path: u.pathname, query: Object.fromEntries(u.searchParams), headers: signed, payloadHash: req.headers['x-amz-content-sha256'] },
+        new Date(req.headers['x-amz-date'].replace(/(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)Z/, '$1-$2-$3T$4:$5:$6Z')));
+      if (again.authorization !== req.headers.authorization) { badSignatures++; res.writeHead(403); res.end('<Error><Code>SignatureDoesNotMatch</Code></Error>'); return; }
+      const key = decodeURIComponent(u.pathname.slice(1));
+      if (req.method === 'PUT') { objects.set(key, body); res.end(); }
+      else if (req.method === 'DELETE') { objects.delete(key); res.writeHead(204); res.end(); }
+      else res.end(`<ListBucketResult><IsTruncated>false</IsTruncated>${[...objects.keys()].filter((k) => k.startsWith(u.searchParams.get('prefix'))).map((k) => `<Contents><Key>${k}</Key></Contents>`).join('')}</ListBucketResult>`);
+    });
+  }).listen(0);
+  t.after(() => s3.close());
+  Object.assign(process.env, env, { AE_OFFSITE_ENDPOINT: `http://127.0.0.1:${s3.address().port}` });
+  t.after(() => Object.keys(env).concat('AE_OFFSITE_ENDPOINT').forEach((k) => delete process.env[k]));
+
   const live = path.join(dir, 'live.db');
-  const db = store.open(live); store.createCompany(db, 'AE-0042', 'Backup Co'); db.close();
+  const db = store.open(live); store.createCompany(db, 'AE-0042', 'Backup Co');
   process.env.AE_BACKUP_DIR = path.join(dir, 'b');
-  const file = backupTool.backup(live);
+  // An old backup that the keeping rule should drop, and one a year old that it keeps as its month's copy.
+  fs.mkdirSync(process.env.AE_BACKUP_DIR, { recursive: true });
+  const old = new Date(Date.now() - 40 * 86400e3).toISOString().slice(0, 10);
+  fs.writeFileSync(path.join(process.env.AE_BACKUP_DIR, `assura-${old}T10-00-00Z.db.gz.enc`), 'x');
+  fs.writeFileSync(path.join(process.env.AE_BACKUP_DIR, `assura-${old}T09-00-00Z.db.gz.enc`), 'x');
+  [1, 2].forEach((h) => fs.writeFileSync(path.join(process.env.AE_BACKUP_DIR, `assura-${new Date(Date.now() - h * 3600e3).toISOString().replace(/[:.]/g, '-').slice(0, 19)}Z.db.gz.enc`), 'x'));
+  const file = await backupTool.backup(live); // taken while the portal's connection is still open
+  db.close();
+  assert.strictEqual(badSignatures, 0);
+  assert.deepStrictEqual([...objects.keys()], [`portal-backups/${path.basename(file)}`]);
+  assert.ok(objects.get(`portal-backups/${path.basename(file)}`).equals(fs.readFileSync(file)), 'the off-server copy is the same file');
+  const names = fs.readdirSync(process.env.AE_BACKUP_DIR).filter((f) => f.endsWith('.enc'));
+  assert.ok(names.includes(`assura-${old}T10-00-00Z.db.gz.enc`) && !names.includes(`assura-${old}T09-00-00Z.db.gz.enc`), 'one backup per month is kept beyond 30 days');
+  const sum = backupTool.summary();
+  assert.strictEqual(sum.last_check.ok, true); assert.strictEqual(sum.last_check.companies, 1);
+  assert.match(sum.offsite.where, /ae-test/);
+
   const restored = path.join(dir, 'restored.db');
-  fs.writeFileSync(restored, backupTool.decrypt(fs.readFileSync(file)));
+  await backupTool.decryptFile(file, restored);
   const r = store.open(restored);
   assert.strictEqual(r.prepare('SELECT name FROM companies WHERE code = ?').get('AE-0042').name, 'Backup Co');
+  r.close();
+  // A damaged backup fails its check.
+  const broken = path.join(dir, 'b', 'assura-2026-01-01T00-00-00Z.db.gz.enc');
+  const bytes = fs.readFileSync(file); bytes[bytes.length - 30] ^= 1; fs.writeFileSync(broken, bytes);
+  await assert.rejects(backupTool.verify(broken));
+
+  // The keeping rule: everything from the last day, one a day for 30 days, one a month for a year.
+  const now = Date.parse('2026-10-25T12:00:00Z');
+  const files = []; for (let h = 0; h < 24 * 400; h++) { const at = now - h * 3600e3; files.push({ file: String(at), at }); }
+  const kept = backupTool.keep(files, now);
+  assert.ok(kept.size >= 24 + 29 + 11 && kept.size <= 24 + 30 + 13, `kept ${kept.size}`);
 });
 
 test('the monthly workbook is filled for one client and month, sent from the portal, and only that copy is accepted back', async (t) => {
@@ -503,4 +553,62 @@ test('the monthly workbook is filled for one client and month, sent from the por
   assert.ok(Buffer.from(dl.body.file, 'base64').length > 10000);
   const actions = db.prepare('SELECT action FROM audit').all().map((x) => x.action);
   for (const x of ['workbook.emailed', 'workbook.downloaded', 'admin.company_email']) assert.ok(actions.includes(x), x);
+});
+
+test('the team sees each client\'s month: sent, received, uploaded, reviewed, with overdue reminders; the client sees a plain note', async (t) => {
+  const db = store.open(':memory:');
+  const a = store.createCompany(db, 'AE-0001', 'Meridian Polymers Pvt Ltd');
+  const b = store.createCompany(db, 'AE-0002', 'Coastline Foods Pvt Ltd');
+  const pw = 'test-password-1';
+  store.createUser(db, { email: 'md@a.test', name: 'MD A', role: 'client', companyId: a.id, password: pw });
+  store.createUser(db, { email: 'team@x.test', name: 'Farzeen', role: 'team', companyId: null, password: pw });
+  let clock = new Date('2026-10-05T06:00:00Z');
+  const server = http.createServer(createApp(db, { mail: null, now: () => clock })).listen(0);
+  t.after(() => server.close());
+  const port = server.address().port;
+  const team = client(port); await team.login('team@x.test'); await enrolStaff(team);
+  const mdA = client(port); await mdA.login('md@a.test');
+  assert.strictEqual((await mdA.call('GET', '/api/cycle')).status, 403, 'clients do not see the team\'s work');
+  assert.strictEqual((await team.call('GET', '/api/me')).body.workflow, fs.existsSync(path.join(ROOT, 'public', 'workflow.html')), 'team logins start in Workflow only where it is installed');
+  assert.strictEqual((await mdA.call('GET', '/api/me')).body.workflow, false);
+
+  const states = (row) => row.status.steps.map((s) => `${s.key}:${s.state}`).join(' ');
+  let work = await team.call('GET', '/api/cycle');
+  assert.strictEqual(work.body.period, '2026-09');
+  assert.strictEqual(work.body.clients.length, 2);
+  const rowA = () => work.body.clients.find((c) => c.company.id === a.id);
+  assert.strictEqual(states(rowA()), 'send:overdue receive:later upload:later review:later', 'the workbook was due out by the 3rd');
+  assert.match((await mdA.call('GET', '/api/dashboard')).body.cycle.text, /will send this month's data workbook/);
+
+  const sent = await team.call('POST', '/api/workbooks/send', { company: a.id, period: '2026-09', method: 'download' });
+  work = await team.call('GET', '/api/cycle');
+  assert.strictEqual(states(rowA()), 'send:done receive:due upload:later review:later');
+  assert.match((await mdA.call('GET', '/api/dashboard')).body.cycle.text, /sent to your accountant/);
+
+  clock = new Date('2026-10-11T06:00:00Z');
+  work = await team.call('GET', '/api/cycle');
+  assert.strictEqual(rowA().status.next.key, 'receive');
+  assert.strictEqual(rowA().status.overdue, 1, 'not back by the 10th');
+  const note = (await mdA.call('GET', '/api/dashboard')).body.cycle;
+  assert.ok(note.overdue && /not been returned yet/.test(note.text));
+  assert.ok(!JSON.stringify(note).includes('Farzeen'), 'no team names on the client side');
+
+  assert.strictEqual((await team.call('POST', '/api/workbooks/received', { company: b.id, ref: sent.body.ref })).status, 404, 'another client\'s reference');
+  assert.strictEqual((await team.call('POST', '/api/workbooks/received', { company: a.id, ref: sent.body.ref })).status, 200);
+  work = await team.call('GET', '/api/cycle');
+  assert.strictEqual(states(rowA()), 'send:done receive:done upload:due review:later');
+
+  const up = await team.call('POST', '/api/upload', { company: a.id, sheets: (() => {
+    const tmp = path.join(require('os').tmpdir(), `ae-cy-${process.pid}.xlsx`); t.after(() => fs.rmSync(tmp, { force: true }));
+    fs.writeFileSync(tmp, Buffer.from(sent.body.file, 'base64'));
+    const s = xlsxRows(tmp); const data = sample('AE-0001', '2026-09');
+    s['Company & Period'].forEach((r) => { if (r[0] === 'Prepared By') r[1] = 'R. Menon'; });
+    s.Sales = [['Invoice Date', 'Invoice No', 'Customer', 'Customer Type (B2B/B2C)', 'Product / Service', 'Taxable Value']].concat(data.sales.map((x) => [x.date, x.invoice_no, x.customer, x.customer_type, x.product, x.taxable_value]));
+    return s;
+  })() });
+  assert.strictEqual(up.status, 200, JSON.stringify(up.body));
+  const one = await team.call('GET', `/api/cycle?company=${a.id}`);
+  assert.strictEqual(one.body.status.steps.find((s) => s.key === 'upload').state, 'done');
+  assert.strictEqual((await mdA.call('GET', '/api/dashboard')).body.cycle, null, 'once the month is on the dashboard the note goes');
+  assert.strictEqual((await mdA.call('GET', `/api/cycle?company=${a.id}`)).status, 403);
 });

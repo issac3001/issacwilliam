@@ -12,6 +12,7 @@ function open(file = DB_PATH) {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
+    PRAGMA busy_timeout = 5000;
     CREATE TABLE IF NOT EXISTS companies (
       id INTEGER PRIMARY KEY,
       code TEXT UNIQUE NOT NULL,
@@ -150,6 +151,16 @@ function hashPassword(pw) {
   const key = crypto.scryptSync(pw, salt, 64);
   return `scrypt$${salt.toString('hex')}$${key.toString('hex')}`;
 }
+// The same check without holding up other requests while the hash is worked out (used at sign-in).
+function verifyPasswordAsync(pw, stored) {
+  const [, saltHex, keyHex] = String(stored || '').split('$');
+  if (!saltHex || !keyHex) return Promise.resolve(false);
+  return new Promise((resolve, reject) => crypto.scrypt(pw, Buffer.from(saltHex, 'hex'), 64, (err, key) => {
+    if (err) return reject(err);
+    const want = Buffer.from(keyHex, 'hex');
+    resolve(want.length === key.length && crypto.timingSafeEqual(key, want));
+  }));
+}
 function verifyPassword(pw, stored) {
   const [, saltHex, keyHex] = String(stored).split('$');
   if (!saltHex || !keyHex) return false;
@@ -261,6 +272,21 @@ function markWorkbookReceived(db, ref, version) {
   db.prepare("UPDATE workbooks SET received_version = ?, received_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE ref = ? COLLATE NOCASE").run(version, ref);
 }
 
+// The month's live data with when it first arrived, or null when the month has no data.
+function periodUpload(db, companyId, period) {
+  // Reads only the version and the removed mark, not the month's figures.
+  const r = db.prepare(`SELECT MAX(version) AS version, MIN(created_at) AS at,
+      (SELECT json_extract(data, '$.removed') FROM uploads WHERE company_id = ?1 AND period = ?2 ORDER BY version DESC LIMIT 1) AS removed
+    FROM uploads WHERE company_id = ?1 AND period = ?2`).get(companyId, period);
+  if (!r || !r.version || r.removed) return null;
+  return { version: r.version, created_at: r.at };
+}
+
+// The accountant has returned the copy (by email, before it is uploaded).
+function markWorkbookArrived(db, companyId, ref) {
+  return db.prepare("UPDATE workbooks SET received_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE company_id = ? AND ref = ? COLLATE NOCASE AND received_at IS NULL").run(companyId, ref).changes;
+}
+
 function uploadHistory(db, companyId) {
   return db.prepare(`
     SELECT u.period, u.version, u.filename, u.source, u.sections, u.warnings, u.created_at, us.name AS uploaded_by
@@ -269,4 +295,4 @@ function uploadHistory(db, companyId) {
     .map((r) => Object.assign({}, r, { sections: JSON.parse(r.sections), warnings: JSON.parse(r.warnings) }));
 }
 
-module.exports = { issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
+module.exports = { markWorkbookArrived, periodUpload, issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, verifyPasswordAsync, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };

@@ -58,17 +58,20 @@
       },
     });
     const pick = (email, note) => { const u = db.prepare('SELECT id, name FROM users WHERE email = ?').get(email); return { id: u.id, name: u.name, note }; };
+    // The associate with the most work waiting on them, so their view has something to do.
+    const doer = db.prepare(`SELECT u.email FROM wf_tasks t JOIN users u ON u.id = t.assignee_id JOIN wf_staff s ON s.user_id = u.id
+      WHERE t.stage = 'preparation' AND s.level IN ('associate', 'analyst') GROUP BY u.id ORDER BY COUNT(*) DESC, u.id LIMIT 1`).get();
     api.logins = [
-      pick('md@assura.demo', 'Sees every department; decides flagged matters'),
-      pick('ca.director@assura.demo', 'Heads Taxation & Assurance; department sign-off'),
-      pick('ca.manager1@assura.demo', 'Manages CA Team 1; approves its work'),
-      pick('ca.senior1@assura.demo', 'Semi-qualified; checks the analyst\'s work'),
-      pick('ca.analyst1@assura.demo', 'Trainee; prepares the monthly work'),
-      pick('cs.director@assura.demo', 'Heads Corporate Governance'),
-      pick('legal.manager1@assura.demo', 'Manages Legal Team 1'),
-      pick('hr.senior1@assura.demo', 'HR & Labour Compliance, Team 1'),
-      pick('admin@assura.demo', 'System admin; sets up teams and people'),
-    ];
+      pick('mp@assura.demo', 'Sees both branches; decides flagged matters; consolidated report'),
+      pick('branchhead.blr@assura.demo', 'Sees all of Bangalore; corrective actions; consolidated report'),
+      pick('tax.head.blr@assura.demo', 'Taxation (direct and indirect tax), Bangalore; weekly report'),
+      pick('tax.manager.blr@assura.demo', 'Final approval; sees all work of the juniors'),
+      pick('tax.supervisor.blr@assura.demo', 'Quality check; two-day reports from the team'),
+      doer ? pick(doer.email, 'Prepares the work allotted to them') : null,
+      pick('accounts.associate.blr@assura.demo', 'Accounts: invoices and attendance verification'),
+      pick('branchhead.clt@assura.demo', 'Sees all of Calicut'),
+      pick('admin@assura.demo', 'System admin; sets up branches and people'),
+    ].filter(Boolean);
   });
 
   api.signIn = (id) => { api.user = db.prepare('SELECT * FROM users WHERE id = ?').get(id); };

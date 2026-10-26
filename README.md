@@ -16,12 +16,13 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 | Account security | New logins get a one-time password and must choose their own at first sign-in (10+ characters). Team and admin logins must set up two-step login (authenticator app, RFC 6238) before they see any client. Sessions end after 2 hours idle (`AE_IDLE_MINUTES`) and on password change; logins can be switched off. Repeated failed sign-ins are slowed down. |
 | Administration | **Clients & users** screen for the team: add and rename companies, add logins, reset passwords and two-step login, switch logins off. Only admins manage team logins. |
 | Audit log | Every sign-in (and failed attempt), dashboard view, upload, edit, restore, password change and admin action is recorded with time, user, company and IP, and shown to the team. |
-| Backups | `tools/backup.js`: daily encrypted snapshots (AES-256-GCM, key from `AE_BACKUP_KEY`), newest 30 kept, with a restore command. |
+| Backups | `tools/backup.js`: an encrypted backup every hour, decrypted and checked before it counts; every backup of the last day, one a day for 30 days and one a month for a year are kept; optional copy to S3 or a Lightsail bucket (`tools/offsite.js`); status shown to admins. A backup is taken before every update. See DEPLOY.md. |
 | History | Every upload and edit is kept as a version. The latest version of each month drives the dashboard, so history builds month on month. |
 | Dashboard | Overview, Where is the money?, Sales & customers, Expenses, Compliance & governance, Data & uploads. |
 | Highlights | Rule-based analysis of the client's own history (`shared/analysis.js`): revenue direction and streaks, gross margin movement, purchase rate increases by item, receivables 90+ and collection days, customer concentration, regular customers who stopped buying, new customers, month-end billing loading, slow-moving stock and cash locked in it, stock build-up, expense heads out of their normal range, overheads outpacing revenue, OD/CC utilisation, net cash decline, supplier payments beyond 60 days (MSME / 43B(h) prompt), overdue, late and upcoming compliance. Each highlight is ranked (act now / watch / positive / information) and carries a point for the management review. |
 | Explanations | For each material movement in a month (revenue, gross margin, expenses, profit, receivables, stock, net cash), `shared/insights.js` traces the change to the transactions behind it and lists likely causes with their rupee effect: customers billed more or less, lost and new accounts, price and volume effects, purchase rate changes, sales mix, expense heads, collection days, and a cash bridge. The Assura team ticks the right causes, edits the wording and accepts it under **Explanations**; only accepted explanations appear on the client's overview, and a review is flagged when the month's figures change afterwards. |
 | Monthly workbook | Sent from the client's **Data & uploads** page by the Assura team: emailed to the client's saved accounts address through the firm's own mailbox (`server/mail.js`, set up as in DEPLOY.md), or downloaded. Every copy is filled by `shared/workbook.js` with the company code, name, month and its own workbook reference on a locked first sheet, and recorded with who sent it and whether it came back. |
+| Monthly data cycle | Team logins start in Workflow when it is installed, otherwise on **Monthly data**. That page shows every client's monthly data cycle for the month being worked on (workbook sent, data received from the accountant, on the dashboard, explanations reviewed), with reminders for steps past their target day (3rd, 10th, 12th and 15th of the following month, set in `shared/cycle.js`). A client opens on its own **This month's work** page with what is pending, before its dashboard. With the workflow module installed, team members see only the clients allotted to them, and Workflow reads the same status from `GET /api/cycle`. A staff link `/?company=<id>&view=<section>` opens one client (default view: its month's work; `overview` for the dashboard). Clients see a plain note on their dashboard while the month's data is with their accountant. |
 | Company check on uploads | A returned workbook is accepted only if its reference was issued for the selected client and that month (`shared/match.js`), and its company code and name match (legal suffixes and punctuation ignored). A file whose customers and suppliers are on record for another client is refused, and a one-section CSV needs the client code typed to confirm. Every upload is checked first and shown for review, and changes nothing until the team accepts it. |
 
 ### Planned
@@ -33,21 +34,25 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 - Password reset by email (today: the Assura team resets it and shares the one-time password).
 - Hosting in India with HTTPS on your own domain: ready to install (see `DEPLOY.md`); the server is chosen with you before any paid service is used.
 
-## Internal workflow (Assura team only)
+## Practice workspace (Assura team only)
 
 Open `/workflow` with a team or admin login. Client logins are refused. The same sign-in and two-step login apply.
 
 | Area | What it does |
 |---|---|
-| Structure | Managing Director; a Director heading each department (Taxation & Assurance, Corporate Governance, Legal, HR & Labour Compliance); Managers, Senior Analysts (semi-qualified) and Analysts (trainees). Each team is a manager, a senior analyst and an analyst serving up to 30 clients (capacity is editable). |
-| Allotment | Each client is allotted to one team in every department, with a target day of the month per client and department. |
-| Monthly cycle | "Start the month" creates each department's standard review tasks for every allotted client, due on that client's target day in the following month. Extra tasks can be added by managers and above. |
-| Maker-checker | Analyst prepares, Senior Analyst reviews, Manager approves, Director signs off for the department. Nobody can check work they moved forward. Any step can send work back with a note. |
-| Flags | Anyone on the task can flag an issue; the task then needs the MD's approval after department sign-off, and the MD records the decision. |
-| Timeliness | Every step has its own target ahead of the task's target date. Tasks show as on track, behind a step target, or late; completed work is on time or late. The Timeliness page gives on-time rates by department, team and person. |
-| Client sign-off | The Clients page shows, for each client and month, every department's progress and sign-off; the month is complete when all have signed off. |
+| Branches | Bangalore and Calicut to start; a new city is added under Firm structure and set up the same way. Each branch has a Branch Head. |
+| Departments | Taxation (Direct Tax; Indirect Tax/GST), Labour Law (ESI, PF), Corporate Governance (Companies Act; LLP), Legal (partnerships, proprietorships, NGOs), Assurance, and Accounts (internal: billing, attendance). |
+| People | Managing Partner > Branch Head > Department Head > Manager > Supervisor > Associate > Analyst. Each person reports to one person. Everyone sees their own work and the work of everyone reporting to them; a department head their department in their branch; a branch head the branch; the Managing Partner everything. |
+| Clients | Onboarding with entity type, PAN, GSTIN, TAN, CIN, address, billing email, monthly fee and target day. Owners, partners, directors, trustees and the client's accountant are recorded with email and mobile. |
+| Allotment | One person per client per division, until replaced (open work moves with the client; every change is logged). A division can be marked not applicable; it then gets only a monthly applicability review. Department heads and managers allot within their department. |
+| Approvals | The allotted person prepares, a Supervisor does the quality check, a Manager gives final approval. Nobody checks work they moved forward. Flags send the task to the Managing Partner. |
+| Documents | A document from the client counts only when it comes from a registered contact's email or mobile. Anything else blocks approval until it is received properly or set aside by a supervisor. |
+| Month close and billing | When every division has completed a client's month it goes to Accounts, who raise next month's advance invoice (numbered by financial year), email it to the billing email and partners on record, and record payment. Email needs the SMTP settings in `server/mail.js`. |
+| Attendance | Each person marks yes or no daily; Accounts verifies it. |
+| Reports | Every two days to each supervisor and manager with reportees, weekly to each department head, consolidated to the branch heads and the Managing Partner. Each is reviewed with a comment and corrective actions, which their owners mark done. |
+| Timeliness | Preparation is due five days and the quality check two days before the target date. Work shows as on track, behind, or late, with on-time rates by division and person. |
 
-Engine: `shared/workflow.js` (tables prefixed `wf_`, created on start). Placeholder team for the demo: `npm run seed:demo` adds `md@assura.demo`, `ca.director@assura.demo`, `ca.manager1@assura.demo`, `ca.senior1@assura.demo`, `ca.analyst1@assura.demo` and the same for `cs`, `legal` and `hr` (password `demo-password`). `npm run build:workflow-demo` writes a self-contained preview to `dist/workflow-demo.html`.
+Engine: `shared/workflow.js` (tables prefixed `wf_`, created on start). `npm run seed:demo` adds a placeholder firm in both branches (password `demo-password`), for example `mp@assura.demo`, `branchhead.blr@assura.demo`, `tax.head.blr@assura.demo`, `tax.manager.blr@assura.demo`, `tax.supervisor.blr@assura.demo`, `tax.associate1.blr@assura.demo`, `accounts.associate.blr@assura.demo`, and the same pattern for each department and for `.clt`. `npm run build:workflow-demo` writes a self-contained preview to `dist/workflow-demo.html`.
 
 ## Public website
 
@@ -81,6 +86,7 @@ Backups (run daily from cron; keep the key somewhere other than the server):
 
 ```bash
 AE_BACKUP_KEY='long-random-secret' node tools/backup.js
+AE_BACKUP_KEY='long-random-secret' node tools/backup.js verify
 AE_BACKUP_KEY='long-random-secret' node tools/backup.js restore backups/assura-<time>.db.gz.enc restored.db
 ```
 
@@ -93,6 +99,7 @@ shared/analysis.js      metrics, ageing, trends and highlights (browser + Node)
 shared/insights.js      suggested explanations of each month's movements (browser + Node)
 shared/match.js         checks that an upload belongs to the selected client (browser + Node)
 shared/workbook.js      fills one client's copy of the monthly workbook (browser + Node)
+shared/cycle.js         the monthly data cycle: steps, target days, reminders (browser + Node)
 server/mail.js          sends email through the firm's own mailbox (SMTP)
 shared/edit.js          checks edits made in the portal with the upload rules
 server/                 HTTP server, auth, storage
