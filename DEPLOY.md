@@ -82,7 +82,16 @@ Everything the portal and Workflow keep is in one database file, so each backup 
 Backups on the server are lost if the server itself is lost, so copy each one to object storage as well. The files are encrypted before they leave, so the storage provider cannot read them.
 
 1. In the AWS console, create an **S3 bucket** in **Mumbai (ap-south-1)**, for example `assura-elevate-backups`, with public access blocked. (A Lightsail bucket also works.) Storage for about 1 GB of backups costs a few rupees a month.
-2. In **IAM**, create a user with access to that bucket only (put, list and delete objects) and create an access key for it.
+2. In **IAM**, create a user (for example `assura-backups`) with no console access, attach this policy to it (change the bucket name if yours differs), and create an access key for it:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       { "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::assura-elevate-backups" },
+       { "Effect": "Allow", "Action": ["s3:PutObject", "s3:DeleteObject"], "Resource": "arn:aws:s3:::assura-elevate-backups/portal-backups/*" }
+     ]
+   }
+   ```
 3. On the server, add to `/srv/assura/assura.env` (never paste these into chat or email):
    ```
    AE_OFFSITE_BUCKET=assura-elevate-backups
