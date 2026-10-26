@@ -270,6 +270,7 @@
     upload: 'M10 13V3M6 7l4-4 4 4M3 13v4h14v-4',
     edit: 'M4 16l1-4 8-8 3 3-8 8zM12 5l3 3',
     admin: 'M7 9a3 3 0 100-6 3 3 0 000 6zM2 17c0-3 2-5 5-5s5 2 5 5M14 9a2.5 2.5 0 100-5M15 12c2 .5 3 2 3 5',
+    workflow: 'M3 4h5v4H3zM12 12h5v4h-5zM5.5 8v6h6.5M12 6h5M14.5 6v4',
     work: 'M3 5h14v12H3zM7 5V3h6v2M3 10h14M9 10v2h2v-2',
     client: 'M4 3h9l3 3v11H4zM7 9l2 2 4-4M7 14h6',
     account: 'M10 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM3 18c0-4 3-6 7-6s7 2 7 6',
@@ -326,6 +327,7 @@
             ${isStaff(u)
               ? (state.clientOpen ? `<div class="nav-group">Client work</div>${STAFF_TABS.map((t) => navItem(t)).join('')}<div class="nav-group">Client dashboard</div>${TABS.map(navItem).join('')}`
                 : '<p class="side-hint">Choose a client, or open one from Monthly data, to see its work and dashboard.</p>')
+                + (window.AE_DEMO_API ? '' : `<div class="nav-group">Assura workspace</div><a class="nav-item" href="/workflow">${navIcon('workflow')}<span>Practice workspace</span></a>`)
               : `<div class="nav-group">Dashboard</div>${TABS.map(navItem).join('')}`}
           </nav>
           <div class="side-foot">

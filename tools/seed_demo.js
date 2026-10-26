@@ -36,3 +36,15 @@ for (const c of companies) {
 for (const [email, name, role] of [['team@assura.demo', 'Assura Team Member', 'team'], ['admin@assura.demo', 'Assura Admin', 'admin']])
   if (!db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) store.createUser(db, { email, name, role, companyId: null, password: PASSWORD });
 console.log(`Demo password for all demo logins: ${PASSWORD}`);
+
+// Internal workflow: placeholder firm in Bangalore and Calicut (password demo-password), eight fictional clients and two months of history.
+const W = require('../shared/workflow');
+W.install(db);
+const wf = W.createWorkflow(db);
+const out = require('./demo/workflow-seed').seed(db, wf, {
+  today: new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10),
+  admin: db.prepare("SELECT * FROM users WHERE email = 'admin@assura.demo'").get(),
+  ensureCompany: (code, name) => (db.prepare('SELECT id FROM companies WHERE code = ?').get(code) || store.createCompany(db, code, name)).id,
+  makeUser: (email, name, role) => db.prepare('SELECT * FROM users WHERE email = ?').get(email) || store.createUser(db, { email, name, role, companyId: null, password: PASSWORD }),
+});
+console.log(out.skipped ? 'Workflow demo exists, skipped' : 'Workflow demo seeded: mp@assura.demo, branchhead.blr@assura.demo, tax.head.blr@assura.demo, tax.manager.blr@assura.demo, tax.supervisor.blr@assura.demo, tax.associate1.blr@assura.demo, accounts.associate.blr@assura.demo (and the same pattern for each department and for .clt)');

@@ -34,6 +34,26 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 - Password reset by email (today: the Assura team resets it and shares the one-time password).
 - Hosting in India with HTTPS on your own domain: ready to install (see `DEPLOY.md`); the server is chosen with you before any paid service is used.
 
+## Practice workspace (Assura team only)
+
+Open `/workflow` with a team or admin login. Client logins are refused. The same sign-in and two-step login apply.
+
+| Area | What it does |
+|---|---|
+| Branches | Bangalore and Calicut to start; a new city is added under Firm structure and set up the same way. Each branch has a Branch Head. |
+| Departments | Taxation (Direct Tax; Indirect Tax/GST), Labour Law (ESI, PF), Corporate Governance (Companies Act; LLP), Legal (partnerships, proprietorships, NGOs), Assurance, and Accounts (internal: billing, attendance). |
+| People | Managing Partner > Branch Head > Department Head > Manager > Supervisor > Associate > Analyst. Each person reports to one person. Everyone sees their own work and the work of everyone reporting to them; a department head their department in their branch; a branch head the branch; the Managing Partner everything. |
+| Clients | Onboarding with entity type, PAN, GSTIN, TAN, CIN, address, billing email, monthly fee and target day. Owners, partners, directors, trustees and the client's accountant are recorded with email and mobile. |
+| Allotment | One person per client per division, until replaced (open work moves with the client; every change is logged). A division can be marked not applicable; it then gets only a monthly applicability review. Department heads and managers allot within their department. |
+| Approvals | The allotted person prepares, a Supervisor does the quality check, a Manager gives final approval. Nobody checks work they moved forward. Flags send the task to the Managing Partner. |
+| Documents | A document from the client counts only when it comes from a registered contact's email or mobile. Anything else blocks approval until it is received properly or set aside by a supervisor. |
+| Month close and billing | When every division has completed a client's month it goes to Accounts, who raise next month's advance invoice (numbered by financial year), email it to the billing email and partners on record, and record payment. Email needs the SMTP settings in `server/mail.js`. |
+| Attendance | Each person marks yes or no daily; Accounts verifies it. |
+| Reports | Every two days to each supervisor and manager with reportees, weekly to each department head, consolidated to the branch heads and the Managing Partner. Each is reviewed with a comment and corrective actions, which their owners mark done. |
+| Timeliness | Preparation is due five days and the quality check two days before the target date. Work shows as on track, behind, or late, with on-time rates by division and person. |
+
+Engine: `shared/workflow.js` (tables prefixed `wf_`, created on start). `npm run seed:demo` adds a placeholder firm in both branches (password `demo-password`), for example `mp@assura.demo`, `branchhead.blr@assura.demo`, `tax.head.blr@assura.demo`, `tax.manager.blr@assura.demo`, `tax.supervisor.blr@assura.demo`, `tax.associate1.blr@assura.demo`, `accounts.associate.blr@assura.demo`, and the same pattern for each department and for `.clt`. `npm run build:workflow-demo` writes a self-contained preview to `dist/workflow-demo.html`.
+
 ## Run it
 
 Requires Node 22.5+ (uses the built-in `node:sqlite`; no npm dependencies) and Python 3 with `openpyxl` only to regenerate workbooks.
