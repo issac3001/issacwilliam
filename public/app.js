@@ -135,17 +135,18 @@
             <h1>Your business, <em>on one screen.</em></h1>
             <p>Monthly financial intelligence, compliance oversight and management highlights, prepared from data your finance team provides.</p>
           </div>
-          <p class="small">We don't replace your accountant. We elevate your finance function.</p>
+          <p class="small">Built for businesses ready for their next stage.</p>
         </section>
         <section class="login-form">
           <form id="login" autocomplete="on">
-            <div><div class="eyebrow">Client and team login</div><h2>Sign in</h2></div>
+            <div><div class="eyebrow">${new URLSearchParams(location.search).get('next') === 'workflow' ? 'Team login' : 'Client and team login'}</div><h2>Sign in</h2></div>
             <div><label for="email">Email</label><input id="email" type="email" required autocomplete="username"></div>
             <div><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"></div>
             ${needCode ? `<div><label for="code">Code from your authenticator app</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></div>` : ''}
             ${error ? `<div class="msg ${needCode && /Enter the 6-digit/.test(error) ? '' : 'err'}">${esc(error)}</div>` : ''}
             <button class="btn" type="submit">Sign in</button>
             <p class="small muted">A client login sees only its own company's data. Contact your Assura Elevate partner for access.</p>
+            ${window.AE_DEMO_API ? '' : '<p class="small"><a href="https://elevateassura.com/">← elevateassura.com</a></p>'}
             ${demo}
           </form>
         </section>

@@ -2,7 +2,7 @@
 
 The technology layer of Assura Elevate. The Assura team uploads one workbook a month for each client; the platform validates it, keeps every month on record, and rebuilds that client's dashboard with automated highlights for the management review. Clients sign in to a view-only dashboard of their own company, where every figure opens the records behind it.
 
-*We don't replace your accountant. We elevate your finance function.*
+*Built for businesses ready for their next stage.*
 
 ## What it does today
 
@@ -53,6 +53,10 @@ Open `/workflow` with a team or admin login. Client logins are refused. The same
 | Timeliness | Preparation is due five days and the quality check two days before the target date. Work shows as on track, behind, or late, with on-time rates by division and person. |
 
 Engine: `shared/workflow.js` (tables prefixed `wf_`, created on start). `npm run seed:demo` adds a placeholder firm in both branches (password `demo-password`), for example `mp@assura.demo`, `branchhead.blr@assura.demo`, `tax.head.blr@assura.demo`, `tax.manager.blr@assura.demo`, `tax.supervisor.blr@assura.demo`, `tax.associate1.blr@assura.demo`, `accounts.associate.blr@assura.demo`, and the same pattern for each department and for `.clt`. `npm run build:workflow-demo` writes a self-contained preview to `dist/workflow-demo.html`.
+
+## Public website
+
+`site/` is the firm's public website (elevateassura.com): plain HTML and CSS with no build step, no tracking and no third-party scripts beyond Google Fonts. Its **Sign in** corner (`site/login.html`) leads to the portal: team members go to `portal.elevateassura.com/?next=workflow`, which opens Workflow straight after sign-in; clients go to the portal's sign-in and see only their own company. `deploy/setup.sh` serves the site on the same server when the website domain is given as a fourth argument (see DEPLOY.md). Open `site/index.html` in a browser to preview it.
 
 ## Run it
 
