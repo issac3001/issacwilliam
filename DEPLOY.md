@@ -6,8 +6,8 @@ The portal runs on one small Linux server in India, with HTTPS on your own domai
 
 | Item | Suggested | Approximate cost |
 |---|---|---|
-| Server | AWS Lightsail, Mumbai region, Ubuntu 24.04, 1 GB plan | about $7 a month, plus GST |
-| or | DigitalOcean, Bangalore region, Ubuntu 24.04, 1 GB Basic droplet with weekly backups | about $7.20 a month, plus GST |
+| Server | AWS Lightsail, Mumbai region, Ubuntu 24.04, **2 GB plan** (chosen for up to 300 people at once) | about $12 a month, plus GST |
+| Backup copy away from the server | Amazon S3 bucket, Mumbai region (see Backups) | a few rupees a month for about 1 GB |
 | Domain | for example `portal.assuraelevate.in` (a sub-domain of a domain you already own costs nothing extra) | about ₹800–1,200 a year for a new `.in` domain |
 | HTTPS certificate | Let's Encrypt, issued and renewed automatically by Caddy | free |
 
@@ -15,7 +15,7 @@ A 1 GB server comfortably handles dozens of client companies with several years 
 
 ## Steps
 
-1. Create the server. On **AWS Lightsail** (the chosen option): Create instance → region **Mumbai (ap-south-1)** → Linux/Unix → OS only → **Ubuntu 24.04 LTS** → the **1 GB** plan → name it `assura-portal`. Then:
+1. Create the server. On **AWS Lightsail** (the chosen option): Create instance → region **Mumbai (ap-south-1)** → Linux/Unix → OS only → **Ubuntu 24.04 LTS** → the **2 GB** plan → name it `assura-portal`. Then:
    - **Networking → Create static IP** and attach it to the instance, so the address never changes (free while attached).
    - **Networking → IPv4 firewall → Add rule → HTTPS (443)**. Lightsail opens only SSH and HTTP by default.
    - **Snapshots → Enable automatic snapshots** for a daily copy of the whole server (about $0.05 per GB a month).
@@ -84,7 +84,16 @@ Everything the portal and Workflow keep is in one database file, so each backup 
 Backups on the server are lost if the server itself is lost, so copy each one to object storage as well. The files are encrypted before they leave, so the storage provider cannot read them.
 
 1. In the AWS console, create an **S3 bucket** in **Mumbai (ap-south-1)**, for example `assura-elevate-backups`, with public access blocked. (A Lightsail bucket also works.) Storage for about 1 GB of backups costs a few rupees a month.
-2. In **IAM**, create a user with access to that bucket only (put, list and delete objects) and create an access key for it.
+2. In **IAM**, create a user (for example `assura-backups`) with no console access, attach this policy to it (change the bucket name if yours differs), and create an access key for it:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       { "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::assura-elevate-backups" },
+       { "Effect": "Allow", "Action": ["s3:PutObject", "s3:DeleteObject"], "Resource": "arn:aws:s3:::assura-elevate-backups/portal-backups/*" }
+     ]
+   }
+   ```
 3. On the server, add to `/srv/assura/assura.env` (never paste these into chat or email):
    ```
    AE_OFFSITE_BUCKET=assura-elevate-backups
@@ -93,6 +102,8 @@ Backups on the server are lost if the server itself is lost, so copy each one to
    AE_OFFSITE_SECRET_KEY=the-secret-access-key
    ```
 4. Run a backup to test it: `sudo -u assura bash -c 'set -a; . /srv/assura/assura.env; set +a; cd /srv/assura/app; node tools/backup.js'`. The **Backups** card then shows the copy away from the server. The same keeping rule is applied there.
+
+**Moving an existing 1 GB server to 2 GB** (Lightsail cannot resize in place, but nothing is lost): Snapshots → Create snapshot → on the snapshot, **Create new instance** → choose the 2 GB plan → when it is running, Networking → detach the static IP from the old instance and attach it to the new one → check the portal opens → delete the old instance. The domain keeps pointing at the same IP, so nothing else changes.
 
 Also keep **Lightsail automatic snapshots** on (step 1 above): that is a daily copy of the whole server, which makes rebuilding it quick.
 
