@@ -49,8 +49,8 @@
   }
   const slugOf = (s) => s.toLowerCase().replace(/[^a-z]+/g, '');
 
-  // makeUser(email, name, role) -> user row; ensureCompany(code, name) -> company id; admin: an admin user row.
-  function seed(db, wf, { today, makeUser, ensureCompany, admin }) {
+  // makeUser(email, name, role) -> user row; ensureCompany(code, name) -> company id; admin: an admin user row; only: client codes to seed.
+  function seed(db, wf, { today, makeUser, ensureCompany, admin, only }) {
     if (db.prepare('SELECT 1 FROM wf_branches LIMIT 1').get()) return { skipped: true };
     const call = (u, route, body, query) => wf.call(u, route, query || {}, body || {});
     const userById = (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id);
@@ -86,7 +86,8 @@
 
     // Clients, their partners and accountants, and one person per division.
     const ids = {}; let rr = 0;
-    CLIENTS.forEach(([code, name, br, entity, fee, day, labour, contacts], i) => {
+    // only: a list of client codes, to seed fewer clients (the demo server uses one).
+    CLIENTS.filter((c) => !only || only.includes(c[0])).forEach(([code, name, br, entity, fee, day, labour, contacts], i) => {
       const domain = `${slugOf(name.replace(/\(Demo\)|Pvt Ltd|LLP/g, '')).slice(0, 14)}.example`;
       const id = ensureCompany(code, name);
       ids[code] = id;

@@ -6,6 +6,8 @@ const path = require('path');
 const http = require('http');
 const { execFileSync } = require('child_process');
 
+// Most tests below cover the stricter set-up, where every team login must use two-step login.
+process.env.AE_REQUIRE_STAFF_2FA = '1';
 const store = require('../server/db');
 const totp = require('../server/totp');
 const backupTool = require('../tools/backup');
@@ -352,7 +354,7 @@ test('first sign-in, two-step login, admin, disable, idle timeout and audit', as
   assert.strictEqual((await lead.call('POST', '/api/admin/user', { name: 'Dup', email: 'md@alpha.test', role: 'client', company_id: co.id })).status, 409);
 
   // Only an admin adds team logins; a team member manages clients but not the team.
-  const addTeam = await lead.call('POST', '/api/admin/user', { name: 'Team One', email: 'one@assura.test', role: 'team' });
+  const addTeam = await lead.call('POST', '/api/admin/user', { name: 'Team One', email: 'one@assura.test', login_id: 'team.one', role: 'team' });
   assert.strictEqual(addTeam.status, 200, JSON.stringify(addTeam.body));
   const one = client(port);
   await one.call('POST', '/api/login', { email: 'one@assura.test', password: addTeam.body.temporaryPassword });
@@ -611,4 +613,60 @@ test('the team sees each client\'s month: sent, received, uploaded, reviewed, wi
   assert.strictEqual(one.body.status.steps.find((s) => s.key === 'upload').state, 'done');
   assert.strictEqual((await mdA.call('GET', '/api/dashboard')).body.cycle, null, 'once the month is on the dashboard the note goes');
   assert.strictEqual((await mdA.call('GET', `/api/cycle?company=${a.id}`)).status, 403);
+});
+
+test('one address: website, client sign-in and team sign-in by user ID', async (t) => {
+  const db = store.open(':memory:');
+  const a = store.createCompany(db, 'AE-0001', 'Meridian Polymers Private Limited');
+  const pw = 'test-password-1';
+  store.createUser(db, { email: 'md@a.test', name: 'MD A', role: 'client', companyId: a.id, password: pw });
+  store.createUser(db, { email: 'farzeen@assura.test', loginId: 'farzeen', name: 'Farzeen', role: 'team', companyId: null, password: pw });
+  const server = http.createServer(createApp(db, { staff2fa: false })).listen(0);
+  t.after(() => server.close());
+  const { port } = server.address();
+  const page = (p) => new Promise((resolve) => http.get({ port, path: p }, (res) => { let b = ''; res.on('data', (c) => (b += c)); res.on('end', () => resolve({ status: res.statusCode, body: b })); }));
+  assert.match((await page('/')).body, /Built for businesses ready for their next stage/, 'the website is at /');
+  assert.match((await page('/login')).body, /href="\/team"/);
+  assert.strictEqual((await page('/assets/site.css')).status, 200);
+  for (const p of ['/client', '/team', '/portal']) assert.match((await page(p)).body, /<div id="app">/, `${p} is the portal`);
+  assert.match((await page('/workflow')).body, /<div id="wf">/);
+  assert.strictEqual((await page('/../server/server.js')).status, 404);
+
+  // The team signs in with user ID and password only, and only at the team door.
+  const team = client(port);
+  const ok = await team.call('POST', '/api/login', { id: 'Farzeen', password: pw, door: 'team' });
+  assert.strictEqual(ok.status, 200);
+  assert.strictEqual(ok.body.next, null, 'no second step unless it is switched on');
+  const me = await team.call('GET', '/api/me');
+  assert.strictEqual(me.body.user.login_id, 'farzeen');
+  assert.strictEqual(me.body.workflow, true, 'team logins go to their workspace page');
+  assert.strictEqual((await client(port).call('POST', '/api/login', { id: 'farzeen', password: pw, door: 'client' })).status, 401, 'the client door refuses team logins');
+  // Clients sign in at their own door, by email (or a user ID if one is set), and never at the team door.
+  const wrong = await client(port).call('POST', '/api/login', { id: 'md@a.test', password: pw, door: 'team' });
+  assert.strictEqual(wrong.status, 401); assert.strictEqual(wrong.body.door, 'client');
+  assert.strictEqual((await client(port).call('POST', '/api/login', { id: 'md@a.test', password: pw, door: 'client' })).status, 200);
+
+  // User IDs are unique and set by an admin.
+  store.createUser(db, { email: 'lead@assura.test', loginId: 'lead', name: 'Lead', role: 'admin', companyId: null, password: pw });
+  const lead = client(port); await lead.call('POST', '/api/login', { id: 'lead', password: pw, door: 'team' });
+  assert.strictEqual((await lead.call('POST', '/api/admin/user', { name: 'No ID', email: 'noid@assura.test', role: 'team' })).status, 400, 'team logins need a user ID');
+  assert.strictEqual((await lead.call('POST', '/api/admin/user', { name: 'Dup', email: 'dup@assura.test', login_id: 'farzeen', role: 'team' })).status, 409);
+  const add = await lead.call('POST', '/api/admin/user', { name: 'Rishad K', email: 'rishad@assura.test', login_id: 'rishad.k', role: 'team' });
+  assert.strictEqual(add.status, 200); assert.strictEqual(add.body.user.login_id, 'rishad.k');
+  const md = db.prepare("SELECT id FROM users WHERE email = 'md@a.test'").get();
+  assert.strictEqual((await lead.call('POST', '/api/admin/user/action', { user_id: md.id, action: 'set-id', login_id: 'meridian.md' })).status, 200);
+  assert.strictEqual((await client(port).call('POST', '/api/login', { id: 'meridian.md', password: pw, door: 'client' })).status, 200);
+  assert.strictEqual((await lead.call('POST', '/api/admin/user/action', { user_id: md.id, action: 'set-id', login_id: 'rishad.k' })).status, 409);
+});
+
+test('the demo server says so and keeps its shared password', async (t) => {
+  const db = store.open(':memory:');
+  store.createUser(db, { email: 'staff@assura.demo', loginId: 'demo.staff', name: 'Demo Staff', role: 'team', companyId: null, password: 'demo-password' });
+  const server = http.createServer(createApp(db, { demo: true, staff2fa: false })).listen(0);
+  t.after(() => server.close());
+  const c = client(server.address().port);
+  assert.strictEqual((await c.call('GET', '/api/hello')).body.demo, true);
+  await c.call('POST', '/api/login', { id: 'demo.staff', password: 'demo-password', door: 'team' });
+  assert.strictEqual((await c.call('GET', '/api/me')).body.demo, true);
+  assert.strictEqual((await c.call('POST', '/api/password', { current: 'demo-password', next: 'something-much-longer' })).status, 400);
 });

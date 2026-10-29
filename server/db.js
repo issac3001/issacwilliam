@@ -138,6 +138,9 @@ function migrate(db) {
   add('uploads', 'source', "TEXT NOT NULL DEFAULT 'upload'");
   // Where the monthly workbook is emailed: the client's accounts contact(s), comma separated.
   add('companies', 'data_email', 'TEXT');
+  // User ID for signing in. Required for Assura team logins; clients may also sign in with their email.
+  add('users', 'login_id', 'TEXT COLLATE NOCASE');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_login_id ON users (login_id) WHERE login_id IS NOT NULL');
 }
 
 function audit(db, { user, action, companyId = null, detail = null, ip = null }) {
@@ -189,12 +192,16 @@ function temporaryPassword() {
   return `${s.slice(0, 7)}-${s.slice(7)}`;
 }
 
-function createUser(db, { email, name, role, companyId, password, mustChange = false }) {
+// A user ID: 3 to 40 lower-case letters or numbers, with dots, hyphens and underscores.
+const LOGIN_ID = /^[a-z0-9][a-z0-9._-]{2,39}$/;
+
+function createUser(db, { email, name, role, companyId, password, mustChange = false, loginId = null }) {
   const problem = passwordProblem(password, null);
   if (problem) throw new Error(problem);
   db.prepare('INSERT INTO users (email, name, role, company_id, password_hash, must_change_password) VALUES (?, ?, ?, ?, ?, ?)')
     .run(String(email).toLowerCase(), name, role, companyId ?? null, hashPassword(password), mustChange ? 1 : 0);
-  return db.prepare('SELECT id, email, name, role, company_id FROM users WHERE email = ?').get(String(email).toLowerCase());
+  if (loginId) db.prepare('UPDATE users SET login_id = ? WHERE email = ?').run(String(loginId).toLowerCase(), String(email).toLowerCase());
+  return db.prepare('SELECT id, email, login_id, name, role, company_id FROM users WHERE email = ?').get(String(email).toLowerCase());
 }
 
 function setPassword(db, userId, password, mustChange) {
@@ -295,4 +302,4 @@ function uploadHistory(db, companyId) {
     .map((r) => Object.assign({}, r, { sections: JSON.parse(r.sections), warnings: JSON.parse(r.warnings) }));
 }
 
-module.exports = { markWorkbookArrived, periodUpload, issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, verifyPasswordAsync, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };
+module.exports = { LOGIN_ID, markWorkbookArrived, periodUpload, issueWorkbook, findWorkbook, workbooksFor, markWorkbookReceived, ROLES, isStaff, INSIGHT_STATES, insightsFor, saveInsight, deleteInsight, datasetVersion, open, audit, passwordProblem, temporaryPassword, setPassword, hashPassword, verifyPassword, verifyPasswordAsync, createCompany, createUser, saveUpload, currentDatasets, latestDataset, uploadHistory, DB_PATH };

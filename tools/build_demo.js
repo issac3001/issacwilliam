@@ -12,7 +12,7 @@ const R = (...p) => fs.readFileSync(path.join(ROOT, ...p), 'utf8');
 const B64 = (...p) => fs.readFileSync(path.join(ROOT, ...p)).toString('base64');
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-const companies = [['AE-0001', 'Meridian Polymers Pvt Ltd (Demo)'], ['AE-0002', 'Coastline Foods Pvt Ltd (Demo)']].map(([code, name], i) => {
+const companies = [['AE-0001', 'Meridian Polymers Pvt Ltd (Demo)']].map(([code, name], i) => {
   const dir = path.join(ROOT, 'samples', 'json', code);
   const months = {};
   fs.readdirSync(dir).sort().forEach((f) => { months[f.replace('.json', '')] = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); });

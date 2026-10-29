@@ -91,12 +91,13 @@
     try {
       if (!window.AE_SCHEMA) window.AE_SCHEMA = await fetch('/shared/schema.json').then((r) => r.json()).catch(() => null);
       const me = await api.get('/api/me');
-      state.me = me.user; state.companies = me.companies; state.workflow = !!me.workflow;
+      state.me = me.user; state.companies = me.companies; state.workflow = !!me.workflow; state.demo = !!me.demo;
       if (me.next) { renderSetup(me.next); return; }
       // Straight after signing in, the Assura team starts in Workflow when it is installed.
-      if (state.justSignedIn && state.workflow) { state.justSignedIn = false; location.assign('/workflow'); return; }
+      if (isStaff(state.me) && state.workflow && (state.justSignedIn || location.pathname === '/team')) { state.justSignedIn = false; location.assign('/workflow'); return; }
       state.justSignedIn = false;
-      // Deep link for the team: /?company=<id>&view=<section> opens that client (view defaults to its month's work).
+      if (!window.AE_DEMO_API && location.pathname !== '/portal') history.replaceState(history.state, '', '/portal' + location.search);
+      // Deep link for the team: /portal?company=<id>&view=<section> opens that client (view defaults to its month's work).
       const q = new URLSearchParams(location.search);
       const link = Number(q.get('company'));
       if (q.has('company')) history.replaceState(null, '', location.pathname);
@@ -109,7 +110,11 @@
       if (isStaff(state.me) && !state.clientOpen && !(history.state && history.state.aeTab)) state.tab = 'work';
       await loadDashboard();
     } catch (e) {
-      if (e.status === 401) { state.me = null; renderLogin(); } else renderFatal(e);
+      if (e.status === 401) {
+        state.me = null;
+        if (state.demo == null && !window.AE_DEMO_API) state.demo = !!(await api.get('/api/hello').catch(() => ({}))).demo;
+        renderLogin();
+      } else renderFatal(e);
     }
   }
   async function loadDashboard() {
@@ -122,47 +127,59 @@
   }
 
   // ---------- login ----------
+  // Two sign-in pages on one address: /client for client logins, /team for the Assura team (user ID and password).
+  const door = () => state.door || (location.pathname === '/team' || new URLSearchParams(location.search).get('next') === 'workflow' ? 'team' : 'client');
   function renderLogin(error, needCode) {
-    const demo = window.AE_DEMO_API ? `
-      <div class="demo-box"><b>Try the demo.</b> Tap a login to sign in. The companies and figures are fictional. Password for all: <code>demo-password</code><br>
-        ${window.AE_DEMO_API.logins.map((l) => `<button type="button" data-email="${esc(l.email)}">${esc(l.email)}</button> <span class="muted">${esc(l.note)}</span>`).join('<br>')}
+    const team = door() === 'team';
+    if (!window.AE_DEMO_API && location.pathname !== '/client' && location.pathname !== '/team') history.replaceState(null, '', team ? '/team' : '/client');
+    const demoLogins = window.AE_DEMO_API ? window.AE_DEMO_API.logins : state.demo ? DEMO_LOGINS : [];
+    const demo = demoLogins.length ? `
+      <div class="demo-box"><b>Demo.</b> Fictional company and figures. Tap a login to sign in. Password: <code>demo-password</code><br>
+        ${demoLogins.map((l) => `<button type="button" data-login="${esc(l.id)}" data-door="${l.door}">${esc(l.id)}</button> <span class="muted">${esc(l.note)}</span>`).join('<br>')}
       </div>` : '';
+    const idLabel = team ? 'User ID' : 'User ID or email';
     app.innerHTML = `
       <div class="login-wrap">
         <section class="login-brand">
           <div class="wordmark">${LOGO}</div>
           <div>
-            <h1>Your business, <em>on one screen.</em></h1>
-            <p>Monthly financial intelligence, compliance oversight and management highlights, prepared from data your finance team provides.</p>
+            ${team ? '<h1>Assura Elevate <em>team.</em></h1><p>Your work, your clients and your reviews, in one place.</p>'
+              : '<h1>Your business, <em>on one screen.</em></h1><p>Monthly financial intelligence, compliance oversight and management highlights for your company.</p>'}
           </div>
           <p class="small">Built for businesses ready for their next stage.</p>
         </section>
         <section class="login-form">
           <form id="login" autocomplete="on">
-            <div><div class="eyebrow">${new URLSearchParams(location.search).get('next') === 'workflow' ? 'Team login' : 'Client and team login'}</div><h2>Sign in</h2></div>
-            <div><label for="email">Email</label><input id="email" type="email" required autocomplete="username"></div>
+            <div><div class="eyebrow">${team ? 'Team sign in' : 'Client sign in'}${state.demo ? ' · Demo' : ''}</div><h2>Sign in</h2></div>
+            <div><label for="uid">${idLabel}</label><input id="uid" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false"></div>
             <div><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"></div>
             ${needCode ? `<div><label for="code">Code from your authenticator app</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></div>` : ''}
             ${error ? `<div class="msg ${needCode && /Enter the 6-digit/.test(error) ? '' : 'err'}">${esc(error)}</div>` : ''}
             <button class="btn" type="submit">Sign in</button>
-            <p class="small muted">A client login sees only its own company's data. Contact your Assura Elevate partner for access.</p>
-            ${window.AE_DEMO_API ? '' : '<p class="small"><a href="https://elevateassura.com/">← elevateassura.com</a></p>'}
+            <p class="small muted">${team ? 'For Assura Elevate team members. Your user ID is given by the firm\'s administrator.' : 'Each client login sees only its own company\'s data. Contact your Assura Elevate team for access.'}</p>
+            <p class="small">${team ? '<a href="/client" data-door-link="client">Client sign in</a>' : '<a href="/team" data-door-link="team">Assura Elevate team sign in</a>'}${window.AE_DEMO_API ? '' : ' · <a href="/">elevateassura.com</a>'}</p>
             ${demo}
           </form>
         </section>
       </div>`;
-    // Demo logins sign in with one tap.
-    app.querySelectorAll('[data-email]').forEach((b) => b.addEventListener('click', () => {
-      app.querySelector('#email').value = b.dataset.email; app.querySelector('#pw').value = 'demo-password';
-      app.querySelector('#login').requestSubmit();
+    app.querySelectorAll('[data-door-link]').forEach((a) => a.addEventListener('click', (e) => {
+      e.preventDefault(); state.door = a.dataset.doorLink; loginDraft = {};
+      if (!window.AE_DEMO_API) history.replaceState(null, '', '/' + state.door);
+      renderLogin();
     }));
-    if (loginDraft.email) { app.querySelector('#email').value = loginDraft.email; app.querySelector('#pw').value = loginDraft.password; }
-    const focus = app.querySelector(needCode ? '#code' : '#email'); if (focus) focus.focus();
+    // Demo logins sign in with one tap.
+    app.querySelectorAll('[data-login]').forEach((b) => b.addEventListener('click', () => {
+      state.door = b.dataset.door;
+      loginDraft = { id: b.dataset.login, password: 'demo-password' };
+      renderLogin(); app.querySelector('#login').requestSubmit();
+    }));
+    if (loginDraft.id) { app.querySelector('#uid').value = loginDraft.id; app.querySelector('#pw').value = loginDraft.password; }
+    const focus = app.querySelector(needCode ? '#code' : '#uid'); if (focus && !loginDraft.id) focus.focus(); else if (needCode && focus) focus.focus();
     app.querySelector('#login').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
       const codeEl = app.querySelector('#code');
-      const body = { email: app.querySelector('#email').value.trim(), password: app.querySelector('#pw').value, code: codeEl ? codeEl.value.trim() : undefined };
+      const body = { id: app.querySelector('#uid').value.trim(), password: app.querySelector('#pw').value, code: codeEl ? codeEl.value.trim() : undefined, door: door() };
       try {
         await api.post('/api/login', body);
         loginDraft = {};
@@ -170,11 +187,16 @@
         await boot();
       } catch (err) {
         const code = !!(err.data && err.data.needCode);
-        loginDraft = code ? { email: body.email, password: body.password } : {};
+        loginDraft = code ? { id: body.id, password: body.password } : {};
         renderLogin(err.message, code);
       }
     });
   }
+  // The demo server's two logins: one client, one team member.
+  const DEMO_LOGINS = [
+    { id: 'demo.client', door: 'client', note: 'Client: Meridian Polymers (Demo), view only' },
+    { id: 'demo.staff', door: 'team', note: 'Assura team member: workspace and client dashboard' },
+  ];
   let loginDraft = {};
 
   // ---------- account setup: first-login password change and team two-step login ----------
@@ -237,7 +259,9 @@
   }
 
   async function signOut() {
+    const wasStaff = isStaff(state.me);
     await api.post('/api/logout').catch(() => {});
+    state.door = window.AE_DEMO_API ? null : wasStaff ? 'team' : 'client';
     drill.close(); editor.reset();
     state.me = null; state.companyId = null; state.clientOpen = false; state.dash = null; state.history = null; state.upload = null; state.tab = 'overview'; state.admin = null; state.monthCache = {};
     renderLogin();
@@ -344,6 +368,7 @@
             <span class="wordmark">${LOGO}</span>
             <span class="mbar-tab">${esc((tabsFor(u).find(([k]) => k === state.tab) || [])[1] || '')}</span>
           </header>
+          ${state.demo ? `<div class="demo-strip">Demo: fictional company and figures. Signed in as <b>${esc(u.login_id || u.email)}</b>.${window.AE_DEMO_API ? ' Changes are cleared when the page reloads.' : ' Changes are cleared every night.'}</div>` : ''}
           <main id="page"></main>
         </div>
       </div>`;
@@ -752,7 +777,7 @@
         <div class="card"><div class="card-head"><h3>Change password</h3></div>${passwordForm('acct')}</div>
         <div class="card"><div class="card-head"><h3>Your login</h3></div>
           <table><tbody>
-            <tr><td>Email</td><td class="r">${esc(u.email)}</td></tr>
+            ${u.login_id ? `<tr><td>User ID</td><td class="r">${esc(u.login_id)}</td></tr>` : ""}<tr><td>Email</td><td class="r">${esc(u.email)}</td></tr>
             <tr><td>Role</td><td class="r">${esc({ client: 'Client (view only, own company)', team: 'Assura team (all clients, upload and edit)', admin: 'Assura admin (all clients and team logins)' }[u.role])}</td></tr>
             <tr><td>Two-step login</td><td class="r">${u.twoStep ? chip('positive', 'On') : chip('info', isStaff(u) ? 'Off' : 'Not required')}</td></tr>
           </tbody></table>
@@ -807,10 +832,12 @@
         <form class="card stack-form" id="f-user"><div class="card-head"><h3>Add a login</h3></div>
           <div class="form-row" style="margin-top:0"><div><label for="u-name">Name</label><input id="u-name" type="text" required maxlength="120"></div>
           <div><label for="u-email">Email</label><input id="u-email" type="email" required></div></div>
+          <div class="form-row" style="margin-top:0"><div><label for="u-id">User ID</label><input id="u-id" type="text" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="e.g. rishad.k">
+            <p class="muted small" style="margin:4px 0 0">What they type to sign in. Needed for team logins; clients can also sign in with their email.</p></div><div></div></div>
           <div class="form-row" style="margin-top:0"><div><label for="u-role">Role</label><select id="u-role" class="field">
             <option value="client">Client (view only, one company)</option>${admin ? '<option value="team">Assura team (all clients, upload and edit)</option><option value="admin">Assura admin (also manages team logins)</option>' : ''}</select></div>
           <div id="u-company-wrap"><label for="u-company">Company</label><select id="u-company" class="field">${d.companies.map((c) => `<option value="${c.id}">${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select></div></div>
-          <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in; Assura team logins also set up two-step login.${admin ? '' : ' Only an Assura admin can add team logins.'}</p>
+          <p class="muted small" style="margin:0">A one-time password is shown once. The person must change it at first sign-in. Team members sign in at /team, clients at /client.${admin ? '' : ' Only an Assura admin can add team logins.'}</p>
           <div id="u-msg"></div><div><button class="btn" type="submit">Add login</button></div></form>
       </div>
       ${d.backups ? backupCard(d.backups) : ''}
@@ -820,9 +847,9 @@
           <td class="r nowrap"><button class="link-btn" data-open="${c.id}">Open dashboard</button> <button class="link-btn" data-rename="${c.id}" data-name="${esc(c.name)}">Rename</button></td></tr>`).join('') || '<tr><td colspan="8" class="muted">No companies yet.</td></tr>'}
         </tbody></table></div></div>
       <div class="card section"><div class="card-head"><h3>Logins</h3><span class="muted small">${d.users.length}</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Company</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
-        ${d.users.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.email)}</td><td>${esc(ROLE_LABEL[x.role])}</td><td>${esc(x.company_code || 'All')}</td>
-          <td>${x.disabled ? chip('critical', 'Switched off') : x.must_change_password ? chip('info', 'Not yet signed in') : chip('positive', 'Active')}${x.role !== 'client' ? ' ' + (x.two_step ? chip('positive', 'Two-step on') : chip('watch', 'Two-step pending')) : ''}</td>
+        <div class="table-wrap"><table><thead><tr><th>Name</th><th>User ID</th><th>Email</th><th>Role</th><th>Company</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
+        ${d.users.map((x) => `<tr><td>${esc(x.name)}</td><td>${x.login_id ? esc(x.login_id) : '<span class="muted">–</span>'}${x.id !== state.me.id && canManage(x) ? ` <button class="link-btn" data-setid="${x.id}" data-value="${esc(x.login_id || '')}" data-name="${esc(x.name)}">${x.login_id ? 'Change' : 'Set'}</button>` : ''}</td><td>${esc(x.email)}</td><td>${esc(ROLE_LABEL[x.role])}</td><td>${esc(x.company_code || 'All')}</td>
+          <td>${x.disabled ? chip('critical', 'Switched off') : x.must_change_password ? chip('info', 'Not yet signed in') : chip('positive', 'Active')}${x.role !== 'client' && x.two_step ? ' ' + chip('positive', 'Two-step on') : ''}</td>
           <td>${x.last_login_at ? esc(stamp(x.last_login_at)) : '–'}</td>
           <td class="r nowrap">${x.id === state.me.id ? '<span class="muted small">You</span>' : !canManage(x) ? '<span class="muted small">Admin only</span>' : `
             <button class="link-btn" data-act="reset-password" data-id="${x.id}" data-name="${esc(x.name)}">Reset password</button>
@@ -837,7 +864,7 @@
     const role = page.querySelector('#u-role'); const cw = page.querySelector('#u-company-wrap');
     const syncRole = () => { cw.style.visibility = role.value === 'client' ? 'visible' : 'hidden'; };
     role.addEventListener('change', syncRole); syncRole();
-    const oneTime = (name, email, pw) => `<div class="msg ok onetime"><b>One-time password for ${esc(name)}${email ? ' (' + esc(email) + ')' : ''}:</b>
+    const oneTime = (name, id, pw) => `<div class="msg ok onetime"><b>One-time password for ${esc(name)}${id ? ' (user ID ' + esc(id) + ')' : ''}:</b>
       <code class="secret">${esc(pw)}</code> <button type="button" class="link-btn" data-copy="${esc(pw)}">Copy</button>
       <div class="small">Shown only once. Share it with them privately; they will be asked to choose their own password.</div></div>`;
     const wireCopy = () => page.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => {
@@ -857,10 +884,10 @@
     });
     page.querySelector('#f-user').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const name = page.querySelector('#u-name').value; const email = page.querySelector('#u-email').value;
+      const name = page.querySelector('#u-name').value; const email = page.querySelector('#u-email').value; const loginId = page.querySelector('#u-id').value.trim();
       try {
-        const r = await api.post('/api/admin/user', { name, email, role: role.value, company_id: page.querySelector('#u-company').value });
-        state.adminNotice = oneTime(name, email, r.temporaryPassword);
+        const r = await api.post('/api/admin/user', { name, email, login_id: loginId, role: role.value, company_id: page.querySelector('#u-company').value });
+        state.adminNotice = oneTime(name, r.user.login_id || r.user.email, r.temporaryPassword);
         adminPage(page);
       } catch (err) { page.querySelector('#u-msg').innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
     });
@@ -889,6 +916,18 @@
         try {
           await api.post('/api/admin/company/update', { company_id: Number(b.dataset.email), data_email: f.querySelector('input').value });
           state.adminNotice = '<div class="msg ok">Accounts email saved. The monthly workbook goes to this address.</div>'; adminPage(page);
+        } catch (err) { state.adminNotice = `<div class="msg err">${esc(err.message)}</div>`; adminPage(page); }
+      });
+    }));
+    page.querySelectorAll('[data-setid]').forEach((b) => b.addEventListener('click', () => {
+      const td = b.closest('td');
+      td.innerHTML = `<form class="btn-row"><input type="text" value="${esc(b.dataset.value)}" maxlength="40" autocapitalize="none" spellcheck="false" aria-label="User ID" style="max-width:160px"><button class="btn small" type="submit">Save</button></form>`;
+      const f = td.querySelector('form'); f.querySelector('input').focus();
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await api.post('/api/admin/user/action', { user_id: Number(b.dataset.setid), action: 'set-id', login_id: f.querySelector('input').value });
+          state.adminNotice = `<div class="msg ok">User ID saved for ${esc(b.dataset.name)}.</div>`; adminPage(page);
         } catch (err) { state.adminNotice = `<div class="msg err">${esc(err.message)}</div>`; adminPage(page); }
       });
     }));
@@ -1056,7 +1095,7 @@
             <div style="align-self:end"><button class="btn" id="csv-go">Check CSV</button></div>
           </div>
           <div id="up-msg">${state.upload || ''}</div>
-          ${window.AE_SAMPLE_URL ? `<p class="small" style="margin-top:12px">To try it, <a href="${window.AE_SAMPLE_URL}" download="AE-0001_Meridian_Polymers_2026-09_completed.xlsx">download a completed sample</a> (Meridian Polymers, September 2026) and drop it here with Meridian selected, then with Coastline selected to see it refused.</p>` : ''}
+          ${window.AE_SAMPLE_URL ? `<p class="small" style="margin-top:12px">To try it, <a href="${window.AE_SAMPLE_URL}" download="AE-0001_Meridian_Polymers_2026-09_completed.xlsx">download a completed sample</a> (Meridian Polymers, September 2026) and drop it here.</p>` : ''}
           <p class="muted small" style="margin-top:12px">Accepting a month that is already on record replaces it on the dashboard; the earlier version is kept below. To correct a few figures instead, use Edit data.</p>` : `<p>Your login can view the dashboard. Uploads are made by the Assura Elevate team.</p>`}
         </div>
       </div>

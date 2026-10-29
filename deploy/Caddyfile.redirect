@@ -1,0 +1,4 @@
+# An earlier address that now forwards to the one address.
+old.example.com {
+	redir https://example.com/client permanent
+}

@@ -1,6 +1,15 @@
 # Going live
 
-The portal runs on one small Linux server in India, with HTTPS on your own domain. It needs no other services: the database is a single file on the server, and backups are encrypted copies of that file.
+Everything runs on one small Linux server in India, with HTTPS on one address:
+
+| Address | What it is |
+|---|---|
+| `https://elevateassura.com` | The public website (with `www.` forwarding to it) |
+| `https://elevateassura.com/client` | Client sign-in: user ID or email, and password. Opens the client's own company dashboard. |
+| `https://elevateassura.com/team` | Team sign-in: user ID and password. Opens that person's own workspace page for their seat (Managing Partner, Branch Head, Head, Manager, Supervisor, Associate, Analyst, Accounts). |
+| `https://demo.elevateassura.com` (optional) | The demo: one fictional client and two logins, `demo.client` and `demo.staff` (password `demo-password`), reset every night. A separate program and database; it never sees real data. |
+
+The portal needs no other services It needs no other services: the database is a single file on the server, and backups are encrypted copies of that file.
 
 ## What you need
 
@@ -8,7 +17,7 @@ The portal runs on one small Linux server in India, with HTTPS on your own domai
 |---|---|---|
 | Server | AWS Lightsail, Mumbai region, Ubuntu 24.04, **2 GB plan** (chosen for up to 300 people at once) | about $12 a month, plus GST |
 | Backup copy away from the server | Amazon S3 bucket, Mumbai region (see Backups) | a few rupees a month for about 1 GB |
-| Domain | for example `portal.assuraelevate.in` (a sub-domain of a domain you already own costs nothing extra) | about ₹800–1,200 a year for a new `.in` domain |
+| Domain | `elevateassura.com` (the demo uses the sub-domain `demo.`, at no extra cost) | about ₹800–1,200 a year |
 | HTTPS certificate | Let's Encrypt, issued and renewed automatically by Caddy | free |
 
 A 1 GB server comfortably handles dozens of client companies with several years of monthly data each. For 150 clients and up to 300 people signed in at once, use the **2 GB** plan (about $12 a month): see “How many people it handles” below. A Lightsail server can be moved to a bigger plan later from a snapshot, without losing data. Prices are the providers' published rates and can change; check them before buying.
@@ -19,20 +28,20 @@ A 1 GB server comfortably handles dozens of client companies with several years 
    - **Networking → Create static IP** and attach it to the instance, so the address never changes (free while attached).
    - **Networking → IPv4 firewall → Add rule → HTTPS (443)**. Lightsail opens only SSH and HTTP by default.
    - **Snapshots → Enable automatic snapshots** for a daily copy of the whole server (about $0.05 per GB a month).
-2. At your domain provider, add an `A` record for the portal sub-domain pointing to that IP. To serve the public website from the same server, also add `A` records for the bare domain (`@`) and `www`.
+2. At your domain provider, add `A` records pointing to that IP for: `@` (the bare domain), `www`, and `demo` if you want the demo. Wait until they resolve (usually minutes, at most a few hours).
 3. Connect to the server (Lightsail: the **Connect using SSH** button), type `sudo -i` to become root, and run:
 
    ```bash
    git clone https://github.com/issac3001/issacwilliam.git /tmp/ae
-   bash /tmp/ae/deploy/setup.sh portal.yourdomain.in you@yourdomain.in "Your Name"
+   AUTO_UPDATE=1 DEMO_DOMAIN=demo.elevateassura.com bash /tmp/ae/deploy/setup.sh elevateassura.com issac@elevateassura.com "Issac William" issac
    ```
 
-   For Assura Elevate, with the website included: `bash /tmp/ae/deploy/setup.sh portal.elevateassura.com issac@elevateassura.com "Issac William" elevateassura.com`. The fourth argument is optional; leave it out to set up the portal only.
+   The last word (`issac`) is your user ID for the team sign-in. Leave out `DEMO_DOMAIN=…` to skip the demo. `AUTO_UPDATE=1` makes the server install each approved change by itself (see Updates). If the portal was set up earlier on `portal.elevateassura.com`, add `REDIRECT_DOMAINS=portal.elevateassura.com` before `bash` so old links forward to the new address. Running the script again is safe: data, logins and the backup key are kept.
 
-   The script installs Node.js 22 and Caddy, starts the portal as a service, turns on HTTPS, schedules an hourly encrypted backup and creates the first **admin** login. It prints two things once: the backup key (keep it safe, away from the server) and your one-time password.
-4. Open `https://portal.yourdomain.in`, sign in, choose your own password and set up two-step login with an authenticator app.
-5. Under **Clients & users**, add the Assura team logins (each gets a one-time password), then each client company and its view-only client logins.
-6. Select a client and upload its first monthly workbook under **Data & uploads**.
+   The script installs Node.js 22 and Caddy, starts the portal (and the demo) as services, turns on HTTPS, schedules an hourly encrypted backup and creates the first **admin** login. It prints two things once: the backup key (keep it safe, away from the server) and your one-time password.
+4. Open `https://elevateassura.com/team`, sign in with your user ID and the one-time password, and choose your own password.
+5. Under **Clients & users**, add each team member's login with a **user ID** (for example `rishad.k`); each gets a one-time password to share privately. Then place each person under **Firm structure** in the workspace (branch, department, level, who they report to). Their seat decides the page they land on.
+6. Add each client company and its client logins, then upload its first monthly workbook under **Data & uploads**.
 
 ## Roles
 
@@ -42,7 +51,7 @@ A 1 GB server comfortably handles dozens of client companies with several years 
 | Assura team | Every client | Uploads, edits and restores data; adds clients and client logins |
 | Assura admin | Every client | Everything the team can, plus Assura team logins |
 
-Team and admin logins must use two-step login. Every sign-in, upload, edit and administrative action is recorded in the activity log.
+Team members sign in with user ID and password only. For a stricter set-up, add `AE_REQUIRE_STAFF_2FA=1` to `/srv/assura/assura.env` and restart: every team login then also needs a code from an authenticator app. Every sign-in, upload, edit and administrative action is recorded in the activity log.
 
 ## Sending the monthly workbook by email
 
@@ -66,6 +75,15 @@ The portal emails each client's monthly workbook from your own mailbox, so repli
 4. Save each client's accounts email under **Clients & users**. The workbook is only ever sent to that saved address.
 
 ## Updates
+
+How a change reaches the live site:
+
+1. **Ask for it.** Describe the change in the Assura Elevate project (for example "add a TDS ageing chart to the client dashboard"). The work is done on a separate branch with tests, and a pull request is opened on GitHub, so nothing live changes yet.
+2. **Review it.** Look at the pull request (and any preview shared with it). Ask for changes the same way until it is right.
+3. **Approve it.** Merge the pull request into `main` on GitHub. That is the only step that sends a change to the live site, so only people with write access to the repository can do it.
+4. **It goes live.** With `AUTO_UPDATE=1`, the server notices the new release within 10 minutes and installs it with `update.sh` (backup first, automatic roll-back if it does not start). Without it, run `bash /srv/assura/app/deploy/update.sh` on the server yourself. The log is in `/srv/assura/backups/update.log`.
+
+To undo a change, revert its pull request on GitHub (the **Revert** button) and merge the revert; it goes live the same way.
 
 - Install the latest approved release: `bash /srv/assura/app/deploy/update.sh`. It takes a checked backup first and stops if that fails. If the new release does not start within 30 seconds, it goes back to the previous one by itself.
 - Updates change the program only. Client data, logins and uploads stay in `/srv/assura/data` and are not touched.

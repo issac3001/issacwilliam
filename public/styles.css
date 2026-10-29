@@ -298,6 +298,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--i
 .login-form form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; }
 .login-form h2 { font-size: 34px; }
 .login-form .btn { justify-content: center; padding: 12px; }
+.demo-strip { background: var(--accent-soft); color: var(--ink); font-size: 12px; padding: 8px 16px; text-align: center; }
 .demo-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; font-size: 12px; background: var(--surface); }
 .demo-box button { background: none; border: none; color: var(--link); cursor: pointer; padding: 2px 0; text-decoration: underline; font-size: 12px; text-align: left; }
 

@@ -1,0 +1,20 @@
+# systemd unit for the Assura Elevate demo (fictional data, reset nightly). Installed by deploy/setup.sh when a demo domain is given.
+[Unit]
+Description=Assura Elevate demo
+After=network.target
+
+[Service]
+User=assura
+WorkingDirectory=/srv/assura/app
+EnvironmentFile=/srv/assura/demo.env
+ExecStart=/usr/bin/node --no-warnings server/server.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/srv/assura/demo
+
+[Install]
+WantedBy=multi-user.target

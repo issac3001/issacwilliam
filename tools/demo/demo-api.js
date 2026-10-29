@@ -8,11 +8,10 @@
 (function () {
   'use strict';
   const D = window.AE_DEMO_DATA; // { companies: [{id, code, name, months: {period: data}}] }
+  // One demo client and one demo team member, each with a user ID (password: demo-password).
   const users = [
-    { id: 1, email: 'client@meridian.demo', name: 'Managing Director', role: 'client', company_id: 1, note: 'Client: Meridian Polymers only, view only' },
-    { id: 2, email: 'client@coastline.demo', name: 'Managing Director', role: 'client', company_id: 2, note: 'Client: Coastline Foods only, view only' },
-    { id: 3, email: 'team@assura.demo', name: 'Assura Team Member', role: 'team', company_id: null, note: 'Assura team: every client, upload and edit' },
-    { id: 4, email: 'admin@assura.demo', name: 'Assura Admin', role: 'admin', company_id: null, note: 'Assura admin: also manages team logins' },
+    { id: 1, login_id: 'demo.client', door: 'client', email: 'client@meridian.demo', name: 'Managing Director (Demo)', role: 'client', company_id: 1, note: 'Client: Meridian Polymers (Demo), view only' },
+    { id: 2, login_id: 'demo.staff', door: 'team', email: 'staff@assura.demo', name: 'Assura Team Member (Demo)', role: 'team', company_id: null, note: 'Assura team member: client dashboard, uploads and edits' },
   ];
   const staff = (u) => u.role === 'team' || u.role === 'admin';
   const needStaff = () => { const u = me(); if (!staff(u)) fail(403, 'Only the Assura Elevate team can do this. Client logins are view only.'); return u; };
@@ -25,16 +24,10 @@
   D.companies.forEach((c) => { c.data_email = EMAIL[c.id] || null; });
   const issued = [];
   D.companies.forEach((c) => Object.keys(c.months).sort().forEach((p) => issued.push({ company_id: c.id, period: p, ref: `${c.code}-${p}-SAMPLE`, method: 'email', sent_to: c.data_email, issued_by: 'Assura Team Member', issued_at: `${p}-28T05:30:00Z`, received_version: 1, received_at: '2026-10-07T04:30:00Z' })));
-  // A third client whose workbook for the working month is out with its accountant, so the team's
-  // work page shows a reminder. It has no figures yet.
   const CY = window.AECycle;
-  const working = CY.workingPeriod(new Date());
-  const sentOn = new Date(Math.min(Date.now() - 3600000, Date.parse(`${CY.target(working, 'send').slice(0, 8)}02T05:30:00Z`)));
-  D.companies.push({ id: 3, code: 'AE-0003', name: 'Harbour Spices Pvt Ltd (Demo)', months: {}, data_email: 'accounts@harbourspices.demo' });
-  issued.push({ company_id: 3, period: working, ref: `AE-0003-${working}-DEMO01`, method: 'email', sent_to: 'accounts@harbourspices.demo', issued_by: 'Assura Team Member', issued_at: sentOn.toISOString(), received_version: null, received_at: null });
   const reviews = []; // reviewed explanations: { company_id, period, key, status, headline, body, ... }
-  // The demo opens with explanations already accepted, so the client view shows them: all of Coastline's,
-  // and three of Meridian's, which leaves the rest on the team's work page.
+  // The demo opens with explanations already accepted, so the client view shows them:
+  // three of Meridian's, which leaves the rest on the team's work page.
   D.companies.forEach((c) => {
     const ds = current(c.id); if (ds.length < 2) return;
     const last = ds[ds.length - 1];
@@ -50,7 +43,7 @@
 
   const fail = (status, message, extra) => { const e = new Error(message); e.status = status; e.data = Object.assign({ error: message }, extra || {}); throw e; };
   const me = () => session || fail(401, 'Please sign in.');
-  const pub = (u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, company_id: u.company_id });
+  const pub = (u) => ({ id: u.id, name: u.name, email: u.email, login_id: u.login_id || null, role: u.role, company_id: u.company_id });
   function companyFor(u, requested) {
     const id = requested == null || requested === '' ? u.company_id : Number(requested);
     if (!staff(u) && id !== u.company_id) fail(403, 'You do not have access to this company.');
@@ -87,11 +80,14 @@
   const routes = {
     'GET /api/me': () => {
       const u = me();
-      return { next: null, user: pub(u), companies: D.companies.filter((c) => staff(u) || c.id === u.company_id).map((c) => ({ id: c.id, code: c.code, name: c.name })) };
+      return { next: null, demo: true, user: pub(u), companies: D.companies.filter((c) => staff(u) || c.id === u.company_id).map((c) => ({ id: c.id, code: c.code, name: c.name })) };
     },
     'POST /api/login': (q, body) => {
-      const u = users.find((x) => x.email === String(body.email || '').toLowerCase());
-      if (!u || (body.password !== (u.password || 'demo-password'))) { log({ email: body.email }, 'login.failed'); fail(401, 'Email or password is incorrect.'); }
+      const key = String(body.id || body.email || '').toLowerCase().trim();
+      const u = users.find((x) => x.login_id === key || x.email === key);
+      if (!u || (body.password !== (u.password || 'demo-password'))) { log({ email: key }, 'login.failed'); fail(401, 'User ID or password is incorrect.'); }
+      if (body.door === 'team' && !staff(u)) fail(401, 'This sign-in is for the Assura Elevate team. Clients sign in at the client portal.');
+      if (body.door === 'client' && staff(u)) fail(401, 'This sign-in is for clients. Assura Elevate team members use the team sign-in.');
       if (u.disabled) { log(u, 'login.disabled'); fail(401, 'This login has been switched off. Contact your Assura Elevate partner.'); }
       session = u; u.last_login_at = new Date().toISOString(); log(u, 'login', u.company_id);
       return { user: pub(u), next: null };
@@ -108,7 +104,7 @@
       const months = (cid) => current(cid).map((d) => d.period);
       return {
         companies: D.companies.map((c) => ({ id: c.id, code: c.code, name: c.name, data_email: c.data_email || null, users: users.filter((x) => x.company_id === c.id).length, months: months(c.id).length, latest: months(c.id).slice(-1)[0] || null, last_upload: uploads.filter((x) => x.company_id === c.id).map((x) => x.created_at).sort().slice(-1)[0] || null })),
-        users: users.slice().sort((a, b) => (a.role === 'client') - (b.role === 'client')).map((x) => ({ id: x.id, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: staff(x) && !x.must_change_password ? 1 : 0, last_login_at: x.last_login_at })),
+        users: users.slice().sort((a, b) => (a.role === 'client') - (b.role === 'client')).map((x) => ({ id: x.id, login_id: x.login_id || null, email: x.email, name: x.name, role: x.role, company_id: x.company_id, company_code: (D.companies.find((c) => c.id === x.company_id) || {}).code || null, disabled: x.disabled, must_change_password: x.must_change_password, two_step: staff(x) && !x.must_change_password ? 1 : 0, last_login_at: x.last_login_at })),
         activity: audit.slice(0, 200),
         // The demo shows what an admin sees once hourly backups are running on the server.
         backups: u.role === 'admin' ? (() => { const at = new Date(Math.floor(Date.now() / 3600e3) * 3600e3 + 5 * 60e3); if (at > Date.now()) at.setTime(at - 3600e3);
@@ -164,7 +160,10 @@
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Enter a valid email address.');
       if (users.some((x) => x.email === email)) fail(409, 'A login with this email already exists.');
       const temp = 'Demo' + Math.random().toString(36).slice(2, 8) + '-' + Math.random().toString(36).slice(2, 8);
-      const nu = { id: users.length + 1, email, name: String(body.name || '').trim(), role: body.role, company_id: body.role === 'client' ? Number(body.company_id) : null, note: 'Added in this session', password: temp, disabled: 0, must_change_password: 1, last_login_at: null };
+      const loginId = String(body.login_id || '').trim().toLowerCase() || null;
+      if (body.role !== 'client' && !loginId) fail(400, 'Choose a user ID for this team login, for example rishad.k');
+      if (loginId && users.some((x) => x.login_id === loginId)) fail(409, 'This user ID is already taken.');
+      const nu = { id: users.length + 1, login_id: loginId, email, name: String(body.name || '').trim(), role: body.role, company_id: body.role === 'client' ? Number(body.company_id) : null, note: 'Added in this session', password: temp, disabled: 0, must_change_password: 1, last_login_at: null };
       users.push(nu); log(u, 'admin.user_added', nu.company_id, `${email} as ${nu.role}`);
       return { user: pub(nu), temporaryPassword: temp };
     },
@@ -177,6 +176,12 @@
       if (body.action === 'reset-password') { t.password = out.temporaryPassword = 'Demo' + Math.random().toString(36).slice(2, 8) + '-' + Math.random().toString(36).slice(2, 8); t.must_change_password = 1; }
       else if (body.action === 'disable') t.disabled = 1;
       else if (body.action === 'enable') t.disabled = 0;
+      else if (body.action === 'set-id') {
+        const id = String(body.login_id || '').trim().toLowerCase();
+        if (!/^[a-z0-9][a-z0-9._-]{2,39}$/.test(id)) fail(400, 'A user ID is 3 to 40 letters or numbers; dots, hyphens and underscores are allowed.');
+        if (users.some((x) => x.login_id === id && x !== t)) fail(409, 'This user ID is already taken.');
+        t.login_id = id;
+      }
       log(u, `admin.${body.action}`, t.company_id, t.email);
       return out;
     },
@@ -313,7 +318,7 @@
   };
 
   window.AE_DEMO_API = {
-    logins: users.map((u) => ({ email: u.email, note: u.note })),
+    logins: users.map((u) => ({ id: u.login_id, door: u.door, note: u.note })),
     async request(method, url, body) {
       const q = new URL(url, 'http://demo');
       const fn = routes[`${method} ${q.pathname}`] || (() => fail(404, 'Not found'));

@@ -83,7 +83,7 @@
 
   function signedOut(e) {
     root.innerHTML = `<main><div class="card empty"><div class="eyebrow">Assura Elevate team</div><h2>${e.status === 401 ? 'Please sign in' : 'This area is for the Assura Elevate team'}</h2>
-      <p>${esc(e.status === 401 ? 'Sign in with your team login, then come back to the workspace.' : e.message)}</p><a class="btn" href="/">Go to sign in</a></div></main>`;
+      <p>${esc(e.status === 401 ? 'Sign in with your team login, then come back to the workspace.' : e.message)}</p><a class="btn" href="/team">Go to sign in</a></div></main>`;
   }
   function fatal(e) {
     root.innerHTML = `<main><div class="card empty"><h2>Something went wrong</h2><p>${esc(e.message)}</p><button class="btn" id="reload">Reload</button></div></main>`;
@@ -140,9 +140,9 @@
           <nav class="side-nav" aria-label="Sections">
             <div class="nav-group">Practice</div>
             ${nav.map(([k, l]) => `<a class="nav-item" href="#/${k}" ${active === k ? 'aria-current="page"' : ''}>${icon(k)}<span>${l}</span></a>`).join('')}
-            ${demo ? '' : `<div class="nav-group">Assura workspace</div><a class="nav-item" href="/">${icon('portal')}<span>Client portal</span></a>`}
+            ${demo ? '' : `<div class="nav-group">Assura workspace</div><a class="nav-item" href="/portal">${icon('portal')}<span>Client portal</span></a>`}
           </nav>
-          <div class="side-foot"><div class="who"><b>${esc(p.name)}</b><span>${esc(seat(p))}</span></div></div>
+          <div class="side-foot"><div class="who"><b>${esc(p.name)}</b><span>${esc(seat(p))}</span></div>${demo ? '' : '<button class="btn-ghost" id="signout" type="button">Sign out</button>'}</div>
         </aside>
         <div class="scrim" id="scrim"></div>
         <div class="main-col">
@@ -150,6 +150,7 @@
             <button class="menu-btn" id="menu" aria-label="Open the menu" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 10h14M3 14h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
             <span class="wordmark">${LOGO}</span><span class="mbar-tab">${esc(current || 'Workspace')}</span>
           </header>
+          ${!demo && m.demo ? '<div class="wf-demo">Demo: fictional clients and figures. Signed in as <b>demo.staff</b>. Changes are cleared every night.</div>' : ''}
           ${demo ? `<div class="wf-demo">Preview with placeholder people and fictional clients. Signed in as ${esc(p.name)}. <button id="switch">Switch person</button></div>` : ''}
           <main id="page">${inner}</main>
         </div>
@@ -163,6 +164,8 @@
     if (sel) sel.addEventListener('change', () => { S.period = sel.value; menu(false); route(); });
     const bsel = root.querySelector('#branch');
     if (bsel) bsel.addEventListener('change', () => { S.branch = bsel.value; menu(false); route(); });
+    const so = root.querySelector('#signout');
+    if (so) so.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'assura' } }).catch(() => {}); location.assign('/team'); });
     const sw = root.querySelector('#switch');
     if (sw) sw.addEventListener('click', () => { demo.signOut(); S.meta = null; location.hash = ''; boot(); });
     root.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => back(b.dataset.back)));
@@ -215,10 +218,10 @@
   // comes from the portal. The preview has no portal, so these parts are left out there.
   const cycleGet = (url) => (demo ? Promise.resolve(null) : get(url).catch(() => null));
   const STEP_STATE = { done: 'Done', overdue: 'Overdue', due: 'Due', later: 'Later' };
-  const portalLink = (id, view, label) => (demo ? '' : `<a href="/?company=${id}${view ? '&view=' + view : ''}">${esc(label)}</a>`);
+  const portalLink = (id, view, label) => (demo ? '' : `<a href="/portal?company=${id}${view ? '&view=' + view : ''}">${esc(label)}</a>`);
   function dataRow(c) {
     const n = c.status.next;
-    return `<a class="wf-row ${n.state === 'overdue' ? 't-delayed' : n.state === 'due' ? 't-behind' : ''}" href="/?company=${c.company.id}"><div><div class="co">${esc(c.company.name)}</div>
+    return `<a class="wf-row ${n.state === 'overdue' ? 't-delayed' : n.state === 'due' ? 't-behind' : ''}" href="/portal?company=${c.company.id}"><div><div class="co">${esc(c.company.name)}</div>
       <div class="ti">${esc(n.label)}${n.detail ? ` · ${esc(n.detail)}` : ''}</div></div>
       <div class="due"><b>${esc(STEP_STATE[n.state] || n.state)}</b>${n.since ? `${plural(n.since, 'day')} waiting` : n.target ? `Target ${dShort(n.target)}` : ''}</div></a>`;
   }
@@ -260,7 +263,7 @@
           ${h.reportsDue.length || h.myActions.length ? `<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Reports and corrective actions</h3></div>
             ${h.reportsDue.slice(0, 4).map(reportRow).join('')}${h.myActions.map(actionRow).join('')}</div>` : ''}
           ${data ? `<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Monthly data from clients</h3><span class="muted small">${mLong(data.period)}</span></div>
-            ${dataDue.length ? `<div class="wf-list">${dataDue.slice(0, 8).map(dataRow).join('')}</div>${dataDue.length > 8 ? `<a class="small" href="/">All ${dataDue.length} clients ›</a>` : ''}` : '<p class="muted">Every client\'s data is in for the month.</p>'}</div>` : ''}
+            ${dataDue.length ? `<div class="wf-list">${dataDue.slice(0, 8).map(dataRow).join('')}</div>${dataDue.length > 8 ? `<a class="small" href="/portal">All ${dataDue.length} clients ›</a>` : ''}` : '<p class="muted">Every client\'s data is in for the month.</p>'}</div>` : ''}
           <div class="card"><div class="card-head"><h3>${p.level === 'mp' ? 'Flags for your decision' : 'Open flags'}</h3></div>
             ${h.flags.length ? h.flags.map((f) => `<a class="wf-row" href="#/task/${f.task_id}"><div><div class="co">${esc(f.company_name)}</div><div class="ti">${esc(f.reason)}</div>
               <div class="meta"><span class="wf-pill dept">${esc(divShort(f.division))}</span><span class="muted small">Raised by ${esc(f.raised_by_name)} · ${stamp(f.raised_at)}</span></div></div></a>`).join('') : '<p class="muted">No open flags.</p>'}</div>
@@ -508,7 +511,7 @@
       ${backBtn('#/clients', 'Clients')}
       <div class="page-head"><div><div class="eyebrow">${esc(c.code)}${c.entity_type ? ' · ' + esc(S.entities[c.entity_type].name) : ''}${c.branch_name ? ' · ' + esc(c.branch_name) : ''}</div><h1>${esc(c.name)}</h1>
         <div class="muted" style="margin-top:6px">${c.onboarded ? `Fee ${inr(c.monthly_fee)} a month · target day ${c.target_day}${pr.onboarded_on ? ` · onboarded ${dLong(pr.onboarded_on)}` : ''}` : 'Complete the client record below to allot work.'}</div></div>
-        ${demo ? '' : `<div class="btn-row"><a class="btn secondary small" href="/?company=${c.id}">This month's data</a><a class="btn small" href="/?company=${c.id}&view=overview">Open client dashboard</a></div>`}</div>
+        ${demo ? '' : `<div class="btn-row"><a class="btn secondary small" href="/portal?company=${c.id}">This month's data</a><a class="btn small" href="/portal?company=${c.id}&view=overview">Open client dashboard</a></div>`}</div>
       <div id="cmsg"></div>
       <div class="grid g-main">
         <div>

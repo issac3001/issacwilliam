@@ -13,8 +13,9 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 | Access | Login per user. Three roles: **client** (view only, one company), **team** (Assura staff: every client, upload and edit, client logins), **admin** (team, plus Assura team logins). A client login can only ever read its own company; this is enforced in one place on the server (`companyFor` in `server/server.js`) and covered by tests. |
 | Click-through detail | Every KPI, chart bar or point, ageing bucket, list row and highlight opens a panel with the records behind it (for example receivables over 90 days opens every party and invoice, oldest first), with a month picker, filters and CSV download. |
 | Editing | **Edit data** (team): open any month and section, correct, add or delete rows, save as a new version. Checked with the same rules as an upload. Earlier versions can be restored and a wrong month can be taken off the dashboard. |
-| Account security | New logins get a one-time password and must choose their own at first sign-in (10+ characters). Team and admin logins must set up two-step login (authenticator app, RFC 6238) before they see any client. Sessions end after 2 hours idle (`AE_IDLE_MINUTES`) and on password change; logins can be switched off. Repeated failed sign-ins are slowed down. |
-| Administration | **Clients & users** screen for the team: add and rename companies, add logins, reset passwords and two-step login, switch logins off. Only admins manage team logins. |
+| Sign-in | One address. Clients sign in at `/client` (user ID or email, and password) and see only their own company. The Assura team signs in at `/team` with **user ID and password only** and lands on their own workspace page for their seat. Each page refuses the other's logins. |
+| Account security | New logins get a one-time password and must choose their own at first sign-in (10+ characters). Two-step login (authenticator app, RFC 6238) can be required for every team login with `AE_REQUIRE_STAFF_2FA=1`. Sessions end after 2 hours idle (`AE_IDLE_MINUTES`) and on password change; logins can be switched off. Repeated failed sign-ins are slowed down. |
+| Administration | **Clients & users** screen for the team: add and rename companies, add logins with their user IDs, set or change a user ID, reset passwords and two-step login, switch logins off. Only admins manage team logins. |
 | Audit log | Every sign-in (and failed attempt), dashboard view, upload, edit, restore, password change and admin action is recorded with time, user, company and IP, and shown to the team. |
 | Backups | `tools/backup.js`: an encrypted backup every hour, decrypted and checked before it counts; every backup of the last day, one a day for 30 days and one a month for a year are kept; optional copy to S3 or a Lightsail bucket (`tools/offsite.js`); status shown to admins. A backup is taken before every update. See DEPLOY.md. |
 | History | Every upload and edit is kept as a version. The latest version of each month drives the dashboard, so history builds month on month. |
@@ -36,7 +37,7 @@ The technology layer of Assura Elevate. The Assura team uploads one workbook a m
 
 ## Practice workspace (Assura team only)
 
-Open `/workflow` with a team or admin login. Client logins are refused. The same sign-in and two-step login apply.
+Team members land here (`/workflow`) after signing in at `/team`. Client logins are refused.
 
 | Area | What it does |
 |---|---|
@@ -52,35 +53,46 @@ Open `/workflow` with a team or admin login. Client logins are refused. The same
 | Reports | Every two days to each supervisor and manager with reportees, weekly to each department head, consolidated to the branch heads and the Managing Partner. Each is reviewed with a comment and corrective actions, which their owners mark done. |
 | Timeliness | Preparation is due five days and the quality check two days before the target date. Work shows as on track, behind, or late, with on-time rates by division and person. |
 
-Engine: `shared/workflow.js` (tables prefixed `wf_`, created on start). `npm run seed:demo` adds a placeholder firm in both branches (password `demo-password`), for example `mp@assura.demo`, `branchhead.blr@assura.demo`, `tax.head.blr@assura.demo`, `tax.manager.blr@assura.demo`, `tax.supervisor.blr@assura.demo`, `tax.associate1.blr@assura.demo`, `accounts.associate.blr@assura.demo`, and the same pattern for each department and for `.clt`. `npm run build:workflow-demo` writes a self-contained preview to `dist/workflow-demo.html`.
+Engine: `shared/workflow.js` (tables prefixed `wf_`, created on start). `npm run seed:demo` loads the demo (see Demo below). `npm run build:workflow-demo` writes a self-contained preview to `dist/workflow-demo.html`.
 
 ## Public website
 
-`site/` is the firm's public website (elevateassura.com): plain HTML and CSS with no build step, no tracking and no third-party scripts beyond Google Fonts. Its **Sign in** corner (`site/login.html`) leads to the portal: team members go to `portal.elevateassura.com/?next=workflow`, which opens Workflow straight after sign-in; clients go to the portal's sign-in and see only their own company. `deploy/setup.sh` serves the site on the same server when the website domain is given as a fourth argument (see DEPLOY.md). Open `site/index.html` in a browser to preview it.
+`site/` is the firm's public website: plain HTML and CSS with no build step, no tracking and no third-party scripts beyond Google Fonts. The portal's server serves it at `/` on the same address, so the website, client sign-in (`/client`) and team sign-in (`/team`) are one link. Its **Sign in** corner (`/login`) offers both. Open `site/index.html` in a browser to preview it.
+
+## Demo
+
+One demo, clearly labelled, with two logins (password `demo-password`):
+
+| User ID | What it shows |
+|---|---|
+| `demo.client` | A client's view: Meridian Polymers Pvt Ltd (Demo), 12 months of fictional data, view only |
+| `demo.staff` | An Assura team member's view: the workspace (Managing Partner's seat, with placeholder colleagues) and the client dashboard |
+
+On the server it runs as its own program and database (`demo.elevateassura.com`, `AE_DEMO=1`), reset every night by `deploy/demo-reset.sh`, so it never touches client data. `npm run build:demo` writes the same demo as a single offline page.
 
 ## Run it
 
 Requires Node 22.5+ (uses the built-in `node:sqlite`; no npm dependencies) and Python 3 with `openpyxl` only to regenerate workbooks.
 
 ```bash
-npm run seed:demo     # two fictional demo companies with 12 months of data
+npm run seed:demo     # the demo client (12 months of data) and the demo.client / demo.staff logins
 npm start             # http://localhost:3000
 npm test              # parser, analysis and access-control tests
 ```
 
-Demo logins (password `demo-password`): `client@meridian.demo`, `client@coastline.demo` (view only), `team@assura.demo`, `admin@assura.demo`.
+Then open http://localhost:3000/client (`demo.client`) or http://localhost:3000/team (`demo.staff`), password `demo-password`.
 
 Real clients:
 
 ```bash
 node tools/admin.js add-company AE-0003 "Client Name Pvt Ltd"
 node tools/admin.js add-user md@client.com "Full Name" client AE-0003
-node tools/admin.js add-user name@assura.example "Full Name" team
+node tools/admin.js add-user name@assura.example "Full Name" team --id name.s
 ```
 
 The command line is for the very first admin; after that, use the **Clients & users** screen. Every new login gets a one-time password. `DEPLOY.md` covers putting the portal on a server with HTTPS.
 
-Set `AE_SECURE_COOKIE=1` when served over HTTPS. The database lives in `data/assura.db` (`AE_DB` to override). For a local demo without two-step login for the demo team logins, start with `AE_REQUIRE_STAFF_2FA=0`.
+Set `AE_SECURE_COOKIE=1` when served over HTTPS. The database lives in `data/assura.db` (`AE_DB` to override). Start with `AE_DEMO=1` to show the demo logins on the sign-in pages.
 
 Backups (run daily from cron; keep the key somewhere other than the server):
 

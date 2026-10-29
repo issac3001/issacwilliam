@@ -23,6 +23,15 @@ const workflow = require('../shared/workflow');
 const schema = require('../shared/schema.json');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
+// The public website (site/) is served from the same address: elevateassura.com.
+const SITE = path.join(__dirname, '..', 'site');
+const PORTAL_PAGE = path.join(PUBLIC, 'index.html');
+// One address for everything: the website at /, client sign-in at /client, team sign-in at /team.
+const PAGES = {
+  '/': path.join(SITE, 'index.html'), '/index.html': path.join(SITE, 'index.html'),
+  '/login': path.join(SITE, 'login.html'), '/login.html': path.join(SITE, 'login.html'),
+  '/client': PORTAL_PAGE, '/team': PORTAL_PAGE, '/portal': PORTAL_PAGE,
+};
 const STATIC_EXTRA = {
   '/shared/parse.js': path.join(__dirname, '..', 'shared', 'parse.js'),
   '/shared/analysis.js': path.join(__dirname, '..', 'shared', 'analysis.js'),
@@ -38,8 +47,11 @@ const SESSION_DAYS = 7;
 const MAX_BODY = 25 * 1024 * 1024;
 const SECURE_COOKIE = process.env.AE_SECURE_COOKIE === '1';
 const IDLE_MINUTES = Number(process.env.AE_IDLE_MINUTES || 120);
-// Assura staff can see and change every client, so their logins need a second step by default.
-const STAFF_2FA = (process.env.AE_REQUIRE_STAFF_2FA || process.env.AE_REQUIRE_ADVISOR_2FA) !== '0';
+// Team sign-in is user ID and password. A second step (authenticator code) can be required for every
+// team login with AE_REQUIRE_STAFF_2FA=1; anyone who has turned it on is always asked for it.
+const STAFF_2FA_ENV = (process.env.AE_REQUIRE_STAFF_2FA || process.env.AE_REQUIRE_ADVISOR_2FA) === '1';
+// A demo server (AE_DEMO=1) holds fictional data only and shows the demo logins on its sign-in pages.
+const DEMO = process.env.AE_DEMO === '1';
 const { isStaff } = store;
 
 const escHtml = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -50,6 +62,8 @@ function createApp(db, opts = {}) {
   const now = opts.now || (() => new Date());
   const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
   const attempts = new Map(); // login throttling: key -> { n, until }
+  const STAFF_2FA = opts.staff2fa !== undefined ? !!opts.staff2fa : STAFF_2FA_ENV;
+  const demo = opts.demo !== undefined ? !!opts.demo : DEMO;
   workflow.install(db);
   const wf = workflow.createWorkflow(db);
 
@@ -85,7 +99,7 @@ function createApp(db, opts = {}) {
     const token = cookies(req).ae_session;
     if (!token) return null;
     const h = sha(token);
-    const row = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.company_id, u.disabled, u.must_change_password, u.totp_secret,
+    const row = db.prepare(`SELECT u.id, u.email, u.login_id, u.name, u.role, u.company_id, u.disabled, u.must_change_password, u.totp_secret,
       s.expires_at, s.stage, s.last_seen FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`).get(h);
     const now = Date.now();
     if (!row || row.disabled || row.expires_at < now || (row.last_seen && now - row.last_seen > IDLE_MINUTES * 60000)) {
@@ -187,14 +201,16 @@ function createApp(db, opts = {}) {
   const WORKFLOW_PAGE = path.join(PUBLIC, 'workflow.html');
 
   function publicUser(u) {
-    return { id: u.id, name: u.name, email: u.email, role: u.role, company_id: u.company_id, twoStep: !!u.totp_secret };
+    return { id: u.id, name: u.name, email: u.email, login_id: u.login_id || null, role: u.role, company_id: u.company_id, twoStep: !!u.totp_secret };
   }
 
   const routes = {
-    // Body: { email, password, code? }. Advisors with two-step login on must send the 6-digit code.
+    // Body: { id (user ID or email), password, code?, door? }. door 'team' admits only Assura team logins and
+    // 'client' only client logins, so each sign-in page is for its own people. A login with two-step on sends the code.
     'POST /api/login': async (req, res) => {
-      const { email, password, code } = await readJson(req);
-      const key = String(email || '').toLowerCase().trim();
+      const body = await readJson(req);
+      const { password, code, door } = body;
+      const key = String(body.id || body.email || '').toLowerCase().trim();
       const a = attempts.get(key);
       if (a && a.until > Date.now()) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
       const failed = (message, action, extra) => {
@@ -203,8 +219,10 @@ function createApp(db, opts = {}) {
         log(req, { email: key }, action);
         throw new HttpError(401, message, extra);
       };
-      const u = db.prepare('SELECT * FROM users WHERE email = ?').get(key);
-      if (!u || !(await store.verifyPasswordAsync(String(password || ''), u.password_hash))) failed('Email or password is incorrect.', 'login.failed');
+      const u = key ? db.prepare('SELECT * FROM users WHERE login_id = ? OR email = ?').get(key, key) : null;
+      if (!u || !(await store.verifyPasswordAsync(String(password || ''), u.password_hash))) failed('User ID or password is incorrect.', 'login.failed');
+      if (door === 'team' && !isStaff(u.role)) failed('This sign-in is for the Assura Elevate team. Clients sign in at the client portal.', 'login.wrong_door', { door: 'client' });
+      if (door === 'client' && isStaff(u.role)) failed('This sign-in is for clients. Assura Elevate team members use the team sign-in.', 'login.wrong_door', { door: 'team' });
       if (u.disabled) failed('This login has been switched off. Contact your Assura Elevate partner.', 'login.disabled');
       if (u.totp_secret) {
         if (!code) throw new HttpError(401, 'Enter the 6-digit code from your authenticator app.', { needCode: true });
@@ -242,8 +260,10 @@ function createApp(db, opts = {}) {
         ? db.prepare('SELECT id, code, name FROM companies ORDER BY name').all()
         : db.prepare('SELECT id, code, name FROM companies WHERE id = ?').all(u.company_id);
       // Team logins start in the internal workflow when it is installed.
-      send(res, 200, { user: publicUser(u), companies, next, workflow: isStaff(u.role) && fs.existsSync(WORKFLOW_PAGE) });
+      send(res, 200, { user: publicUser(u), companies, next, demo, workflow: isStaff(u.role) && fs.existsSync(WORKFLOW_PAGE) });
     },
+    // Before sign-in: whether this is the demo server, so the sign-in pages can show the demo logins.
+    'GET /api/hello': async (req, res) => send(res, 200, { demo }),
 
     // Body: { current, next }. Signs out the user's other sessions.
     'POST /api/password': async (req, res) => {
@@ -252,6 +272,7 @@ function createApp(db, opts = {}) {
       const full = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
       if (!(await store.verifyPasswordAsync(String(body.current || ''), full.password_hash))) throw new HttpError(400, 'Your current password is not correct.');
       const pw = String(body.next || '');
+      if (demo) throw new HttpError(400, 'Passwords cannot be changed on the demo.');
       const problem = store.passwordProblem(pw, u.email);
       if (problem) throw new HttpError(400, problem);
       if (await store.verifyPasswordAsync(pw, full.password_hash)) throw new HttpError(400, 'Choose a password different from the current one.');
@@ -290,7 +311,7 @@ function createApp(db, opts = {}) {
           (SELECT MAX(period) FROM uploads x WHERE x.company_id = c.id) AS latest,
           (SELECT MAX(created_at) FROM uploads x WHERE x.company_id = c.id) AS last_upload
         FROM companies c ORDER BY c.name`).all();
-      const users = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.company_id, c.code AS company_code, u.disabled,
+      const users = db.prepare(`SELECT u.id, u.email, u.login_id, u.name, u.role, u.company_id, c.code AS company_code, u.disabled,
           u.must_change_password, (u.totp_secret IS NOT NULL) AS two_step, u.last_login_at, u.created_at
         FROM users u LEFT JOIN companies c ON c.id = u.company_id ORDER BY u.role = 'client', c.code, u.email`).all();
       const activity = db.prepare(`SELECT a.at, a.email, a.action, c.code AS company_code, a.detail, a.ip
@@ -342,6 +363,11 @@ function createApp(db, opts = {}) {
       if (name.length < 2 || name.length > 120) throw new HttpError(400, 'Enter the person\'s name.');
       if (!store.ROLES.includes(role)) throw new HttpError(400, 'Choose a role.');
       if (isStaff(role) && u.role !== 'admin') throw new HttpError(403, 'Only an Assura Elevate admin can add team logins.');
+      // Team members sign in with a user ID; for clients it is optional (they can use their email).
+      const loginId = String(body.login_id || '').trim().toLowerCase();
+      if (isStaff(role) && !loginId) throw new HttpError(400, 'Choose a user ID for this team login, for example rishad.k');
+      if (loginId && !store.LOGIN_ID.test(loginId)) throw new HttpError(400, 'A user ID is 3 to 40 letters or numbers; dots, hyphens and underscores are allowed.');
+      if (loginId && db.prepare('SELECT 1 FROM users WHERE login_id = ? OR email = ?').get(loginId, loginId)) throw new HttpError(409, 'This user ID is already taken.');
       let companyId = null;
       if (role === 'client') {
         companyId = Number(body.company_id);
@@ -349,8 +375,8 @@ function createApp(db, opts = {}) {
       }
       if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'A login with this email already exists.');
       const password = store.temporaryPassword();
-      const created = store.createUser(db, { email, name, role, companyId, password, mustChange: true });
-      log(req, u, 'admin.user_added', { companyId, detail: `${email} as ${role}` });
+      const created = store.createUser(db, { email, name, role, companyId, password, mustChange: true, loginId: loginId || null });
+      log(req, u, 'admin.user_added', { companyId, detail: `${loginId ? loginId + ' / ' : ''}${email} as ${role}` });
       send(res, 200, { user: created, temporaryPassword: password });
     },
     // Body: { user_id, action: 'reset-password' | 'reset-2fa' | 'disable' | 'enable' }
@@ -370,6 +396,11 @@ function createApp(db, opts = {}) {
         endSessions(); out.temporaryPassword = password;
       } else if (body.action === 'reset-2fa') {
         db.prepare('UPDATE users SET totp_secret = NULL, totp_pending = NULL, totp_last_step = 0 WHERE id = ?').run(target.id); endSessions();
+      } else if (body.action === 'set-id') {
+        const id = String(body.login_id || '').trim().toLowerCase();
+        if (!store.LOGIN_ID.test(id)) throw new HttpError(400, 'A user ID is 3 to 40 letters or numbers; dots, hyphens and underscores are allowed.');
+        if (db.prepare('SELECT 1 FROM users WHERE (login_id = ? OR email = ?) AND id <> ?').get(id, id, target.id)) throw new HttpError(409, 'This user ID is already taken.');
+        db.prepare('UPDATE users SET login_id = ? WHERE id = ?').run(id, target.id);
       } else if (body.action === 'disable') {
         db.prepare('UPDATE users SET disabled = 1 WHERE id = ?').run(target.id); endSessions();
       } else if (body.action === 'enable') {
@@ -619,10 +650,14 @@ function createApp(db, opts = {}) {
   };
 
   async function serveStatic(req, res, url) {
-    let file = STATIC_EXTRA[url.pathname];
+    let file = PAGES[url.pathname] || STATIC_EXTRA[url.pathname];
+    if (!file && url.pathname.startsWith('/assets/')) {
+      // The website's own images, styles and script.
+      file = path.join(SITE, decodeURIComponent(url.pathname));
+      if (!file.startsWith(SITE + path.sep)) throw new HttpError(404, 'Not found');
+    }
     if (!file) {
-      const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
-      file = path.join(PUBLIC, rel);
+      file = path.join(PUBLIC, decodeURIComponent(url.pathname).replace(/^\/+/, ''));
       if (!file.startsWith(PUBLIC + path.sep)) throw new HttpError(404, 'Not found');
     }
     let buf;
@@ -677,7 +712,8 @@ function createApp(db, opts = {}) {
             });
             body.to = to;
           }
-          out = wf.call(u, `${req.method} ${url.pathname}`, Object.fromEntries(url.searchParams), body); }
+          out = wf.call(u, `${req.method} ${url.pathname}`, Object.fromEntries(url.searchParams), body);
+          if (url.pathname === '/api/wf/me') out = Object.assign({ demo }, out); }
         catch (e) { if (e instanceof workflow.WfError) throw new HttpError(e.status, e.message); throw e; }
         if (req.method === 'POST') log(req, u, `workflow.${url.pathname.slice(8).replace(/\//g, '.')}`, { detail: JSON.stringify(body).slice(0, 300) });
         send(res, 200, out);
