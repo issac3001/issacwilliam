@@ -1,0 +1,21 @@
+# systemd unit for the Assura Elevate portal. Installed by deploy/setup.sh.
+[Unit]
+Description=Assura Elevate client portal
+After=network.target
+
+[Service]
+User=assura
+WorkingDirectory=/srv/assura/app
+EnvironmentFile=/srv/assura/assura.env
+ExecStart=/usr/bin/node --no-warnings server/server.js
+Restart=always
+RestartSec=3
+# Hardening: the app only needs its own data folder.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/srv/assura/data /srv/assura/backups
+
+[Install]
+WantedBy=multi-user.target

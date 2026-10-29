@@ -1,0 +1,7 @@
+# The demo server: fictional data only, reset every night (deploy/demo-reset.sh).
+demo.example.com {
+	encode gzip
+	header Strict-Transport-Security "max-age=31536000"
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy 127.0.0.1:3001
+}

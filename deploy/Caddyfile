@@ -1,0 +1,11 @@
+# Caddy gets and renews the HTTPS certificates automatically.
+# deploy/caddy.sh fills in the domains from /srv/assura/assura.env (AE_DOMAIN, AE_DEMO_DOMAIN).
+# One address serves everything: the website at /, client sign-in at /client, team sign-in at /team.
+example.com {
+	encode gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy 127.0.0.1:3000
+}
+www.example.com {
+	redir https://example.com{uri} permanent
+}
